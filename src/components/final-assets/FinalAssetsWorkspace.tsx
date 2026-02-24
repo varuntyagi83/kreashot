@@ -133,9 +133,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
   const fetchTemplates = async () => {
     try {
-      const url = format
-        ? `/api/categories/${categoryId}/templates?format=${format}`
-        : `/api/categories/${categoryId}/templates`
+      // Fetch all templates — not filtered by format so user can choose any layout
+      const url = `/api/categories/${categoryId}/templates`
       const response = await fetch(url)
       const data = await response.json()
 
