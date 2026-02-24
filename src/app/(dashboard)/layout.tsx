@@ -1,6 +1,9 @@
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 
+// All dashboard pages require auth and live Supabase — never statically prerender
+export const dynamic = 'force-dynamic'
+
 export default function DashboardLayout({
   children,
 }: {
