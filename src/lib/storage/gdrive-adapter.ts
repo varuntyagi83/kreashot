@@ -56,32 +56,39 @@ export class GoogleDriveAdapter implements StorageAdapter {
 
     // 3. First caller: do the lookup/create and hold the promise so others wait
     const promise = (async () => {
-      const { data } = await this.drive.files.list({
-        q: `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id)',
-        supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
-      })
-
-      let folderId: string
-      if (data.files && data.files.length > 0) {
-        folderId = data.files[0].id!
-      } else {
-        const { data: folder } = await this.drive.files.create({
-          requestBody: {
-            name: folderName,
-            mimeType: 'application/vnd.google-apps.folder',
-            parents: [parentId],
-          },
-          fields: 'id',
+      try {
+        const { data } = await this.drive.files.list({
+          q: `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          fields: 'files(id)',
           supportsAllDrives: true,
+          includeItemsFromAllDrives: true,
         })
-        folderId = folder.id!
-      }
 
-      folderCache.set(cacheKey, folderId)
-      folderCreating.delete(cacheKey)
-      return folderId
+        let folderId: string
+        if (data.files && data.files.length > 0) {
+          folderId = data.files[0].id!
+          console.log(`  📁 Folder exists: ${folderName} (${folderId})`)
+        } else {
+          console.log(`  📁 Creating folder: ${folderName} in parent ${parentId}`)
+          const { data: folder } = await this.drive.files.create({
+            requestBody: {
+              name: folderName,
+              mimeType: 'application/vnd.google-apps.folder',
+              parents: [parentId],
+            },
+            fields: 'id',
+            supportsAllDrives: true,
+          })
+          folderId = folder.id!
+          console.log(`  ✅ Folder created: ${folderName} (${folderId})`)
+        }
+
+        folderCache.set(cacheKey, folderId)
+        return folderId
+      } finally {
+        // Always remove the in-flight lock so failures can be retried
+        folderCreating.delete(cacheKey)
+      }
     })()
 
     folderCreating.set(cacheKey, promise)
