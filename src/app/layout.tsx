@@ -1,4 +1,8 @@
 import type { Metadata } from "next";
+
+// Prevent any page in this app from being statically prerendered at build time.
+// All pages require live Supabase credentials which are only available at runtime.
+export const dynamic = 'force-dynamic'
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
