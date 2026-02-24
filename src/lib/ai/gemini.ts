@@ -86,13 +86,12 @@ export async function generateAngledShots(
     // Convert base64 image to proper format
     const base64Data = productImageData.replace(/^data:image\/\w+;base64,/, '')
 
-    // Generate each angle variation
-    const results = []
+    // Generate all angle variations in parallel
+    console.log(`Generating ${angles.length} angles in parallel for ${aspectRatio} format...`)
 
-    for (const angle of angles) {
-      console.log(`Generating ${angle.name} angle for ${aspectRatio} format...`)
+    const results = await Promise.all(angles.map(async (angle) => {
+      console.log(`  → Starting ${angle.name}...`)
 
-      // Create prompt for this specific angle
       const prompt = `Create a variation of this product image showing: ${angle.description}.
 
 ANGLE INSTRUCTION: ${angle.prompt}
@@ -115,7 +114,6 @@ Think of this as moving a camera around a stationary product on a turntable. The
 Return a high-quality professional product photograph from the new angle in ${aspectRatio} aspect ratio.`
 
       try {
-        // Build request body using direct REST API format
         const requestBody = {
           contents: [{
             parts: [
@@ -131,23 +129,20 @@ Return a high-quality professional product photograph from the new angle in ${as
             ]
           }],
           generationConfig: {
-            temperature: 0.55, // Balanced: enough variation for angles, but preserves product details
+            temperature: 0.55,
             topP: 0.95,
             maxOutputTokens: 32768,
             responseModalities: ['IMAGE'],
             imageConfig: {
-              aspectRatio: aspectRatio, // ✅ Enforce aspect ratio
-              imageSize: '2K' // ✅ Control output resolution
+              aspectRatio: aspectRatio,
+              imageSize: '2K'
             }
           }
         }
 
-        // Call Gemini API directly
         const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody)
         })
 
@@ -158,42 +153,38 @@ Return a high-quality professional product photograph from the new angle in ${as
 
         const data = await response.json()
 
-        // Extract base64 image from response
         if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
           const generatedBase64 = data.candidates[0].content.parts[0].inlineData.data
           const generatedMimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'image/jpeg'
-
-          results.push({
+          console.log(`  ✅ ${angle.name} done`)
+          return {
             angleName: angle.name,
             angleDescription: angle.description,
             promptUsed: prompt,
             imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
             mimeType: generatedMimeType,
-          })
-
-          console.log(`   ✅ ${angle.name} generated successfully in ${aspectRatio} format`)
+          }
         } else {
-          console.warn(`   ⚠️  No image in response for ${angle.name}, using original as fallback`)
-          results.push({
+          console.warn(`  ⚠️  No image for ${angle.name}, using original as fallback`)
+          return {
             angleName: angle.name,
             angleDescription: angle.description,
             promptUsed: prompt,
             imageData: productImageData,
             mimeType: productImageMimeType,
-          })
+          }
         }
       } catch (error) {
-        console.error(`   ❌ Error generating ${angle.name}:`, error)
-        // Fallback to original image on error
-        results.push({
+        console.error(`  ❌ Error generating ${angle.name}:`, error)
+        return {
           angleName: angle.name,
           angleDescription: angle.description,
           promptUsed: prompt,
           imageData: productImageData,
           mimeType: productImageMimeType,
-        })
+        }
       }
-    }
+    }))
 
     return results
   } catch (error) {
@@ -227,10 +218,10 @@ export async function generateBackgrounds(
     }
 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
-    const results = []
 
-    for (let i = 0; i < count; i++) {
-      console.log(`Generating ${aspectRatio} background ${i + 1}/${count}...`)
+    console.log(`Generating ${count} ${aspectRatio} backgrounds in parallel...`)
+    const results = await Promise.all(Array.from({ length: count }, async (_, i) => {
+      console.log(`  → Starting background ${i + 1}/${count}...`)
 
       // Build the background generation prompt
       const prompt = `Generate a high-quality product photography background in ${aspectRatio} aspect ratio with the following characteristics:
@@ -309,23 +300,21 @@ Return a professional product photography background.`
         if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
           const generatedBase64 = data.candidates[0].content.parts[0].inlineData.data
           const generatedMimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'image/jpeg'
-
-          results.push({
+          console.log(`  ✅ Background ${i + 1} done`)
+          return {
             promptUsed: prompt,
             imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
             mimeType: generatedMimeType,
-          })
-
-          console.log(`   ✅ ${aspectRatio} background ${i + 1} generated successfully`)
+          }
         } else {
-          console.warn(`   ⚠️  No image in response for background ${i + 1}`)
+          console.warn(`  ⚠️  No image in response for background ${i + 1}`)
           throw new Error('No image generated in response')
         }
       } catch (error) {
-        console.error(`   ❌ Error generating ${aspectRatio} background ${i + 1}:`, error)
+        console.error(`  ❌ Error generating ${aspectRatio} background ${i + 1}:`, error)
         throw error
       }
-    }
+    }))
 
     return results
   } catch (error) {
