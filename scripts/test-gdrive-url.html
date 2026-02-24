@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test GDrive URLs</title>
+</head>
+<body>
+  <h1>Testing Google Drive URLs</h1>
+
+  <h2>1:1 Format (thumbnail API)</h2>
+  <img
+    src="https://drive.google.com/thumbnail?id=1nM0XbDbSQmwRaORHvGjkrx31nwLX5v0R&sz=w2000"
+    alt="1:1 format"
+    style="max-width: 400px; border: 1px solid #ccc; margin: 10px 0;"
+    onload="console.log('1:1 image loaded')"
+    onerror="console.error('1:1 image FAILED to load')"
+  />
+
+  <h2>16:9 Format (uc?export=view)</h2>
+  <img
+    src="https://drive.google.com/uc?export=view&id=1SkKr2vOdBWmZBtBlBDQ6Ji8-Ep_mYeGG"
+    alt="16:9 format"
+    style="max-width: 400px; border: 1px solid #ccc; margin: 10px 0;"
+    onload="console.log('16:9 image loaded')"
+    onerror="console.error('16:9 image FAILED to load')"
+  />
+
+  <h2>9:16 Format (uc?export=view)</h2>
+  <img
+    src="https://drive.google.com/uc?export=view&id=18SUyPK-t1UgbRIT2O8KYFINpxbBebKsb"
+    alt="9:16 format"
+    style="max-width: 400px; border: 1px solid #ccc; margin: 10px 0;"
+    onload="console.log('9:16 image loaded')"
+    onerror="console.error('9:16 image FAILED to load')"
+  />
+
+  <h2>4:5 Format (uc?export=view)</h2>
+  <img
+    src="https://drive.google.com/uc?export=view&id=1jBE5h0Q1SfAk-3BG9iGPJukvShTvkNFB"
+    alt="4:5 format"
+    style="max-width: 400px; border: 1px solid #ccc; margin: 10px 0;"
+    onload="console.log('4:5 image loaded')"
+    onerror="console.error('4:5 image FAILED to load')"
+  />
+
+  <script>
+    console.log('Testing Google Drive image URLs...')
+  </script>
+</body>
+</html>
