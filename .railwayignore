@@ -1,0 +1,43 @@
+# Exclude dev/debug scripts — not needed at runtime
+scripts/check-*.mjs
+scripts/check-*.ts
+scripts/test-*.ts
+scripts/test-*.mjs
+scripts/verify-*.mjs
+scripts/verify-*.ts
+scripts/apply-*.mjs
+scripts/apply-*.ts
+scripts/fix-*.mjs
+scripts/fix-*.ts
+scripts/create-*.mjs
+scripts/create-*.ts
+scripts/regenerate-*.mjs
+scripts/delete-*.mjs
+scripts/move-*.mjs
+scripts/seed-*.ts
+scripts/list-*.mjs
+scripts/find-*.mjs
+scripts/recover-*.ts
+scripts/sync-composites-from-gdrive.mjs
+scripts/sync-gdrive-to-db.mjs
+scripts/*.html
+scripts/*.py
+scripts/inspect-*.py
+
+# Keep only the compositing script — Dockerfile copies it explicitly
+!scripts/composite_final_asset.py
+
+# Temp/session docs
+CRITICAL_FIX_COMPOSITE_CONSTRAINT.md
+GDRIVE_STORAGE_VERIFICATION.md
+GDRIVE_URL_AUDIT_COMPLETE.md
+MULTI_FORMAT_IMPLEMENTATION_PLAN.md
+SESSION_SUMMARY.md
+TEMPLATE_BUILDER_GUIDE.md
+TEMPLATE_IMPLEMENTATION_PLAN.md
+TEMPLATE_STATUS.md
+*.log
+
+# Local env — never deploy
+.env.local
+.env*.local

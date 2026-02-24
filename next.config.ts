@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Required for Docker/Railway deployment (produces server.js + standalone output)
+  output: 'standalone',
   // Increase body size limit for file uploads (default is 10MB)
   experimental: {
     serverActions: {
