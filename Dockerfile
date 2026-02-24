@@ -46,4 +46,4 @@ COPY --from=builder /app/scripts/composite_final_asset.py ./scripts/composite_fi
 
 EXPOSE 8080
 
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 node server.js"]
