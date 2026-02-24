@@ -2,6 +2,15 @@ import { google } from 'googleapis'
 import type { StorageAdapter, StorageFile, UploadOptions } from './types'
 import { Readable } from 'stream'
 
+// Process-level folder ID cache: "parentId/folderName" → Drive folder ID
+// Survives across requests in the same Node.js process, eliminating redundant
+// drive.files.list() calls for folders that already exist.
+const folderCache = new Map<string, string>()
+
+// In-flight creation locks: prevents concurrent uploads from racing to create
+// the same folder simultaneously (which would produce duplicate folders).
+const folderCreating = new Map<string, Promise<string>>()
+
 /**
  * Google Drive storage adapter
  * Stores files in a shared Google Drive folder
@@ -29,42 +38,67 @@ export class GoogleDriveAdapter implements StorageAdapter {
   }
 
   /**
-   * Get or create a folder in Google Drive
-   * Creates nested folder structure (e.g., product-images/user-id/product-id/)
-   * Supports both regular folders and Shared Drives
+   * Get or create a single folder level, with caching and creation locking.
+   * Cache key = "parentId/folderName" so it's unique across the folder tree.
    */
-  private async getOrCreateFolder(path: string): Promise<string> {
-    const pathParts = path.split('/').filter(Boolean)
-    const folders = pathParts.slice(0, -1) // Remove filename
+  private async getOrCreateSingleFolder(parentId: string, folderName: string): Promise<string> {
+    const cacheKey = `${parentId}/${folderName}`
 
-    let currentFolderId = this.folderId
+    // 1. Cache hit — no API call needed
+    if (folderCache.has(cacheKey)) {
+      return folderCache.get(cacheKey)!
+    }
 
-    for (const folderName of folders) {
-      // Check if folder exists (support Shared Drives)
+    // 2. Another concurrent call is already creating this folder — wait for it
+    if (folderCreating.has(cacheKey)) {
+      return folderCreating.get(cacheKey)!
+    }
+
+    // 3. First caller: do the lookup/create and hold the promise so others wait
+    const promise = (async () => {
       const { data } = await this.drive.files.list({
-        q: `name='${folderName}' and '${currentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
-        fields: 'files(id, name)',
+        q: `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+        fields: 'files(id)',
         supportsAllDrives: true,
         includeItemsFromAllDrives: true,
       })
 
+      let folderId: string
       if (data.files && data.files.length > 0) {
-        currentFolderId = data.files[0].id!
+        folderId = data.files[0].id!
       } else {
-        // Create folder (support Shared Drives)
         const { data: folder } = await this.drive.files.create({
           requestBody: {
             name: folderName,
             mimeType: 'application/vnd.google-apps.folder',
-            parents: [currentFolderId],
+            parents: [parentId],
           },
           fields: 'id',
           supportsAllDrives: true,
         })
-        currentFolderId = folder.id!
+        folderId = folder.id!
       }
-    }
 
+      folderCache.set(cacheKey, folderId)
+      folderCreating.delete(cacheKey)
+      return folderId
+    })()
+
+    folderCreating.set(cacheKey, promise)
+    return promise
+  }
+
+  /**
+   * Get or create the full folder hierarchy for a file path.
+   * e.g. "gummy-bear/angled-shots/16x9/shot.jpg" → resolves the 16x9 folder ID.
+   */
+  private async getOrCreateFolder(path: string): Promise<string> {
+    const folders = path.split('/').filter(Boolean).slice(0, -1) // strip filename
+
+    let currentFolderId = this.folderId
+    for (const folderName of folders) {
+      currentFolderId = await this.getOrCreateSingleFolder(currentFolderId, folderName)
+    }
     return currentFolderId
   }
 
