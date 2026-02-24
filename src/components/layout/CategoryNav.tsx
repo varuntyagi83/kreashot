@@ -23,11 +23,10 @@ const steps = [
   { id: 'assets', label: 'Assets', icon: Image, step: 2 },
   { id: 'angled-shots', label: 'Angled Shots', icon: Rotate3D, step: 3 },
   { id: 'backgrounds', label: 'Backgrounds', icon: Paintbrush, step: 4 },
-  { id: 'composites', label: 'Composites', icon: Layers, step: 5 },
-  { id: 'copy', label: 'Copy', icon: FileText, step: 6 },
-  { id: 'guidelines', label: 'Guidelines', icon: BookOpen, step: 7 },
-  { id: 'final-assets', label: 'Final Assets', icon: Sparkles, step: 8 },
-  { id: 'ad-export', label: 'Ad Export', icon: Download, step: 9 },
+  { id: 'templates', label: 'Templates', icon: Layers, step: 5 },
+  { id: 'composites', label: 'Composites', icon: Sparkles, step: 6 },
+  { id: 'copy', label: 'Copy', icon: FileText, step: 7 },
+  { id: 'final-assets', label: 'Final Assets', icon: BookOpen, step: 8 },
 ]
 
 export function CategoryNav({ categoryId }: CategoryNavProps) {
@@ -56,8 +55,11 @@ export function CategoryNav({ categoryId }: CategoryNavProps) {
         </h3>
       </div>
       {steps.map((step) => {
-        const href = `/category/${categoryId}/${step.id}`
-        const isActive = pathname === href
+        const href = `/categories/${categoryId}?tab=${step.id}`
+        const isActive = pathname === `/categories/${categoryId}` &&
+          (typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('tab') === step.id
+            : false)
         const Icon = step.icon
 
         return (
