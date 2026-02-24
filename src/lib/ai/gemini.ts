@@ -86,10 +86,15 @@ export async function generateAngledShots(
     // Convert base64 image to proper format
     const base64Data = productImageData.replace(/^data:image\/\w+;base64,/, '')
 
-    // Generate all angle variations in parallel
-    console.log(`Generating ${angles.length} angles in parallel for ${aspectRatio} format...`)
+    // Generate angle variations with bounded concurrency (3 at a time) to avoid rate limits
+    const CONCURRENCY = 3
+    console.log(`Generating ${angles.length} angles (${CONCURRENCY} at a time) for ${aspectRatio} format...`)
 
-    const results = await Promise.all(angles.map(async (angle) => {
+    const results: Awaited<ReturnType<typeof generateAngledShots>> = []
+    for (let i = 0; i < angles.length; i += CONCURRENCY) {
+      const batch = angles.slice(i, i + CONCURRENCY)
+      console.log(`  Batch ${Math.floor(i / CONCURRENCY) + 1}: ${batch.map(a => a.name).join(', ')}`)
+      const batchResults = await Promise.all(batch.map(async (angle) => {
       console.log(`  → Starting ${angle.name}...`)
 
       const prompt = `Create a variation of this product image showing: ${angle.description}.
@@ -185,6 +190,8 @@ Return a high-quality professional product photograph from the new angle in ${as
         }
       }
     }))
+      results.push(...batchResults)
+    }
 
     return results
   } catch (error) {
@@ -219,8 +226,13 @@ export async function generateBackgrounds(
 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
 
-    console.log(`Generating ${count} ${aspectRatio} backgrounds in parallel...`)
-    const results = await Promise.all(Array.from({ length: count }, async (_, i) => {
+    const CONCURRENCY = 3
+    console.log(`Generating ${count} ${aspectRatio} backgrounds (${CONCURRENCY} at a time)...`)
+    const indices = Array.from({ length: count }, (_, i) => i)
+    const results: Awaited<ReturnType<typeof generateBackgrounds>> = []
+    for (let b = 0; b < indices.length; b += CONCURRENCY) {
+      const batch = indices.slice(b, b + CONCURRENCY)
+      const batchResults = await Promise.all(batch.map(async (i) => {
       console.log(`  → Starting background ${i + 1}/${count}...`)
 
       // Build the background generation prompt
@@ -315,6 +327,8 @@ Return a professional product photography background.`
         throw error
       }
     }))
+      results.push(...batchResults)
+    }
 
     return results
   } catch (error) {
