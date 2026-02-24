@@ -1,0 +1,11 @@
+[build]
+dockerfilePath = "Dockerfile"
+
+[build.args]
+NEXT_PUBLIC_SUPABASE_URL = "${{NEXT_PUBLIC_SUPABASE_URL}}"
+NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{NEXT_PUBLIC_SUPABASE_ANON_KEY}}"
+
+[deploy]
+startCommand = "sh -c 'HOSTNAME=0.0.0.0 node server.js'"
+healthcheckPath = "/auth/login"
+healthcheckTimeout = 300
