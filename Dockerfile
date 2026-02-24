@@ -25,7 +25,6 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=3000
 
 # Install Python + Pillow + fonts for the compositing script at runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -45,6 +44,6 @@ COPY --from=builder /app/.next/static ./.next/static
 # Copy the Python compositing script
 COPY --from=builder /app/scripts/composite_final_asset.py ./scripts/composite_final_asset.py
 
-EXPOSE 3000
+EXPOSE 8080
 
 CMD ["node", "server.js"]
