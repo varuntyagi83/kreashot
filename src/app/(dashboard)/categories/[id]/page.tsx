@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Edit } from 'lucide-react'
@@ -45,9 +45,12 @@ interface Category {
 export default function CategoryDetailPage({ params }: CategoryDetailPageProps) {
   const resolvedParams = use(params)
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [category, setCategory] = useState<Category | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedFormat, setSelectedFormat] = useState<string>('1:1') // NEW: Format selection state
+  const [selectedFormat, setSelectedFormat] = useState<string>('1:1')
+
+  const activeTab = searchParams.get('tab') || 'assets'
 
   useEffect(() => {
     const fetchCategory = async () => {
@@ -123,7 +126,11 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
         />
       </div>
 
-      <Tabs defaultValue="assets" className="space-y-4">
+      <Tabs
+        value={activeTab}
+        onValueChange={(tab) => router.push(`/categories/${resolvedParams.id}?tab=${tab}`)}
+        className="space-y-4"
+      >
         <TabsList>
           <TabsTrigger value="assets">
             Assets

@@ -11,7 +11,7 @@ import {
   FileText,
   BookOpen,
   Sparkles,
-  Download,
+  BookMarked,
   Package,
 } from 'lucide-react'
 
@@ -23,10 +23,11 @@ const steps = [
   { id: 'assets', label: 'Assets', icon: Image, step: 2 },
   { id: 'angled-shots', label: 'Angled Shots', icon: Rotate3D, step: 3 },
   { id: 'backgrounds', label: 'Backgrounds', icon: Paintbrush, step: 4 },
-  { id: 'templates', label: 'Templates', icon: Layers, step: 5 },
-  { id: 'composites', label: 'Composites', icon: Sparkles, step: 6 },
-  { id: 'copy', label: 'Copy', icon: FileText, step: 7 },
-  { id: 'final-assets', label: 'Final Assets', icon: BookOpen, step: 8 },
+  { id: 'guidelines', label: 'Guidelines', icon: BookMarked, step: 5 },
+  { id: 'templates', label: 'Templates', icon: Layers, step: 6 },
+  { id: 'composites', label: 'Composites', icon: Sparkles, step: 7 },
+  { id: 'copy', label: 'Copy', icon: FileText, step: 8 },
+  { id: 'final-assets', label: 'Final Assets', icon: BookOpen, step: 9 },
 ]
 
 export function CategoryNav({ categoryId }: CategoryNavProps) {
