@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Download, Save, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { GeneratedComposite } from './CompositeWorkspace'
 
@@ -38,6 +38,7 @@ export function CompositePreviewGrid({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [compositeName, setCompositeName] = useState('')
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   const handleSaveClick = (index: number) => {
     const composite = composites[index]
@@ -154,7 +155,10 @@ export function CompositePreviewGrid({
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {composites.map((composite, index) => (
               <div key={index} className="space-y-3">
-                <div className="relative group aspect-square rounded-lg overflow-hidden bg-muted">
+                <div
+                  className="relative group aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer"
+                  onClick={() => setPreviewIndex(index)}
+                >
                   <img
                     src={composite.image_base64}
                     alt={`Composite ${index + 1}`}
@@ -249,6 +253,76 @@ export function CompositePreviewGrid({
               {savingIndex !== null ? 'Saving...' : 'Save Composite'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Preview Lightbox */}
+      <Dialog open={previewIndex !== null} onOpenChange={(open) => { if (!open) setPreviewIndex(null) }}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 pb-0">
+            <DialogTitle className="text-lg">
+              {previewIndex !== null
+                ? `${composites[previewIndex].angledShotName} + ${composites[previewIndex].backgroundName}`
+                : 'Composite Preview'}
+            </DialogTitle>
+          </DialogHeader>
+
+          {previewIndex !== null && (
+            <div className="relative">
+              <div className="flex items-center justify-center bg-muted/30 p-4">
+                <img
+                  src={composites[previewIndex].image_base64}
+                  alt={`Composite ${previewIndex + 1}`}
+                  className="max-h-[70vh] w-auto object-contain rounded-lg"
+                />
+              </div>
+
+              {/* Previous / Next navigation */}
+              {composites.length > 1 && (
+                <>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
+                    onClick={() => setPreviewIndex((prev) => prev !== null ? (prev - 1 + composites.length) % composites.length : 0)}
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
+                    onClick={() => setPreviewIndex((prev) => prev !== null ? (prev + 1) % composites.length : 0)}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
+                </>
+              )}
+
+              {/* Footer actions */}
+              <div className="flex items-center justify-between p-4 border-t">
+                <p className="text-xs text-muted-foreground">
+                  {previewIndex + 1} of {composites.length}
+                </p>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => handleDownload(composites[previewIndex], previewIndex)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setPreviewIndex(null)
+                      handleSaveClick(previewIndex)
+                    }}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>
