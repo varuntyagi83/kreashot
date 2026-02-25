@@ -162,29 +162,29 @@ export async function POST(
           `Generating composite: shot ${pair.angledShotId} + bg ${pair.backgroundId}...`
         )
 
-        // Fetch angled shot
-        const { data: angledShot } = await supabase
+        // Fetch angled shot (column is display_name, not name)
+        const { data: angledShot, error: shotError } = await supabase
           .from('angled_shots')
-          .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
+          .select('id, display_name, angle_name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.angledShotId)
           .single()
 
-        if (!angledShot) {
-          const msg = `Angled shot ${pair.angledShotId} not found in database`
+        if (shotError || !angledShot) {
+          const msg = `Angled shot ${pair.angledShotId} not found in database: ${shotError?.message || 'no data'}`
           console.warn(msg)
           errors.push(msg)
           continue
         }
 
         // Fetch background
-        const { data: background } = await supabase
+        const { data: background, error: bgError } = await supabase
           .from('backgrounds')
           .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.backgroundId)
           .single()
 
-        if (!background) {
-          const msg = `Background ${pair.backgroundId} not found in database`
+        if (bgError || !background) {
+          const msg = `Background ${pair.backgroundId} not found in database: ${bgError?.message || 'no data'}`
           console.warn(msg)
           errors.push(msg)
           continue
@@ -200,12 +200,12 @@ export async function POST(
               console.log(`  Downloading angled shot via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
               angledShotBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
             } catch (dlError) {
-              const msg = `Failed to download angled shot "${angledShot.name}" from Google Drive: ${dlError}`
+              const msg = `Failed to download angled shot "${angledShot.display_name}" from Google Drive: ${dlError}`
               console.warn(msg)
               errors.push(msg)
             }
           } else {
-            const msg = `Angled shot "${angledShot.name}" has no gdrive_file_id or storage_path`
+            const msg = `Angled shot "${angledShot.display_name}" has no gdrive_file_id or storage_path`
             console.warn(msg)
             errors.push(msg)
           }
@@ -218,7 +218,7 @@ export async function POST(
             const arrayBuffer = await data.arrayBuffer()
             angledShotBuffer = Buffer.from(arrayBuffer)
           } else {
-            const msg = `Failed to download angled shot "${angledShot.name}" from Supabase: ${error?.message}`
+            const msg = `Failed to download angled shot "${angledShot.display_name}" from Supabase: ${error?.message}`
             console.warn(msg)
             errors.push(msg)
           }
@@ -288,7 +288,7 @@ export async function POST(
 
         results.push({
           angledShotId: pair.angledShotId,
-          angledShotName: angledShot.name,
+          angledShotName: angledShot.display_name,
           backgroundId: pair.backgroundId,
           backgroundName: background.name,
           image_base64: composite.imageData,
