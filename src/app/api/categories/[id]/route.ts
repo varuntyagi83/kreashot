@@ -25,6 +25,10 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Optional format filter — when provided, counts reflect only that format
+    const { searchParams } = new URL(request.url)
+    const format = searchParams.get('format')
+
     // Get category with counts
     const { data: category, error } = await supabase
       .from('categories')
@@ -40,26 +44,36 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Get counts for various assets
+    // Get counts for various assets (filtered by format when provided)
+    // Products don't have a format column
     const { count: productsCount } = await supabase
       .from('products')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
 
-    const { count: angledShotsCount } = await supabase
+    // Angled shots — format-filterable
+    let angledShotsQuery = supabase
       .from('angled_shots')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
+    if (format) angledShotsQuery = angledShotsQuery.eq('format', format)
+    const { count: angledShotsCount } = await angledShotsQuery
 
-    const { count: backgroundsCount } = await supabase
+    // Backgrounds — format-filterable
+    let backgroundsQuery = supabase
       .from('backgrounds')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
+    if (format) backgroundsQuery = backgroundsQuery.eq('format', format)
+    const { count: backgroundsCount } = await backgroundsQuery
 
-    const { count: compositesCount } = await supabase
+    // Composites — format-filterable
+    let compositesQuery = supabase
       .from('composites')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
+    if (format) compositesQuery = compositesQuery.eq('format', format)
+    const { count: compositesCount } = await compositesQuery
 
     const { count: copyDocsCount } = await supabase
       .from('copy_docs')
@@ -71,10 +85,13 @@ export async function GET(
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
 
-    const { count: finalAssetsCount } = await supabase
+    // Final assets — format-filterable
+    let finalAssetsQuery = supabase
       .from('final_assets')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
+    if (format) finalAssetsQuery = finalAssetsQuery.eq('format', format)
+    const { count: finalAssetsCount } = await finalAssetsQuery
 
     return NextResponse.json({
       category: {

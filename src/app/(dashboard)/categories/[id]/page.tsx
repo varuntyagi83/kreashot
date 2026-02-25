@@ -55,7 +55,9 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
   useEffect(() => {
     const fetchCategory = async () => {
       try {
-        const response = await fetch(`/api/categories/${resolvedParams.id}`)
+        const response = await fetch(
+          `/api/categories/${resolvedParams.id}?format=${selectedFormat}`
+        )
         const data = await response.json()
 
         if (response.ok) {
@@ -73,7 +75,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
     }
 
     fetchCategory()
-  }, [resolvedParams.id, router])
+  }, [resolvedParams.id, router, selectedFormat])
 
   if (loading) {
     return (
