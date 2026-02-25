@@ -72,7 +72,7 @@ export async function POST(
     // Get the product image from database and storage
     const { data: productImage } = await supabase
       .from('product_images')
-      .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path')
+      .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', productImageId)
       .eq('product_id', productId)
       .single()
@@ -87,12 +87,19 @@ export async function POST(
     // Download the image from storage (Google Drive or Supabase)
     let imageBuffer: Buffer | null = null
 
-    if (productImage.storage_provider === 'gdrive' && productImage.storage_path) {
-      // Download from Google Drive using the storage adapter (service account auth)
-      console.log(`Downloading from Google Drive via adapter: ${productImage.storage_path}`)
+    if (productImage.storage_provider === 'gdrive') {
+      // Prefer gdrive_file_id for direct download (1 API call) over storage_path (folder traversal)
+      const gdriveKey = productImage.gdrive_file_id || productImage.storage_path
+      if (!gdriveKey) {
+        return NextResponse.json(
+          { error: 'Product image has no Google Drive file ID or storage path' },
+          { status: 500 }
+        )
+      }
+      console.log(`Downloading from Google Drive via adapter (key: ${gdriveKey.substring(0, 20)}...)`)
 
       try {
-        imageBuffer = await downloadFile(productImage.storage_path, { provider: 'gdrive' })
+        imageBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
       } catch (error) {
         console.error('Error downloading from Google Drive:', error)
         return NextResponse.json(

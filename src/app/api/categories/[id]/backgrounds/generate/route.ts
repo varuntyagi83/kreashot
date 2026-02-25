@@ -87,12 +87,12 @@ export async function POST(
       // Fetch reference images from product_images or angled_shots
       const { data: productImages } = await supabase
         .from('product_images')
-        .select('id, file_path, mime_type, storage_provider, storage_url, storage_path')
+        .select('id, file_path, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
         .in('id', referenceAssetIds)
 
       const { data: angledShots } = await supabase
         .from('angled_shots')
-        .select('id, storage_path, storage_provider, storage_url')
+        .select('id, storage_path, storage_provider, storage_url, gdrive_file_id')
         .in('id', referenceAssetIds)
 
       const allReferences = [
@@ -105,11 +105,12 @@ export async function POST(
         try {
           let imageBuffer: Buffer | null = null
 
-          // Download from appropriate storage
-          if (ref.storage_provider === 'gdrive' && ref.storage_path) {
-            // For Google Drive, use storage adapter (service account auth)
+          // Download from appropriate storage — prefer gdrive_file_id for direct download
+          if (ref.storage_provider === 'gdrive') {
+            const gdriveKey = ('gdrive_file_id' in ref ? ref.gdrive_file_id : null) || ref.storage_path
+            if (!gdriveKey) continue
             try {
-              imageBuffer = await downloadFile(ref.storage_path, { provider: 'gdrive' })
+              imageBuffer = await downloadFile(gdriveKey as string, { provider: 'gdrive' })
             } catch (dlError) {
               console.warn(`Failed to download reference via gdrive adapter: ${dlError}`)
             }

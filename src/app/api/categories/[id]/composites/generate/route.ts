@@ -154,6 +154,7 @@ export async function POST(
 
     // Generate composites for each pair
     const results = []
+    const errors: string[] = []
 
     for (const pair of compositionPairs) {
       try {
@@ -169,7 +170,9 @@ export async function POST(
           .single()
 
         if (!angledShot) {
-          console.warn(`Angled shot ${pair.angledShotId} not found, skipping`)
+          const msg = `Angled shot ${pair.angledShotId} not found in database`
+          console.warn(msg)
+          errors.push(msg)
           continue
         }
 
@@ -181,18 +184,30 @@ export async function POST(
           .single()
 
         if (!background) {
-          console.warn(`Background ${pair.backgroundId} not found, skipping`)
+          const msg = `Background ${pair.backgroundId} not found in database`
+          console.warn(msg)
+          errors.push(msg)
           continue
         }
 
-        // Download angled shot image using proper storage adapter
+        // Download angled shot image — prefer gdrive_file_id for direct download (1 API call)
         let angledShotBuffer: Buffer | null = null
 
-        if (angledShot.storage_provider === 'gdrive' && angledShot.storage_path) {
-          try {
-            angledShotBuffer = await downloadFile(angledShot.storage_path, { provider: 'gdrive' })
-          } catch (dlError) {
-            console.warn(`Failed to download angled shot via gdrive adapter: ${dlError}`)
+        if (angledShot.storage_provider === 'gdrive') {
+          const gdriveKey = angledShot.gdrive_file_id || angledShot.storage_path
+          if (gdriveKey) {
+            try {
+              console.log(`  Downloading angled shot via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
+              angledShotBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
+            } catch (dlError) {
+              const msg = `Failed to download angled shot "${angledShot.name}" from Google Drive: ${dlError}`
+              console.warn(msg)
+              errors.push(msg)
+            }
+          } else {
+            const msg = `Angled shot "${angledShot.name}" has no gdrive_file_id or storage_path`
+            console.warn(msg)
+            errors.push(msg)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -202,24 +217,35 @@ export async function POST(
           if (!error && data) {
             const arrayBuffer = await data.arrayBuffer()
             angledShotBuffer = Buffer.from(arrayBuffer)
+          } else {
+            const msg = `Failed to download angled shot "${angledShot.name}" from Supabase: ${error?.message}`
+            console.warn(msg)
+            errors.push(msg)
           }
         }
 
         if (!angledShotBuffer) {
-          console.warn(
-            `Failed to download angled shot ${pair.angledShotId}, skipping`
-          )
           continue
         }
 
-        // Download background image using proper storage adapter
+        // Download background image — prefer gdrive_file_id for direct download (1 API call)
         let backgroundBuffer: Buffer | null = null
 
-        if (background.storage_provider === 'gdrive' && background.storage_path) {
-          try {
-            backgroundBuffer = await downloadFile(background.storage_path, { provider: 'gdrive' })
-          } catch (dlError) {
-            console.warn(`Failed to download background via gdrive adapter: ${dlError}`)
+        if (background.storage_provider === 'gdrive') {
+          const gdriveKey = background.gdrive_file_id || background.storage_path
+          if (gdriveKey) {
+            try {
+              console.log(`  Downloading background via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
+              backgroundBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
+            } catch (dlError) {
+              const msg = `Failed to download background "${background.name}" from Google Drive: ${dlError}`
+              console.warn(msg)
+              errors.push(msg)
+            }
+          } else {
+            const msg = `Background "${background.name}" has no gdrive_file_id or storage_path`
+            console.warn(msg)
+            errors.push(msg)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -229,11 +255,14 @@ export async function POST(
           if (!error && data) {
             const arrayBuffer = await data.arrayBuffer()
             backgroundBuffer = Buffer.from(arrayBuffer)
+          } else {
+            const msg = `Failed to download background "${background.name}" from Supabase: ${error?.message}`
+            console.warn(msg)
+            errors.push(msg)
           }
         }
 
         if (!backgroundBuffer) {
-          console.warn(`Failed to download background ${pair.backgroundId}, skipping`)
           continue
         }
 
@@ -253,8 +282,8 @@ export async function POST(
           userPrompt,
           category.look_and_feel || undefined,
           safeZones.length > 0 ? safeZones : undefined,
-          formatDimensions.width, // NEW: Pass canvas width
-          formatDimensions.height // NEW: Pass canvas height
+          formatDimensions.width,
+          formatDimensions.height
         )
 
         results.push({
@@ -271,16 +300,17 @@ export async function POST(
           `   ✅ Composite ${results.length}/${compositionPairs.length} generated`
         )
       } catch (error) {
-        console.error(
-          `Error generating composite for pair ${pair.angledShotId} + ${pair.backgroundId}:`,
-          error
-        )
+        const msg = `Gemini generation failed for pair ${pair.angledShotId} + ${pair.backgroundId}: ${error instanceof Error ? error.message : error}`
+        console.error(msg)
+        errors.push(msg)
         // Continue with next pair instead of failing entire batch
       }
     }
 
     return NextResponse.json({
-      message: `Generated ${results.length} ${format} composites`,
+      message: results.length > 0
+        ? `Generated ${results.length} ${format} composites`
+        : `Failed to generate composites: ${errors[0] || 'unknown error'}`,
       category: {
         id: category.id,
         name: category.name,
@@ -290,6 +320,7 @@ export async function POST(
       dimensions: formatDimensions,
       total_combinations: compositionPairs.length,
       results,
+      ...(errors.length > 0 && { errors }),
     })
   } catch (error) {
     console.error('Error generating composites:', error)

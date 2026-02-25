@@ -164,6 +164,12 @@ export function CompositeGenerationForm({
         throw new Error(data.error || 'Failed to generate composites')
       }
 
+      if (data.results.length === 0) {
+        const reason = data.errors?.[0] || data.message || 'Unknown error'
+        toast.error(`No composites generated: ${reason}`)
+        return
+      }
+
       toast.success(`Generated ${data.results.length} composites!`)
       onCompositesGenerated(data.results)
     } catch (error: any) {

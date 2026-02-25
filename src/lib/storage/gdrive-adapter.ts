@@ -178,14 +178,23 @@ export class GoogleDriveAdapter implements StorageAdapter {
 
   /**
    * Download a file from Google Drive
+   * Accepts either a file path (traverses folders) or a direct file ID (single API call)
    */
-  async download(path: string): Promise<Buffer> {
+  async download(pathOrFileId: string): Promise<Buffer> {
     try {
-      // Find file by path
-      const fileId = await this.findFileByPath(path)
+      let fileId: string | null = null
+
+      // Check if input is a file ID (no slashes, long alphanumeric string) or a path
+      if (!pathOrFileId.includes('/') && pathOrFileId.length > 10) {
+        // Likely a Google Drive file ID — use directly
+        fileId = pathOrFileId
+      } else {
+        // It's a path — traverse folder tree to find file
+        fileId = await this.findFileByPath(pathOrFileId)
+      }
 
       if (!fileId) {
-        throw new Error(`File not found: ${path}`)
+        throw new Error(`File not found: ${pathOrFileId}`)
       }
 
       // Download file (support Shared Drives)
