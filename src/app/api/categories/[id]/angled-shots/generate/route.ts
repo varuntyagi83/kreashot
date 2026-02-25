@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
+import { downloadFile } from '@/lib/storage'
 
 /**
  * POST /api/categories/[id]/angled-shots/generate
@@ -84,18 +85,14 @@ export async function POST(
     }
 
     // Download the image from storage (Google Drive or Supabase)
-    let imageBlob: Blob
+    let imageBuffer: Buffer | null = null
 
-    if (productImage.storage_provider === 'gdrive' && productImage.storage_url) {
-      // Download from Google Drive using the public URL
-      console.log(`Downloading from Google Drive: ${productImage.storage_url}`)
+    if (productImage.storage_provider === 'gdrive' && productImage.storage_path) {
+      // Download from Google Drive using the storage adapter (service account auth)
+      console.log(`Downloading from Google Drive via adapter: ${productImage.storage_path}`)
 
       try {
-        const response = await fetch(productImage.storage_url)
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        imageBlob = await response.blob()
+        imageBuffer = await downloadFile(productImage.storage_path, { provider: 'gdrive' })
       } catch (error) {
         console.error('Error downloading from Google Drive:', error)
         return NextResponse.json(
@@ -119,12 +116,19 @@ export async function POST(
         )
       }
 
-      imageBlob = downloadedBlob
+      const arrayBuf = await downloadedBlob.arrayBuffer()
+      imageBuffer = Buffer.from(arrayBuf)
     }
 
-    // Convert blob to base64
-    const arrayBuffer = await imageBlob.arrayBuffer()
-    const base64Image = Buffer.from(arrayBuffer).toString('base64')
+    if (!imageBuffer) {
+      return NextResponse.json(
+        { error: 'Failed to download product image' },
+        { status: 500 }
+      )
+    }
+
+    // Convert buffer to base64
+    const base64Image = imageBuffer.toString('base64')
     const imageData = `data:${productImage.mime_type};base64,${base64Image}`
 
     // Determine which angles to generate

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { getFormatDimensions } from '@/lib/formats'
+import { downloadFile } from '@/lib/storage'
 
 /**
  * POST /api/categories/[id]/backgrounds/generate
@@ -86,7 +87,7 @@ export async function POST(
       // Fetch reference images from product_images or angled_shots
       const { data: productImages } = await supabase
         .from('product_images')
-        .select('id, file_path, mime_type, storage_provider, storage_url')
+        .select('id, file_path, mime_type, storage_provider, storage_url, storage_path')
         .in('id', referenceAssetIds)
 
       const { data: angledShots } = await supabase
@@ -102,14 +103,15 @@ export async function POST(
       // Download and convert to base64
       for (const ref of allReferences) {
         try {
-          let imageBlob: Blob | null = null
+          let imageBuffer: Buffer | null = null
 
           // Download from appropriate storage
-          if (ref.storage_provider === 'gdrive' && ref.storage_url) {
-            // For Google Drive, fetch from the public URL
-            const response = await fetch(ref.storage_url)
-            if (response.ok) {
-              imageBlob = await response.blob()
+          if (ref.storage_provider === 'gdrive' && ref.storage_path) {
+            // For Google Drive, use storage adapter (service account auth)
+            try {
+              imageBuffer = await downloadFile(ref.storage_path, { provider: 'gdrive' })
+            } catch (dlError) {
+              console.warn(`Failed to download reference via gdrive adapter: ${dlError}`)
             }
           } else {
             // For Supabase Storage
@@ -122,15 +124,15 @@ export async function POST(
               .download(path)
 
             if (!error && data) {
-              imageBlob = data
+              const arrayBuf = await data.arrayBuffer()
+              imageBuffer = Buffer.from(arrayBuf)
             }
           }
 
-          if (imageBlob) {
-            const arrayBuffer = await imageBlob.arrayBuffer()
-            const base64Image = Buffer.from(arrayBuffer).toString('base64')
-            const mimeType =
-              'mime_type' in ref ? ref.mime_type : 'image/jpeg'
+          if (imageBuffer) {
+            const base64Image = imageBuffer.toString('base64')
+            const mimeType: string =
+              'mime_type' in ref ? (ref.mime_type as string) : 'image/jpeg'
             styleReferenceImages.push({
               data: `data:${mimeType};base64,${base64Image}`,
               mimeType,

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions } from '@/lib/formats'
+import { downloadFile } from '@/lib/storage'
 
 /**
  * POST /api/categories/[id]/composites/generate
@@ -163,7 +164,7 @@ export async function POST(
         // Fetch angled shot
         const { data: angledShot } = await supabase
           .from('angled_shots')
-          .select('id, name, storage_provider, storage_url, storage_path')
+          .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.angledShotId)
           .single()
 
@@ -175,7 +176,7 @@ export async function POST(
         // Fetch background
         const { data: background } = await supabase
           .from('backgrounds')
-          .select('id, name, storage_provider, storage_url, storage_path')
+          .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.backgroundId)
           .single()
 
@@ -184,16 +185,14 @@ export async function POST(
           continue
         }
 
-        // Download angled shot image
-        let angledShotBlob: Blob | null = null
+        // Download angled shot image using proper storage adapter
+        let angledShotBuffer: Buffer | null = null
 
-        if (
-          angledShot.storage_provider === 'gdrive' &&
-          angledShot.storage_url
-        ) {
-          const response = await fetch(angledShot.storage_url)
-          if (response.ok) {
-            angledShotBlob = await response.blob()
+        if (angledShot.storage_provider === 'gdrive' && angledShot.storage_path) {
+          try {
+            angledShotBuffer = await downloadFile(angledShot.storage_path, { provider: 'gdrive' })
+          } catch (dlError) {
+            console.warn(`Failed to download angled shot via gdrive adapter: ${dlError}`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -201,24 +200,26 @@ export async function POST(
             .download(angledShot.storage_path)
 
           if (!error && data) {
-            angledShotBlob = data
+            const arrayBuffer = await data.arrayBuffer()
+            angledShotBuffer = Buffer.from(arrayBuffer)
           }
         }
 
-        if (!angledShotBlob) {
+        if (!angledShotBuffer) {
           console.warn(
             `Failed to download angled shot ${pair.angledShotId}, skipping`
           )
           continue
         }
 
-        // Download background image
-        let backgroundBlob: Blob | null = null
+        // Download background image using proper storage adapter
+        let backgroundBuffer: Buffer | null = null
 
-        if (background.storage_provider === 'gdrive' && background.storage_url) {
-          const response = await fetch(background.storage_url)
-          if (response.ok) {
-            backgroundBlob = await response.blob()
+        if (background.storage_provider === 'gdrive' && background.storage_path) {
+          try {
+            backgroundBuffer = await downloadFile(background.storage_path, { provider: 'gdrive' })
+          } catch (dlError) {
+            console.warn(`Failed to download background via gdrive adapter: ${dlError}`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -226,27 +227,22 @@ export async function POST(
             .download(background.storage_path)
 
           if (!error && data) {
-            backgroundBlob = data
+            const arrayBuffer = await data.arrayBuffer()
+            backgroundBuffer = Buffer.from(arrayBuffer)
           }
         }
 
-        if (!backgroundBlob) {
+        if (!backgroundBuffer) {
           console.warn(`Failed to download background ${pair.backgroundId}, skipping`)
           continue
         }
 
         // Convert to base64
-        const angledShotArrayBuffer = await angledShotBlob.arrayBuffer()
-        const angledShotBase64 = Buffer.from(angledShotArrayBuffer).toString(
-          'base64'
-        )
-        const angledShotMimeType = angledShotBlob.type || 'image/jpeg'
+        const angledShotBase64 = angledShotBuffer.toString('base64')
+        const angledShotMimeType = 'image/jpeg'
 
-        const backgroundArrayBuffer = await backgroundBlob.arrayBuffer()
-        const backgroundBase64 = Buffer.from(backgroundArrayBuffer).toString(
-          'base64'
-        )
-        const backgroundMimeType = backgroundBlob.type || 'image/jpeg'
+        const backgroundBase64 = backgroundBuffer.toString('base64')
+        const backgroundMimeType = 'image/jpeg'
 
         // Generate composite using Gemini (with template safe zones if available)
         const composite = await generateComposite(
