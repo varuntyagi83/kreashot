@@ -258,10 +258,18 @@
 
 ---
 
+### Copy Kit Combination Limit Fix (2026-02-25):
+- [x] **Removed 25-combination cap** — was blocking 5 types × 8 tones (40 combos)
+  - Old limit: `totalCombinations > 25` → returned 400 error
+  - New limit: `totalCombinations > 50` — raised to support all type/tone combos with headroom
+  - File: `src/app/api/categories/[id]/copy-docs/generate/route.ts`
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:
-**Brand voice migration needs to be run against Supabase**
+*No active work*
 
 ---
 

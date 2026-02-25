@@ -65,8 +65,8 @@ export async function POST(
       }
 
       const totalCombinations = copyTypes.length * tones.length
-      if (totalCombinations > 25) {
-        return NextResponse.json({ error: 'Max 25 combinations at once (e.g. 5 types × 5 tones)' }, { status: 400 })
+      if (totalCombinations > 50) {
+        return NextResponse.json({ error: 'Max 50 combinations at once' }, { status: 400 })
       }
 
       console.log(`Generating copy kit: ${copyTypes.length} types × ${tones.length} tones = ${totalCombinations} for ${category.slug}`)
