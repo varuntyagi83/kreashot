@@ -184,10 +184,13 @@
   - API: `GET /api/categories/[id]/backgrounds/[backgroundId]` added
   - File: `src/app/api/categories/[id]/backgrounds/[backgroundId]/route.ts`
 
-- [x] **Generate other formats from saved background** — new "Generate Other Formats" option in the dropdown menu. Uses the saved prompt to re-generate the background in all other aspect ratios, auto-saves each result.
-  - File: `src/components/backgrounds/BackgroundGallery.tsx`
-  - Shows original prompt (read-only), checkboxes for target formats (current format disabled)
+- [x] **Generate other formats from saved background (image-based reformat)** — new "Generate Other Formats" option in the dropdown menu. Sends the **actual saved image** to Gemini as `inline_data` to create variations in different aspect ratios — no design details are lost.
+  - New Gemini function: `regenerateBackgroundInFormat()` in `src/lib/ai/gemini.ts`
+  - New API route: `POST /api/categories/[id]/backgrounds/[backgroundId]/reformat`
+  - Flow: download source from GDrive → base64 → send to Gemini with target aspect ratio → upload result → save to Supabase
+  - UI: `src/components/backgrounds/BackgroundGallery.tsx` — shows source image preview, checkboxes for target formats
   - Auto-saves with name pattern: `{original name} ({format})`
+  - Gemini config: temperature 1, topP 0.95, responseModalities ["TEXT", "IMAGE"], imageSize "2K"
 
 - [x] **Gallery shows all formats** — saved backgrounds tab no longer filters by the current format selector; it shows all backgrounds across all formats with format badges
   - File: `src/components/backgrounds/BackgroundGenerationWorkspace.tsx`
@@ -198,8 +201,10 @@
 | `src/app/api/categories/[id]/backgrounds/generate/route.ts` | Raised cap 10→20, use form-submitted lookAndFeel |
 | `src/app/api/categories/[id]/backgrounds/[backgroundId]/route.ts` | Added GET and PATCH handlers |
 | `src/components/backgrounds/BackgroundGenerationForm.tsx` | Raised cap 10→20, slider max 4→5 |
-| `src/components/backgrounds/BackgroundGallery.tsx` | Full rewrite: rename, format badges, regen in other formats, better image error handling |
+| `src/components/backgrounds/BackgroundGallery.tsx` | Full rewrite: rename, format badges, image-based reformat, better image error handling |
 | `src/components/backgrounds/BackgroundGenerationWorkspace.tsx` | Gallery shows all formats (removed format filter) |
+| `src/lib/ai/gemini.ts` | Added `regenerateBackgroundInFormat()` — sends image as inline_data to Gemini |
+| `src/app/api/categories/[id]/backgrounds/[backgroundId]/reformat/route.ts` | NEW — downloads source, calls Gemini per format, uploads & saves results |
 | `scripts/fix-greenworld-folder.mjs` | Fixed greenworld category gdrive_folder_id + verified all background URLs |
 | `scripts/fix-sharing-all-assets.mjs` | Fixed sharing permissions on all 80 GDrive assets |
 

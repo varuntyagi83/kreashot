@@ -189,29 +189,16 @@ export function BackgroundGallery({
   const handleRegenerate = async () => {
     if (!regenBackground || regenFormats.length === 0) return
 
-    if (!regenBackground.prompt_used) {
-      toast.error('This background has no saved prompt — cannot regenerate.')
-      return
-    }
-
     setIsRegenerating(true)
     try {
-      // If parent provided a callback, use it (for workspace-level generation)
-      if (onRegenerateInFormats) {
-        onRegenerateInFormats(regenBackground, regenFormats)
-        setRegenDialogOpen(false)
-        return
-      }
-
-      // Otherwise call generate API directly and save each result
+      // Call the reformat API — sends the actual image to Gemini
+      // to create a variation in the target aspect ratio
       const response = await fetch(
-        `/api/categories/${categoryId}/backgrounds/generate`,
+        `/api/categories/${categoryId}/backgrounds/${regenBackground.id}/reformat`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            userPrompt: regenBackground.prompt_used,
-            count: 1,
             formats: regenFormats,
           }),
         }
@@ -220,44 +207,26 @@ export function BackgroundGallery({
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to generate backgrounds')
+        throw new Error(data.error || 'Failed to reformat background')
       }
 
-      // Save each generated background
-      let savedCount = 0
-      for (const bg of data.backgrounds || []) {
-        try {
-          const saveName = `${regenBackground.name} (${bg.format})`
-          const saveResponse = await fetch(
-            `/api/categories/${categoryId}/backgrounds`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name: saveName,
-                description: regenBackground.description || `Regenerated from ${regenBackground.name}`,
-                promptUsed: regenBackground.prompt_used,
-                imageData: bg.imageData,
-                mimeType: bg.mimeType,
-                format: bg.format,
-              }),
-            }
-          )
+      const successCount = (data.results || []).filter((r: any) => r.success).length
+      const failedResults = (data.results || []).filter((r: any) => !r.success)
 
-          if (saveResponse.ok) {
-            savedCount++
-          }
-        } catch (err) {
-          console.error(`Failed to save ${bg.format} variant:`, err)
+      if (successCount > 0) {
+        toast.success(`Created ${successCount} format variant${successCount > 1 ? 's' : ''}!`)
+      }
+      if (failedResults.length > 0) {
+        for (const r of failedResults) {
+          toast.error(`Failed ${r.format}: ${r.error}`)
         }
       }
 
-      toast.success(`Generated and saved ${savedCount} format variant${savedCount > 1 ? 's' : ''}!`)
       setRegenDialogOpen(false)
       fetchBackgrounds()
     } catch (error: any) {
-      console.error('Error regenerating:', error)
-      toast.error(error.message || 'Failed to regenerate')
+      console.error('Error reformatting:', error)
+      toast.error(error.message || 'Failed to reformat')
     } finally {
       setIsRegenerating(false)
     }
@@ -420,23 +389,27 @@ export function BackgroundGallery({
           <DialogHeader>
             <DialogTitle>Generate Other Formats</DialogTitle>
             <DialogDescription>
-              Re-generate &quot;{regenBackground?.name}&quot; in different aspect ratios using the same prompt.
-              {!regenBackground?.prompt_used && (
-                <span className="block mt-1 text-yellow-600">
-                  This background has no saved prompt. Regeneration is not available.
-                </span>
-              )}
+              Send &quot;{regenBackground?.name}&quot; to Gemini to create variations in different aspect ratios.
+              The actual image is used as input — no design details will be lost.
             </DialogDescription>
           </DialogHeader>
 
-          {regenBackground?.prompt_used && (
+          {regenBackground && (
             <div className="space-y-4">
-              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                <span className="font-medium">Original prompt:</span> {regenBackground.prompt_used}
+              {/* Preview of source image */}
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted max-h-40">
+                <img
+                  src={regenBackground.storage_url}
+                  alt={regenBackground.name}
+                  className="w-full h-full object-contain"
+                />
+                <div className="absolute top-1 left-1 bg-black/70 text-white text-xs font-mono font-semibold px-1.5 py-0.5 rounded">
+                  {regenBackground.format}
+                </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Select formats to generate</Label>
+                <Label>Select target formats</Label>
                 <div className="grid grid-cols-2 gap-3">
                   {Object.values(FORMATS).map((f) => {
                     const isCurrentFormat = f.format === regenBackground.format
@@ -479,7 +452,7 @@ export function BackgroundGallery({
             </Button>
             <Button
               onClick={handleRegenerate}
-              disabled={!regenBackground?.prompt_used || regenFormats.length === 0 || isRegenerating}
+              disabled={regenFormats.length === 0 || isRegenerating}
             >
               {isRegenerating ? (
                 <>

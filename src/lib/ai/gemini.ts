@@ -352,6 +352,91 @@ Return a professional product photography background.`
 }
 
 /**
+ * Re-generate an existing background image in a different aspect ratio.
+ * Sends the source image to Gemini as inline_data and asks it to create
+ * a variation in the target aspect ratio without changing design details.
+ */
+export async function regenerateBackgroundInFormat(
+  sourceImageData: string,
+  sourceMimeType: string,
+  targetAspectRatio: string,
+  imageSize: string = '2K'
+): Promise<{
+  promptUsed: string
+  imageData: string
+  mimeType: string
+}> {
+  const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY || ''
+  if (!GEMINI_API_KEY) {
+    throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
+  }
+
+  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
+
+  const base64Data = sourceImageData.replace(/^data:image\/\w+;base64,/, '')
+
+  const prompt = `Create a variation of this image in ${targetAspectRatio} aspect ratio without changing any design details or causing distortion. Return a high-quality image.`
+
+  const requestBody = {
+    contents: [{
+      parts: [
+        {
+          inline_data: {
+            mime_type: sourceMimeType,
+            data: base64Data,
+          },
+        },
+        {
+          text: prompt,
+        },
+      ],
+    }],
+    generationConfig: {
+      temperature: 1,
+      topP: 0.95,
+      maxOutputTokens: 32768,
+      responseModalities: ['TEXT', 'IMAGE'],
+      imageConfig: {
+        aspectRatio: targetAspectRatio,
+        imageSize,
+      },
+    },
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120000)
+
+  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(requestBody),
+    signal: controller.signal,
+  })
+  clearTimeout(timeout)
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Gemini API error: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+
+  const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+  if (!imagePart) {
+    throw new Error('No image generated in response')
+  }
+
+  const generatedBase64 = imagePart.inlineData.data
+  const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+
+  return {
+    promptUsed: prompt,
+    imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
+    mimeType: generatedMimeType,
+  }
+}
+
+/**
  * Generate composite image by combining product and background
  * For Phase 4: Format-aware composite generation
  *
