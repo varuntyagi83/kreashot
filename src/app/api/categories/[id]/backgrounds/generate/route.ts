@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateBackgrounds } from '@/lib/ai/gemini'
-import { getFormatDimensions } from '@/lib/formats'
+import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 
 /**
@@ -45,15 +45,20 @@ export async function POST(
       userPrompt,
       count = 1,
       referenceAssetIds,
-      format = '1:1' // NEW: Format parameter
+      formats,            // NEW: Array of formats
+      format = '1:1',     // Legacy: single format (backwards compatible)
     } = body
 
     // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
     const resolvedPrompt = prompt || userPrompt
 
-    // Validate format
-    const formatDimensions = getFormatDimensions(format)
-    console.log(`Generating ${format} backgrounds (${formatDimensions.width}x${formatDimensions.height})`)
+    // Normalize formats: accept array or single string for backwards compatibility
+    const validFormatKeys = Object.keys(FORMATS)
+    const formatsToGenerate: string[] = (formats && Array.isArray(formats) && formats.length > 0)
+      ? formats.filter((f: string) => validFormatKeys.includes(f))
+      : [validFormatKeys.includes(format) ? format : '1:1']
+
+    console.log(`Formats to generate: ${formatsToGenerate.join(', ')}`)
 
     // Validation
     if (!resolvedPrompt) {
@@ -66,6 +71,14 @@ export async function POST(
     if (count < 1 || count > 5) {
       return NextResponse.json(
         { error: 'count must be between 1 and 5' },
+        { status: 400 }
+      )
+    }
+
+    const totalGenerations = count * formatsToGenerate.length
+    if (totalGenerations > 10) {
+      return NextResponse.json(
+        { error: `Too many generations (${totalGenerations}). Reduce count or number of formats (max 10 total).` },
         { status: 400 }
       )
     }
@@ -149,42 +162,59 @@ export async function POST(
       }
     }
 
-    // Generate backgrounds using Gemini AI
+    // Generate backgrounds for each requested format
     console.log(
-      `Generating ${count} ${format} backgrounds for category ${category.name}...`
+      `Generating ${count} background(s) x ${formatsToGenerate.length} format(s) for category ${category.name}...`
     )
     console.log(`Prompt: ${resolvedPrompt}`)
     console.log(`Look & Feel: ${category.look_and_feel}`)
     console.log(`Style references: ${styleReferenceImages.length}`)
-    console.log(`Format: ${format} (${formatDimensions.width}x${formatDimensions.height})`)
+    console.log(`Formats: ${formatsToGenerate.join(', ')}`)
 
-    const generatedBackgrounds = await generateBackgrounds(
-      resolvedPrompt,
-      category.look_and_feel,
-      count,
-      styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
-      format, // NEW: Pass aspect ratio
-      '2K' // NEW: Image size
-    )
+    const allMappedBackgrounds: Array<{
+      promptUsed: string
+      imageData: string
+      mimeType: string
+      format: string
+      image_base64: string
+      image_mime_type: string
+    }> = []
 
-    const mappedBackgrounds = generatedBackgrounds.map((bg) => ({
-      promptUsed: bg.promptUsed,
-      imageData: bg.imageData,
-      mimeType: bg.mimeType,
-      // Legacy field names for backwards compatibility
-      image_base64: bg.imageData,
-      image_mime_type: bg.mimeType,
-    }))
+    for (const fmt of formatsToGenerate) {
+      const fmtDimensions = getFormatDimensions(fmt)
+      console.log(`  Generating ${count} ${fmt} backgrounds (${fmtDimensions.width}x${fmtDimensions.height})...`)
+
+      const generatedBackgrounds = await generateBackgrounds(
+        resolvedPrompt,
+        category.look_and_feel,
+        count,
+        styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+        fmt,
+        '2K'
+      )
+
+      for (const bg of generatedBackgrounds) {
+        allMappedBackgrounds.push({
+          promptUsed: bg.promptUsed,
+          imageData: bg.imageData,
+          mimeType: bg.mimeType,
+          format: fmt,
+          // Legacy field names for backwards compatibility
+          image_base64: bg.imageData,
+          image_mime_type: bg.mimeType,
+        })
+      }
+    }
 
     return NextResponse.json({
-      message: `Generated ${generatedBackgrounds.length} background variations`,
+      message: `Generated ${allMappedBackgrounds.length} background variation(s) across ${formatsToGenerate.length} format(s)`,
       category: {
         id: category.id,
         name: category.name,
         slug: category.slug,
       },
-      backgrounds: mappedBackgrounds,
-      results: mappedBackgrounds,
+      backgrounds: allMappedBackgrounds,
+      results: allMappedBackgrounds,
     })
   } catch (error) {
     console.error('Error generating backgrounds:', error)

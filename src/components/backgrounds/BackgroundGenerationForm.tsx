@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { FORMATS } from '@/lib/formats'
 
 interface Category {
   id: string
@@ -20,6 +22,7 @@ interface GeneratedBackground {
   promptUsed: string
   imageData: string
   mimeType: string
+  format: string
 }
 
 interface BackgroundGenerationFormProps {
@@ -41,10 +44,30 @@ export function BackgroundGenerationForm({
   const [userPrompt, setUserPrompt] = useState('')
   const [count, setCount] = useState(1)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [selectedFormats, setSelectedFormats] = useState<string[]>([format])
+
+  // Keep selectedFormats in sync when parent format changes
+  useEffect(() => {
+    setSelectedFormats((prev) =>
+      prev.includes(format) ? prev : [format, ...prev]
+    )
+  }, [format])
+
+  const totalGenerations = count * selectedFormats.length
 
   const handleGenerate = async () => {
     if (!userPrompt.trim()) {
       toast.error('Please describe the background you want')
+      return
+    }
+
+    if (selectedFormats.length === 0) {
+      toast.error('Please select at least one format')
+      return
+    }
+
+    if (totalGenerations > 10) {
+      toast.error('Too many combinations. Reduce the count or number of formats (max 10 total).')
       return
     }
 
@@ -67,7 +90,7 @@ export function BackgroundGenerationForm({
             userPrompt: userPrompt.trim(),
             lookAndFeel: lookAndFeel.trim() || 'Professional product photography',
             count,
-            format, // NEW: Include format in request
+            formats: selectedFormats,
           }),
         }
       )
@@ -167,22 +190,61 @@ export function BackgroundGenerationForm({
           </p>
         </div>
 
+        {/* Format Selection */}
+        <div className="space-y-2">
+          <Label>Formats to Generate</Label>
+          <div className="grid grid-cols-2 gap-3">
+            {Object.values(FORMATS).map((f) => (
+              <div key={f.format} className="flex items-center gap-2">
+                <Checkbox
+                  id={`format-${f.format}`}
+                  checked={selectedFormats.includes(f.format)}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedFormats((prev) => [...prev, f.format])
+                    } else {
+                      setSelectedFormats((prev) =>
+                        prev.filter((fmt) => fmt !== f.format)
+                      )
+                    }
+                  }}
+                  disabled={isGenerating}
+                />
+                <label
+                  htmlFor={`format-${f.format}`}
+                  className="text-sm cursor-pointer flex items-center gap-2"
+                >
+                  <span className="font-mono font-semibold">{f.format}</span>
+                  <span className="text-xs text-muted-foreground">{f.description}</span>
+                </label>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {selectedFormats.length} format{selectedFormats.length !== 1 ? 's' : ''} selected
+            &middot; {totalGenerations} total generation{totalGenerations !== 1 ? 's' : ''}
+            {totalGenerations > 10 && (
+              <span className="text-red-500 ml-1">(max 10)</span>
+            )}
+          </p>
+        </div>
+
         {/* Generate Button */}
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating || !userPrompt.trim()}
+          disabled={isGenerating || !userPrompt.trim() || selectedFormats.length === 0 || totalGenerations > 10}
           className="w-full"
           size="lg"
         >
           {isGenerating ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating {count} Background{count > 1 ? 's' : ''}...
+              Generating {totalGenerations} Background{totalGenerations > 1 ? 's' : ''}...
             </>
           ) : (
             <>
               <Sparkles className="h-4 w-4 mr-2" />
-              Generate {count} Background{count > 1 ? 's' : ''}
+              Generate {count} Background{count > 1 ? 's' : ''} in {selectedFormats.length} Format{selectedFormats.length > 1 ? 's' : ''}
             </>
           )}
         </Button>

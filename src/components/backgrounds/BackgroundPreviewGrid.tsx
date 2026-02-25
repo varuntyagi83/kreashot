@@ -20,6 +20,7 @@ interface GeneratedBackground {
   promptUsed: string
   imageData: string
   mimeType: string
+  format: string
 }
 
 interface BackgroundPreviewGridProps {
@@ -73,7 +74,7 @@ export function BackgroundPreviewGrid({
           promptUsed: background.promptUsed,
           imageData: background.imageData,
           mimeType: background.mimeType,
-          format, // NEW: Include format
+          format: background.format || format,
         }),
       })
 
@@ -125,7 +126,7 @@ export function BackgroundPreviewGrid({
             promptUsed: background.promptUsed,
             imageData: background.imageData,
             mimeType: background.mimeType,
-            format, // NEW: Include format
+            format: background.format || format,
           }),
         })
       } catch (error) {
@@ -167,6 +168,12 @@ export function BackgroundPreviewGrid({
                     alt={`Generated background ${index + 1}`}
                     className="w-full h-full object-cover"
                   />
+                  {/* Format badge */}
+                  {background.format && (
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-mono font-semibold px-2 py-0.5 rounded">
+                      {background.format}
+                    </div>
+                  )}
                   {savingIndex === index && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                       <div className="text-white text-sm">Saving...</div>

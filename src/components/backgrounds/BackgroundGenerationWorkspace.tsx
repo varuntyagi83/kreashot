@@ -18,6 +18,7 @@ interface GeneratedBackground {
   promptUsed: string
   imageData: string
   mimeType: string
+  format: string
 }
 
 interface BackgroundGenerationWorkspaceProps {
