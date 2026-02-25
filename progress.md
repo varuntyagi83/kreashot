@@ -296,3 +296,5 @@ Safe Zones/Templates (1) ← THE BLUEPRINT
 | ~~Low~~ | ~~greenworld category missing `gdrive_folder_id`~~ | FIXED — found existing folder `1lK3ITFc4u-BG-ypqtyQxMz39BQSXmZEG`, linked to category |
 | Info | Style reference images: backend accepts `referenceAssetIds` to guide Gemini style, but no UI picker exists yet | Future enhancement — not a bug, purely additive |
 | Info | `composites` table has no `updated_at` column | By design — discovered during audit |
+| ~~Medium~~ | ~~GDrive 503 "Transient failure" during reformat upload~~ | FIXED — added retry logic (2 retries, exponential backoff) to `gdrive-adapter.ts` upload method |
+| Info | Gemini reformat produces visual variations, not strict crops — plant/shadow details differ across formats | Expected behavior — Gemini generates a new image guided by the source, not a deterministic resize |

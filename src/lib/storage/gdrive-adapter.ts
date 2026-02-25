@@ -111,69 +111,90 @@ export class GoogleDriveAdapter implements StorageAdapter {
 
   /**
    * Upload a file to Google Drive
+   * Retries up to 2 times on transient errors (5xx) with exponential backoff.
    */
   async upload(
     file: Buffer | Blob,
     path: string,
     options?: UploadOptions
   ): Promise<StorageFile> {
-    try {
-      // Get or create folder structure
-      const parentFolderId = await this.getOrCreateFolder(path)
-      const fileName = path.split('/').pop()!
+    // Get or create folder structure (done once, not retried)
+    const parentFolderId = await this.getOrCreateFolder(path)
+    const fileName = path.split('/').pop()!
 
-      // Convert file to stream
-      let buffer: Buffer
-      if (file instanceof Buffer) {
-        buffer = file
-      } else {
-        // file is Blob (type assertion needed for TypeScript)
-        const arrayBuffer = await (file as Blob).arrayBuffer()
-        buffer = Buffer.from(arrayBuffer)
-      }
-      const stream = Readable.from(buffer)
-
-      // Upload file (support Shared Drives)
-      const { data } = await this.drive.files.create({
-        requestBody: {
-          name: fileName,
-          parents: [parentFolderId],
-          mimeType: options?.contentType || 'application/octet-stream',
-        },
-        media: {
-          mimeType: options?.contentType || 'application/octet-stream',
-          body: stream,
-        },
-        fields: 'id, name, size, webViewLink, webContentLink, thumbnailLink',
-        supportsAllDrives: true,
-      })
-
-      // Make file publicly accessible (support Shared Drives)
-      await this.drive.permissions.create({
-        fileId: data.id!,
-        requestBody: {
-          role: 'reader',
-          type: 'anyone',
-        },
-        supportsAllDrives: true,
-      })
-
-      // Use Google Drive thumbnail API for image embedding
-      // This format works in <img> tags without CORS issues and doesn't expire
-      // sz=w2000 ensures high quality (max 2000px width)
-      const publicUrl = `https://drive.google.com/thumbnail?id=${data.id}&sz=w2000`
-
-      return {
-        path,
-        publicUrl,
-        size: parseInt(data.size || '0'),
-        mimeType: options?.contentType || 'application/octet-stream',
-        fileId: data.id!, // Include file ID for faster deletion
-      }
-    } catch (error) {
-      console.error('Google Drive upload error:', error)
-      throw new Error(`Failed to upload to Google Drive: ${error}`)
+    // Convert file to buffer once
+    let buffer: Buffer
+    if (file instanceof Buffer) {
+      buffer = file
+    } else {
+      const arrayBuffer = await (file as Blob).arrayBuffer()
+      buffer = Buffer.from(arrayBuffer)
     }
+
+    const MAX_RETRIES = 2
+    let lastError: unknown
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Fresh stream per attempt (streams are consumed on use)
+        const stream = Readable.from(buffer)
+
+        // Upload file (support Shared Drives)
+        const { data } = await this.drive.files.create({
+          requestBody: {
+            name: fileName,
+            parents: [parentFolderId],
+            mimeType: options?.contentType || 'application/octet-stream',
+          },
+          media: {
+            mimeType: options?.contentType || 'application/octet-stream',
+            body: stream,
+          },
+          fields: 'id, name, size, webViewLink, webContentLink, thumbnailLink',
+          supportsAllDrives: true,
+        })
+
+        // Make file publicly accessible (support Shared Drives)
+        await this.drive.permissions.create({
+          fileId: data.id!,
+          requestBody: {
+            role: 'reader',
+            type: 'anyone',
+          },
+          supportsAllDrives: true,
+        })
+
+        // Use Google Drive thumbnail API for image embedding
+        // This format works in <img> tags without CORS issues and doesn't expire
+        // sz=w2000 ensures high quality (max 2000px width)
+        const publicUrl = `https://drive.google.com/thumbnail?id=${data.id}&sz=w2000`
+
+        return {
+          path,
+          publicUrl,
+          size: parseInt(data.size || '0'),
+          mimeType: options?.contentType || 'application/octet-stream',
+          fileId: data.id!, // Include file ID for faster deletion
+        }
+      } catch (error: any) {
+        lastError = error
+        const status = error?.code || error?.status || 0
+
+        // Only retry on transient errors (5xx, network errors)
+        if (attempt < MAX_RETRIES && (status >= 500 || status === 0)) {
+          const delay = 2000 * (attempt + 1) // 2s, 4s
+          console.warn(`GDrive upload attempt ${attempt + 1} failed (${status}), retrying in ${delay}ms...`)
+          await new Promise((r) => setTimeout(r, delay))
+          continue
+        }
+
+        console.error('Google Drive upload error:', error)
+        throw new Error(`Failed to upload to Google Drive: ${error}`)
+      }
+    }
+
+    // Should never reach here, but TypeScript needs it
+    throw new Error(`Failed to upload to Google Drive after ${MAX_RETRIES + 1} attempts: ${lastError}`)
   }
 
   /**
