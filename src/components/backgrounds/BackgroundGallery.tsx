@@ -3,42 +3,80 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Download, MoreVertical, Trash2, Image as ImageIcon } from 'lucide-react'
+import {
+  Download,
+  MoreVertical,
+  Trash2,
+  Image as ImageIcon,
+  Pencil,
+  Copy,
+  Loader2,
+} from 'lucide-react'
 import { toast } from 'sonner'
+import { FORMATS } from '@/lib/formats'
 
 interface Background {
   id: string
   name: string
   slug: string
   description: string | null
+  format: string
+  width: number | null
+  height: number | null
   storage_url: string
+  prompt_used: string | null
   created_at: string
 }
 
 interface BackgroundGalleryProps {
   categoryId: string
-  format?: string // NEW: Format filter
+  format?: string
   refreshTrigger?: number
+  onRegenerateInFormats?: (background: Background, formats: string[]) => void
 }
 
 export function BackgroundGallery({
   categoryId,
-  format, // NEW
+  format,
   refreshTrigger,
+  onRegenerateInFormats,
 }: BackgroundGalleryProps) {
   const [backgrounds, setBackgrounds] = useState<Background[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Rename state
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false)
+  const [renamingBackground, setRenamingBackground] = useState<Background | null>(null)
+  const [newName, setNewName] = useState('')
+  const [isSavingName, setIsSavingName] = useState(false)
+
+  // Regenerate in other formats state
+  const [regenDialogOpen, setRegenDialogOpen] = useState(false)
+  const [regenBackground, setRegenBackground] = useState<Background | null>(null)
+  const [regenFormats, setRegenFormats] = useState<string[]>([])
+  const [isRegenerating, setIsRegenerating] = useState(false)
+
   const fetchBackgrounds = async () => {
     try {
-      // NEW: Add format query parameter
       const url = format
         ? `/api/categories/${categoryId}/backgrounds?format=${format}`
         : `/api/categories/${categoryId}/backgrounds`
@@ -61,7 +99,7 @@ export function BackgroundGallery({
 
   useEffect(() => {
     fetchBackgrounds()
-  }, [categoryId, format, refreshTrigger]) // NEW: Added format to dependencies
+  }, [categoryId, format, refreshTrigger])
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete "${name}"? This action cannot be undone.`)) {
@@ -73,9 +111,7 @@ export function BackgroundGallery({
     try {
       const response = await fetch(
         `/api/categories/${categoryId}/backgrounds/${id}`,
-        {
-          method: 'DELETE',
-        }
+        { method: 'DELETE' }
       )
 
       const data = await response.json()
@@ -103,6 +139,130 @@ export function BackgroundGallery({
     toast.success('Download started')
   }
 
+  // Rename handlers
+  const openRenameDialog = (background: Background) => {
+    setRenamingBackground(background)
+    setNewName(background.name)
+    setRenameDialogOpen(true)
+  }
+
+  const handleRename = async () => {
+    if (!renamingBackground || !newName.trim()) return
+
+    setIsSavingName(true)
+    try {
+      const response = await fetch(
+        `/api/categories/${categoryId}/backgrounds/${renamingBackground.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName.trim() }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (response.ok) {
+        toast.success('Background renamed')
+        setRenameDialogOpen(false)
+        fetchBackgrounds()
+      } else {
+        toast.error(data.error || 'Failed to rename background')
+      }
+    } catch (error) {
+      console.error('Error renaming background:', error)
+      toast.error('Failed to rename background')
+    } finally {
+      setIsSavingName(false)
+    }
+  }
+
+  // Regenerate in other formats handlers
+  const openRegenDialog = (background: Background) => {
+    setRegenBackground(background)
+    // Pre-select all formats EXCEPT the one this background already is
+    const otherFormats = Object.keys(FORMATS).filter((f) => f !== background.format)
+    setRegenFormats(otherFormats)
+    setRegenDialogOpen(true)
+  }
+
+  const handleRegenerate = async () => {
+    if (!regenBackground || regenFormats.length === 0) return
+
+    if (!regenBackground.prompt_used) {
+      toast.error('This background has no saved prompt — cannot regenerate.')
+      return
+    }
+
+    setIsRegenerating(true)
+    try {
+      // If parent provided a callback, use it (for workspace-level generation)
+      if (onRegenerateInFormats) {
+        onRegenerateInFormats(regenBackground, regenFormats)
+        setRegenDialogOpen(false)
+        return
+      }
+
+      // Otherwise call generate API directly and save each result
+      const response = await fetch(
+        `/api/categories/${categoryId}/backgrounds/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userPrompt: regenBackground.prompt_used,
+            count: 1,
+            formats: regenFormats,
+          }),
+        }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate backgrounds')
+      }
+
+      // Save each generated background
+      let savedCount = 0
+      for (const bg of data.backgrounds || []) {
+        try {
+          const saveName = `${regenBackground.name} (${bg.format})`
+          const saveResponse = await fetch(
+            `/api/categories/${categoryId}/backgrounds`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: saveName,
+                description: regenBackground.description || `Regenerated from ${regenBackground.name}`,
+                promptUsed: regenBackground.prompt_used,
+                imageData: bg.imageData,
+                mimeType: bg.mimeType,
+                format: bg.format,
+              }),
+            }
+          )
+
+          if (saveResponse.ok) {
+            savedCount++
+          }
+        } catch (err) {
+          console.error(`Failed to save ${bg.format} variant:`, err)
+        }
+      }
+
+      toast.success(`Generated and saved ${savedCount} format variant${savedCount > 1 ? 's' : ''}!`)
+      setRegenDialogOpen(false)
+      fetchBackgrounds()
+    } catch (error: any) {
+      console.error('Error regenerating:', error)
+      toast.error(error.message || 'Failed to regenerate')
+    } finally {
+      setIsRegenerating(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -126,64 +286,213 @@ export function BackgroundGallery({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {backgrounds.map((background) => (
-        <Card key={background.id} className="group overflow-hidden">
-          <div className="relative aspect-video bg-muted">
-            <img
-              src={background.storage_url}
-              alt={background.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.currentTarget.src =
-                  'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23ddd" width="400" height="300"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage%3C/text%3E%3C/svg%3E'
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {backgrounds.map((background) => (
+          <Card key={background.id} className="group overflow-hidden">
+            <div className="relative aspect-video bg-muted">
+              <img
+                src={background.storage_url}
+                alt={background.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  const target = e.currentTarget
+                  // Try alternate URL format before showing placeholder
+                  if (target.dataset.retried !== 'true') {
+                    target.dataset.retried = 'true'
+                    // Try without sz parameter (some files work better this way)
+                    const url = background.storage_url
+                    if (url.includes('thumbnail?id=')) {
+                      target.src = url.replace(/&sz=w\d+/, '&sz=w1000')
+                    }
+                  } else {
+                    target.src =
+                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f1f5f9" width="400" height="300"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
+                  }
+                }}
+              />
+
+              {/* Format badge */}
+              {background.format && (
+                <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-mono font-semibold px-2 py-0.5 rounded">
+                  {background.format}
+                </div>
+              )}
+
+              {/* Actions Overlay */}
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      disabled={deletingId === background.id}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => openRenameDialog(background)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleDownload(background)}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openRegenDialog(background)}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Generate Other Formats
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => handleDelete(background.id, background.name)}
+                      className="text-red-600 focus:text-red-600"
+                      disabled={deletingId === background.id}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </div>
+
+            <div className="p-4 space-y-1">
+              <h3 className="font-medium line-clamp-1">{background.name}</h3>
+              {background.description && (
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {background.description}
+                </p>
+              )}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span>{new Date(background.created_at).toLocaleDateString()}</span>
+                {background.width && background.height && (
+                  <span>&middot; {background.width}x{background.height}</span>
+                )}
+              </div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      {/* Rename Dialog */}
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Background</DialogTitle>
+            <DialogDescription>
+              Enter a new name for this background
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="rename-input">Name</Label>
+            <Input
+              id="rename-input"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Background name"
+              maxLength={100}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRename()
               }}
             />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRename}
+              disabled={!newName.trim() || isSavingName}
+            >
+              {isSavingName ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-            {/* Actions Overlay */}
-            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                    disabled={deletingId === background.id}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => handleDownload(background)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDelete(background.id, background.name)}
-                    className="text-red-600 focus:text-red-600"
-                    disabled={deletingId === background.id}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+      {/* Generate Other Formats Dialog */}
+      <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Generate Other Formats</DialogTitle>
+            <DialogDescription>
+              Re-generate &quot;{regenBackground?.name}&quot; in different aspect ratios using the same prompt.
+              {!regenBackground?.prompt_used && (
+                <span className="block mt-1 text-yellow-600">
+                  This background has no saved prompt. Regeneration is not available.
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          {regenBackground?.prompt_used && (
+            <div className="space-y-4">
+              <div className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                <span className="font-medium">Original prompt:</span> {regenBackground.prompt_used}
+              </div>
+
+              <div className="space-y-2">
+                <Label>Select formats to generate</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {Object.values(FORMATS).map((f) => {
+                    const isCurrentFormat = f.format === regenBackground.format
+                    return (
+                      <div key={f.format} className="flex items-center gap-2">
+                        <Checkbox
+                          id={`regen-format-${f.format}`}
+                          checked={regenFormats.includes(f.format)}
+                          disabled={isCurrentFormat || isRegenerating}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setRegenFormats((prev) => [...prev, f.format])
+                            } else {
+                              setRegenFormats((prev) =>
+                                prev.filter((fmt) => fmt !== f.format)
+                              )
+                            }
+                          }}
+                        />
+                        <label
+                          htmlFor={`regen-format-${f.format}`}
+                          className={`text-sm cursor-pointer flex items-center gap-2 ${isCurrentFormat ? 'opacity-50' : ''}`}
+                        >
+                          <span className="font-mono font-semibold">{f.format}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {isCurrentFormat ? '(current)' : f.description}
+                          </span>
+                        </label>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
-          <div className="p-4 space-y-1">
-            <h3 className="font-medium line-clamp-1">{background.name}</h3>
-            {background.description && (
-              <p className="text-sm text-muted-foreground line-clamp-2">
-                {background.description}
-              </p>
-            )}
-            <p className="text-xs text-muted-foreground">
-              {new Date(background.created_at).toLocaleDateString()}
-            </p>
-          </div>
-        </Card>
-      ))}
-    </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenDialogOpen(false)} disabled={isRegenerating}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleRegenerate}
+              disabled={!regenBackground?.prompt_used || regenFormats.length === 0 || isRegenerating}
+            >
+              {isRegenerating ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                `Generate ${regenFormats.length} Format${regenFormats.length > 1 ? 's' : ''}`
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

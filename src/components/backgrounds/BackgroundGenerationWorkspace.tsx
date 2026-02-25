@@ -81,7 +81,7 @@ export function BackgroundGenerationWorkspace({
         />
       )}
 
-      {/* Saved Backgrounds */}
+      {/* Saved Backgrounds — show all formats */}
       <Tabs defaultValue="gallery" className="w-full">
         <TabsList>
           <TabsTrigger value="gallery">Saved Backgrounds</TabsTrigger>
@@ -89,7 +89,6 @@ export function BackgroundGenerationWorkspace({
         <TabsContent value="gallery" className="mt-6">
           <BackgroundGallery
             categoryId={category.id}
-            format={format}
             refreshTrigger={refreshKey}
           />
         </TabsContent>

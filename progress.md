@@ -1,6 +1,6 @@
 # AdForge - Implementation Progress
 
-**Last Updated:** 2026-02-24
+**Last Updated:** 2026-02-25
 
 ---
 
@@ -154,6 +154,57 @@
 
 ---
 
+### GDrive Asset Format Audit & Fix (2026-02-25):
+- [x] **Full asset format audit** — audited all composites, backgrounds, and angled shots across GDrive and Supabase
+  - Scripts: `scripts/audit-composite-formats.mjs`, `scripts/audit-all-assets-formats.mjs`, `scripts/audit-background-pipeline.mjs`
+  - 7 composites moved from wrong GDrive folder (1x1 → 16x9), Supabase metadata fixed
+  - 2 backgrounds corrected (format 1:1 → 16:9), GDrive files moved
+  - 58 angled shots dimensions updated in Supabase to match actual GDrive image sizes
+  - Final: 77/77 assets verified correct, 0 mismatches
+  - Committed as `4d5c8d7`
+
+### Background Pipeline Fixes & Features (2026-02-25):
+- [x] **Max generation cap raised from 10 to 20** — users can now generate up to 5 variations × 4 formats = 20 backgrounds at once
+  - Files: `BackgroundGenerationForm.tsx`, `generate/route.ts`
+  - Slider max raised from 4 to 5 variations
+
+- [x] **look_and_feel form field now functional** — previously the editable textarea in the generation form was cosmetic; user edits were silently discarded. Now the API route uses the form-submitted value when provided, falling back to the DB value.
+  - File: `src/app/api/categories/[id]/backgrounds/generate/route.ts`
+  - Logic: `const resolvedLookAndFeel = (lookAndFeel && lookAndFeel.trim()) || category.look_and_feel`
+
+- [x] **Broken images ROOT CAUSE FIXED** — all 80 GDrive files (7 backgrounds, 12 composites, 58 angled shots, 3 product images) were missing public share permissions. The thumbnail URLs were valid but GDrive returned errors because files weren't shared.
+  - Script: `scripts/fix-sharing-all-assets.mjs` — set `role: reader, type: anyone` on all 80 files
+  - Note: the upload code (`gdrive-adapter.ts` line 152) already sets permissions on new uploads; this only affected pre-existing files
+  - Also improved gallery `onError` handler with retry mechanism as a defensive measure
+
+- [x] **Format badges on saved backgrounds** — each card in the gallery now shows a format badge (e.g., "1:1", "16:9") and dimensions
+
+- [x] **Rename saved backgrounds** — new "Rename" option in the dropdown menu, opens a dialog to edit the name
+  - API: `PATCH /api/categories/[id]/backgrounds/[backgroundId]` added
+  - API: `GET /api/categories/[id]/backgrounds/[backgroundId]` added
+  - File: `src/app/api/categories/[id]/backgrounds/[backgroundId]/route.ts`
+
+- [x] **Generate other formats from saved background** — new "Generate Other Formats" option in the dropdown menu. Uses the saved prompt to re-generate the background in all other aspect ratios, auto-saves each result.
+  - File: `src/components/backgrounds/BackgroundGallery.tsx`
+  - Shows original prompt (read-only), checkboxes for target formats (current format disabled)
+  - Auto-saves with name pattern: `{original name} ({format})`
+
+- [x] **Gallery shows all formats** — saved backgrounds tab no longer filters by the current format selector; it shows all backgrounds across all formats with format badges
+  - File: `src/components/backgrounds/BackgroundGenerationWorkspace.tsx`
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `src/app/api/categories/[id]/backgrounds/generate/route.ts` | Raised cap 10→20, use form-submitted lookAndFeel |
+| `src/app/api/categories/[id]/backgrounds/[backgroundId]/route.ts` | Added GET and PATCH handlers |
+| `src/components/backgrounds/BackgroundGenerationForm.tsx` | Raised cap 10→20, slider max 4→5 |
+| `src/components/backgrounds/BackgroundGallery.tsx` | Full rewrite: rename, format badges, regen in other formats, better image error handling |
+| `src/components/backgrounds/BackgroundGenerationWorkspace.tsx` | Gallery shows all formats (removed format filter) |
+| `scripts/fix-greenworld-folder.mjs` | Fixed greenworld category gdrive_folder_id + verified all background URLs |
+| `scripts/fix-sharing-all-assets.mjs` | Fixed sharing permissions on all 80 GDrive assets |
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:
@@ -232,3 +283,11 @@ Safe Zones/Templates (1) ← THE BLUEPRINT
 - All positioning stored as percentages (scale-independent)
 - Templates ensure brand compliance from the start
 - The @ reference system will be critical for cross-step asset reuse
+
+## ⚠️ Known Issues
+
+| Priority | Item | Status |
+|----------|------|--------|
+| ~~Low~~ | ~~greenworld category missing `gdrive_folder_id`~~ | FIXED — found existing folder `1lK3ITFc4u-BG-ypqtyQxMz39BQSXmZEG`, linked to category |
+| Info | Style reference images: backend accepts `referenceAssetIds` to guide Gemini style, but no UI picker exists yet | Future enhancement — not a bug, purely additive |
+| Info | `composites` table has no `updated_at` column | By design — discovered during audit |

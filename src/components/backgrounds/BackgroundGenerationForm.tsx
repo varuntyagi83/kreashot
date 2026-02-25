@@ -66,8 +66,8 @@ export function BackgroundGenerationForm({
       return
     }
 
-    if (totalGenerations > 10) {
-      toast.error('Too many combinations. Reduce the count or number of formats (max 10 total).')
+    if (totalGenerations > 20) {
+      toast.error('Too many combinations. Reduce the count or number of formats (max 20 total).')
       return
     }
 
@@ -181,7 +181,7 @@ export function BackgroundGenerationForm({
             value={[count]}
             onValueChange={(value) => setCount(value[0])}
             min={1}
-            max={4}
+            max={5}
             step={1}
             className="w-full"
           />
@@ -223,8 +223,8 @@ export function BackgroundGenerationForm({
           <p className="text-xs text-muted-foreground">
             {selectedFormats.length} format{selectedFormats.length !== 1 ? 's' : ''} selected
             &middot; {totalGenerations} total generation{totalGenerations !== 1 ? 's' : ''}
-            {totalGenerations > 10 && (
-              <span className="text-red-500 ml-1">(max 10)</span>
+            {totalGenerations > 20 && (
+              <span className="text-red-500 ml-1">(max 20)</span>
             )}
           </p>
         </div>
@@ -232,7 +232,7 @@ export function BackgroundGenerationForm({
         {/* Generate Button */}
         <Button
           onClick={handleGenerate}
-          disabled={isGenerating || !userPrompt.trim() || selectedFormats.length === 0 || totalGenerations > 10}
+          disabled={isGenerating || !userPrompt.trim() || selectedFormats.length === 0 || totalGenerations > 20}
           className="w-full"
           size="lg"
         >

@@ -43,6 +43,7 @@ export async function POST(
     const {
       prompt,
       userPrompt,
+      lookAndFeel,        // User-edited look & feel from the form
       count = 1,
       referenceAssetIds,
       formats,            // NEW: Array of formats
@@ -76,14 +77,17 @@ export async function POST(
     }
 
     const totalGenerations = count * formatsToGenerate.length
-    if (totalGenerations > 10) {
+    if (totalGenerations > 20) {
       return NextResponse.json(
-        { error: `Too many generations (${totalGenerations}). Reduce count or number of formats (max 10 total).` },
+        { error: `Too many generations (${totalGenerations}). Reduce count or number of formats (max 20 total).` },
         { status: 400 }
       )
     }
 
-    if (!category.look_and_feel) {
+    // Use form-submitted lookAndFeel if provided, otherwise fall back to DB value
+    const resolvedLookAndFeel = (lookAndFeel && lookAndFeel.trim()) || category.look_and_feel
+
+    if (!resolvedLookAndFeel) {
       return NextResponse.json(
         {
           error:
@@ -167,7 +171,7 @@ export async function POST(
       `Generating ${count} background(s) x ${formatsToGenerate.length} format(s) for category ${category.name}...`
     )
     console.log(`Prompt: ${resolvedPrompt}`)
-    console.log(`Look & Feel: ${category.look_and_feel}`)
+    console.log(`Look & Feel: ${resolvedLookAndFeel}`)
     console.log(`Style references: ${styleReferenceImages.length}`)
     console.log(`Formats: ${formatsToGenerate.join(', ')}`)
 
@@ -186,7 +190,7 @@ export async function POST(
 
       const generatedBackgrounds = await generateBackgrounds(
         resolvedPrompt,
-        category.look_and_feel,
+        resolvedLookAndFeel,
         count,
         styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
         fmt,
