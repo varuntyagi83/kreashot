@@ -5,6 +5,7 @@ import { CopyGenerationForm } from './CopyGenerationForm'
 import { CopyPreviewGrid } from './CopyPreviewGrid'
 import { CopyGallery } from './CopyGallery'
 import { BrandVoiceExtractor } from './BrandVoiceExtractor'
+import { BrandVoiceSelector } from './BrandVoiceSelector'
 import type { BrandVoiceProfile } from '@/lib/ai/brand-voice'
 
 interface GeneratedCopy {
@@ -35,6 +36,8 @@ export function CopyWorkspace({ category, format }: CopyWorkspaceProps) {
   const [brandVoice, setBrandVoice] = useState<BrandVoiceProfile | null>(
     category.brand_voice ?? null
   )
+  const [selectedBrandVoiceId, setSelectedBrandVoiceId] = useState<string | null>(null)
+  const [voicesRefreshKey, setVoicesRefreshKey] = useState(0)
 
   const handleGenerate = (copies: GeneratedCopy[], brief: string, copyType: string) => {
     setGeneratedCopies(copies)
@@ -50,18 +53,28 @@ export function CopyWorkspace({ category, format }: CopyWorkspaceProps) {
 
   return (
     <div className="space-y-6">
-      {/* Brand Voice Extractor — shown above the generation form */}
+      {/* Brand Voice Extractor — extract new voices */}
       <BrandVoiceExtractor
         categoryId={category.id}
         lookAndFeel={category.look_and_feel || undefined}
         initialProfile={brandVoice}
         onProfileChange={setBrandVoice}
+        onSavedToLibrary={() => setVoicesRefreshKey((k) => k + 1)}
+      />
+
+      {/* Brand Voice Selector — pick from saved library */}
+      <BrandVoiceSelector
+        categoryBrandVoice={brandVoice}
+        selectedVoiceId={selectedBrandVoiceId}
+        onSelect={setSelectedBrandVoiceId}
+        refreshKey={voicesRefreshKey}
       />
 
       <CopyGenerationForm
         categoryId={category.id}
         lookAndFeel={category.look_and_feel || ''}
         brandDocName={category.brand_doc_name}
+        brandVoiceId={selectedBrandVoiceId}
         onGenerate={handleGenerate}
         isGenerating={isGenerating}
         setIsGenerating={setIsGenerating}

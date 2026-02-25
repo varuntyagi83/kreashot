@@ -210,10 +210,58 @@
 
 ---
 
+### Brand Voice Library + Campaign Tone (2026-02-25):
+- [x] **Two-tier brand voice system** — saved brand voice library (user-level) + campaign tone per generation
+  - New table: `brand_voices` (id, user_id, name, profile JSONB, is_default)
+  - Migration: `supabase/migrations/20260225_brand_voices.sql`
+  - RLS: users can only manage their own brand voices
+  - Unique constraint on (user_id, name), partial unique index for single default per user
+
+- [x] **Brand Voices API** — full CRUD
+  - `GET /api/brand-voices` — list user's saved voices (name, tone_words preview, is_default)
+  - `POST /api/brand-voices` — save a named voice with profile
+  - `PUT /api/brand-voices/[id]` — rename or toggle default
+  - `DELETE /api/brand-voices/[id]` — remove from library
+
+- [x] **BrandVoiceSelector dropdown** — new component in Copy tab
+  - Shows: "Category Voice" + all named voices from library
+  - Default voice auto-selected on load
+  - Tone words preview + delete action per voice
+  - File: `src/components/copy/BrandVoiceSelector.tsx`
+
+- [x] **Save to Library** — added to BrandVoiceExtractor
+  - After extracting a brand voice, user can name and save it to their voice library
+  - Inline name input + save button in the profile summary card
+  - Dropdown refreshes automatically after saving
+
+- [x] **Campaign Tone** — relabeled existing tone selector
+  - "Tones" → "Campaign Tone" in CopyGenerationForm
+  - Added 3 new tones: Educational, Promotional, Seasonal (total 8)
+  - Each campaign tone generates a separate version of every copy type
+
+- [x] **Copy generation uses selected voice** — API accepts `brandVoiceId`
+  - If brandVoiceId provided, fetches voice from `brand_voices` table (with user ownership check)
+  - Falls back to `category.brand_voice` if no library voice selected (100% backwards compatible)
+  - File: `src/app/api/categories/[id]/copy-docs/generate/route.ts`
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `supabase/migrations/20260225_brand_voices.sql` | NEW — brand_voices table with RLS |
+| `src/app/api/brand-voices/route.ts` | NEW — GET list, POST create |
+| `src/app/api/brand-voices/[id]/route.ts` | NEW — PUT update, DELETE |
+| `src/components/copy/BrandVoiceSelector.tsx` | NEW — dropdown for voice selection |
+| `src/components/copy/BrandVoiceExtractor.tsx` | Added "Save to Library" button + name input |
+| `src/components/copy/CopyWorkspace.tsx` | Wired up BrandVoiceSelector, passes brandVoiceId |
+| `src/components/copy/CopyGenerationForm.tsx` | Accept brandVoiceId, relabel tones → campaign tone, +3 tones |
+| `src/app/api/categories/[id]/copy-docs/generate/route.ts` | Accept brandVoiceId, fetch from brand_voices |
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:
-**NOTHING - Ready for next step**
+**Brand voice migration needs to be run against Supabase**
 
 ---
 

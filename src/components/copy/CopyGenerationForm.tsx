@@ -25,6 +25,9 @@ const TONES = [
   { id: 'playful',      label: 'Playful',      color: 'bg-yellow-500' },
   { id: 'urgent',       label: 'Urgent',       color: 'bg-red-500' },
   { id: 'empathetic',   label: 'Empathetic',   color: 'bg-purple-500' },
+  { id: 'educational',  label: 'Educational',  color: 'bg-teal-500' },
+  { id: 'promotional',  label: 'Promotional',  color: 'bg-orange-500' },
+  { id: 'seasonal',     label: 'Seasonal',     color: 'bg-emerald-500' },
 ]
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ interface CopyGenerationFormProps {
   categoryId: string
   lookAndFeel: string
   brandDocName?: string | null
+  brandVoiceId?: string | null
   onGenerate: (copies: any[], brief: string, copyType: string) => void
   isGenerating: boolean
   setIsGenerating: (value: boolean) => void
@@ -45,6 +49,7 @@ export function CopyGenerationForm({
   categoryId,
   lookAndFeel,
   brandDocName,
+  brandVoiceId,
   onGenerate,
   isGenerating,
   setIsGenerating,
@@ -137,6 +142,7 @@ export function CopyGenerationForm({
           copyTypes: selectedTypes,
           tones: selectedTones,
           targetAudience: targetAudience.trim() || undefined,
+          brandVoiceId: brandVoiceId || undefined,
         }),
       })
 
@@ -264,10 +270,10 @@ export function CopyGenerationForm({
         </div>
       </div>
 
-      {/* Tones */}
+      {/* Campaign Tone */}
       <div className="space-y-3">
         <Label>
-          Tones <span className="text-destructive">*</span>
+          Campaign Tone <span className="text-destructive">*</span>
         </Label>
         <div className="flex flex-wrap gap-2">
           {TONES.map((tone) => {
@@ -290,7 +296,7 @@ export function CopyGenerationForm({
           })}
         </div>
         <p className="text-xs text-muted-foreground">
-          Each selected tone generates a separate version of every copy type.
+          Each selected campaign tone generates a separate version of every copy type.
         </p>
       </div>
 
@@ -312,7 +318,7 @@ export function CopyGenerationForm({
       <div className="space-y-3 pt-2 border-t">
         <div className="flex items-center justify-between text-sm">
           <span className="text-muted-foreground">
-            {selectedTypes.length} types × {selectedTones.length} tones
+            {selectedTypes.length} types × {selectedTones.length} campaign tones
           </span>
           <span className="font-semibold">
             {totalCombinations} combinations

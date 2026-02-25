@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
 import {
   Mic2,
   Sparkles,
@@ -21,6 +22,7 @@ import {
   X,
   Plus,
   CheckCircle2,
+  Save,
 } from 'lucide-react'
 import type { BrandVoiceProfile } from '@/lib/ai/brand-voice'
 
@@ -29,6 +31,7 @@ interface BrandVoiceExtractorProps {
   lookAndFeel?: string
   initialProfile?: BrandVoiceProfile | null
   onProfileChange?: (profile: BrandVoiceProfile | null) => void
+  onSavedToLibrary?: () => void
 }
 
 // ── Q&A questions ─────────────────────────────────────────────────────────────
@@ -84,10 +87,38 @@ export function BrandVoiceExtractor({
   lookAndFeel,
   initialProfile,
   onProfileChange,
+  onSavedToLibrary,
 }: BrandVoiceExtractorProps) {
   const [profile, setProfile] = useState<BrandVoiceProfile | null>(initialProfile ?? null)
   const [expanded, setExpanded] = useState(!initialProfile)
   const [extracting, setExtracting] = useState(false)
+
+  // Save to library state
+  const [showSaveInput, setShowSaveInput] = useState(false)
+  const [voiceName, setVoiceName] = useState('')
+  const [savingToLibrary, setSavingToLibrary] = useState(false)
+
+  const handleSaveToLibrary = async () => {
+    if (!voiceName.trim() || !profile) return
+    setSavingToLibrary(true)
+    try {
+      const res = await fetch('/api/brand-voices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: voiceName.trim(), profile }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to save')
+      toast.success(`Brand voice "${voiceName.trim()}" saved to library!`)
+      setShowSaveInput(false)
+      setVoiceName('')
+      onSavedToLibrary?.()
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save brand voice')
+    } finally {
+      setSavingToLibrary(false)
+    }
+  }
 
   // Fetch brand voice from backend on mount if not provided via props.
   // This handles the case where Radix Tabs unmounts/remounts the component.
@@ -226,6 +257,16 @@ export function BrandVoiceExtractor({
                 variant="ghost"
                 size="sm"
                 className="h-7 text-xs"
+                onClick={() => setShowSaveInput(true)}
+                disabled={showSaveInput}
+              >
+                <Save className="h-3 w-3 mr-1" />
+                Save to Library
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs"
                 onClick={() => setExpanded(true)}
               >
                 Edit
@@ -242,6 +283,36 @@ export function BrandVoiceExtractor({
           </div>
         </CardHeader>
         <CardContent className="space-y-4 pt-0">
+
+          {/* Save to library inline */}
+          {showSaveInput && (
+            <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
+              <Input
+                placeholder="Voice name (e.g., Sunday Natural Voice)"
+                value={voiceName}
+                onChange={(e) => setVoiceName(e.target.value)}
+                className="h-8 text-sm"
+                disabled={savingToLibrary}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveToLibrary()}
+              />
+              <Button
+                size="sm"
+                className="h-8 shrink-0"
+                onClick={handleSaveToLibrary}
+                disabled={savingToLibrary || !voiceName.trim()}
+              >
+                {savingToLibrary ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Save'}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 shrink-0"
+                onClick={() => { setShowSaveInput(false); setVoiceName('') }}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
 
           {/* Tone words */}
           <div className="flex flex-wrap gap-1.5">
