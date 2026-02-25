@@ -10,7 +10,7 @@ function getOpenAI(): OpenAI {
     if (!apiKey) {
       throw new Error('OPENAI_API_KEY environment variable is missing')
     }
-    openaiClient = new OpenAI({ apiKey })
+    openaiClient = new OpenAI({ apiKey, timeout: 60000 })
   }
   return openaiClient
 }
@@ -44,25 +44,30 @@ export async function generateCopyVariations(
   const systemPrompt = buildSystemPrompt(lookAndFeel, brandGuidelines, brandVoice)
   const prompt = buildCopyPrompt(brief, copyType, tone, targetAudience)
 
-  const results: CopyVariation[] = []
-  for (let i = 0; i < count; i++) {
-    const response = await getOpenAI().chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt },
-      ],
-      temperature: 0.8,
-      max_tokens: 500,
-    })
+  try {
+    const results: CopyVariation[] = []
+    for (let i = 0; i < count; i++) {
+      const response = await getOpenAI().chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 500,
+      })
 
-    results.push({
-      promptUsed: prompt,
-      generatedText: response.choices[0].message.content || '',
-    })
+      results.push({
+        promptUsed: prompt,
+        generatedText: response.choices[0]?.message?.content || '',
+      })
+    }
+
+    return results
+  } catch (error) {
+    console.error('Error generating copy variations:', error)
+    throw new Error(`Failed to generate copy: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
-
-  return results
 }
 
 /**
@@ -89,30 +94,35 @@ export async function generateCopyKit(
   }
 
   // Generate all in parallel
-  const results = await Promise.all(
-    combinations.map(async ({ copyType, tone }) => {
-      const prompt = buildCopyPrompt(brief, copyType, tone, targetAudience)
+  try {
+    const results = await Promise.all(
+      combinations.map(async ({ copyType, tone }) => {
+        const prompt = buildCopyPrompt(brief, copyType, tone, targetAudience)
 
-      const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 500,
+        const response = await getOpenAI().chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: prompt },
+          ],
+          temperature: 0.8,
+          max_tokens: 500,
+        })
+
+        return {
+          copyType,
+          tone,
+          promptUsed: prompt,
+          generatedText: response.choices[0]?.message?.content || '',
+        } as CopyKitItem
       })
+    )
 
-      return {
-        copyType,
-        tone,
-        promptUsed: prompt,
-        generatedText: response.choices[0].message.content || '',
-      } as CopyKitItem
-    })
-  )
-
-  return results
+    return results
+  } catch (error) {
+    console.error('Error generating copy kit:', error)
+    throw new Error(`Failed to generate copy kit: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  }
 }
 
 /**

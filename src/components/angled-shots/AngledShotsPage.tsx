@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -59,6 +59,7 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
   const [selectedAngles, setSelectedAngles] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const generatingRef = useRef(false)
   const [generatedAngles, setGeneratedAngles] = useState<GeneratedAngle[]>([])
   const [savedAngles, setSavedAngles] = useState<SavedAngledShot[]>([])
   const [saving, setSaving] = useState<Set<string>>(new Set())
@@ -137,6 +138,9 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
   }
 
   const handleGenerateAngles = async () => {
+    if (generatingRef.current) return
+    generatingRef.current = true
+
     if (!selectedProductId || !selectedImageId) {
       toast.error('Please select a product and image')
       return
@@ -177,6 +181,7 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
       toast.error('Failed to generate angled shots')
     } finally {
       setGenerating(false)
+      generatingRef.current = false
     }
   }
 

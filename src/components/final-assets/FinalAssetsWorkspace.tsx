@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -82,6 +82,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
   const [loading, setLoading] = useState(true)
   const [generating, setGenerating] = useState(false)
+  const generatingRef = useRef(false)
   const [assetName, setAssetName] = useState('')
 
   // Selected IDs
@@ -222,6 +223,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   }
 
   const handleGenerate = async () => {
+    if (generatingRef.current) return
+    generatingRef.current = true
+
     if (!assetName.trim()) {
       toast.error('Please enter a name for the ad')
       return
@@ -269,6 +273,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       toast.error(error.message)
     } finally {
       setGenerating(false)
+      generatingRef.current = false
     }
   }
 

@@ -97,29 +97,30 @@ export async function generateAngledShots(
       const batchResults = await Promise.all(batch.map(async (angle) => {
       console.log(`  → Starting ${angle.name}...`)
 
-      const prompt = `Create a variation of this product image showing: ${angle.description}.
+      const prompt = `PRIMARY DIRECTIVE — CAMERA ANGLE CHANGE:
+${angle.prompt}
 
-ANGLE INSTRUCTION: ${angle.prompt}
+Target view: ${angle.description}
+${lookAndFeel ? `\nSTYLE: ${lookAndFeel}` : ''}
+Aspect ratio: ${aspectRatio}
 
-${lookAndFeel ? `STYLE: ${lookAndFeel}\n\n` : ''}CRITICAL - DO NOT MODIFY THESE:
-✓ Keep ALL text EXACTLY as shown - do not change, rearrange, or create new text
-✓ Preserve the exact product design, colors, and materials
-✓ Maintain the same product shape and appearance
-✓ Keep the same background color and lighting style
-✓ Keep all props and surrounding objects in similar positions
-✓ The product must maintain its correct orientation (right-side up) - NEVER flip or invert it
-✓ Output must be in ${aspectRatio} aspect ratio
-
-ONLY CHANGE THIS:
-✗ Rotate the camera angle/viewpoint to: ${angle.description}
-✗ Adjust the camera position as described in the angle instruction
-
-Think of this as moving a camera around a stationary product on a turntable. The product stays the same, only your viewing angle changes.
-
-Return a high-quality professional product photograph from the new angle in ${aspectRatio} aspect ratio.`
+Generate a high-quality professional product photograph from this exact camera angle.`
 
       try {
         const requestBody = {
+          systemInstruction: {
+            parts: [{
+              text: `You are a professional product photographer operating a camera on a fixed turntable rig.
+
+ABSOLUTE RULES — NEVER VIOLATE THESE:
+- The product is PHYSICALLY FIXED on the turntable — it never changes shape, design, text, labels, colors, or orientation.
+- You can ONLY move the camera to a new position around or above the product.
+- ALL text, logos, and labels on the product must remain PIXEL-PERFECT — never alter, rearrange, or hallucinate text.
+- The product must always remain right-side up — NEVER flip or invert it.
+- Maintain the same background color, lighting style, and any surrounding props.
+- Output must match the requested aspect ratio exactly.`
+            }]
+          },
           contents: [{
             parts: [
               {
@@ -134,8 +135,8 @@ Return a high-quality professional product photograph from the new angle in ${as
             ]
           }],
           generationConfig: {
-            temperature: 0.55,
-            topP: 0.95,
+            temperature: 0.35,
+            topP: 0.9,
             maxOutputTokens: 32768,
             responseModalities: ['IMAGE'],
             imageConfig: {
@@ -145,11 +146,16 @@ Return a high-quality professional product photograph from the new angle in ${as
           }
         }
 
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 120000)
+
         const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
         })
+        clearTimeout(timeout)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -158,9 +164,11 @@ Return a high-quality professional product photograph from the new angle in ${as
 
         const data = await response.json()
 
-        if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-          const generatedBase64 = data.candidates[0].content.parts[0].inlineData.data
-          const generatedMimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'image/jpeg'
+        // Search all parts for image data (Gemini may return text in parts[0] and image in parts[1])
+        const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+        if (imagePart) {
+          const generatedBase64 = imagePart.inlineData.data
+          const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
           console.log(`  ✅ ${angle.name} done`)
           return {
             angleName: angle.name,
@@ -293,13 +301,18 @@ Return a professional product photography background.`
         }
 
         // Call Gemini API directly
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 120000)
+
         const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: controller.signal,
         })
+        clearTimeout(timeout)
 
         if (!response.ok) {
           const errorText = await response.text()
@@ -308,10 +321,11 @@ Return a professional product photography background.`
 
         const data = await response.json()
 
-        // Extract base64 image from response
-        if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-          const generatedBase64 = data.candidates[0].content.parts[0].inlineData.data
-          const generatedMimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'image/jpeg'
+        // Search all parts for image data
+        const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+        if (imagePart) {
+          const generatedBase64 = imagePart.inlineData.data
+          const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
           console.log(`  ✅ Background ${i + 1} done`)
           return {
             promptUsed: prompt,
@@ -502,13 +516,18 @@ Return a professional, advertisement-quality composite image with NO text of any
     }
 
     // Call Gemini API directly
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 120000)
+
     const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
     })
+    clearTimeout(timeout)
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -517,10 +536,11 @@ Return a professional, advertisement-quality composite image with NO text of any
 
     const data = await response.json()
 
-    // Extract base64 image from response
-    if (data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-      const generatedBase64 = data.candidates[0].content.parts[0].inlineData.data
-      const generatedMimeType = data.candidates[0].content.parts[0].inlineData.mimeType || 'image/jpeg'
+    // Search all parts for image data
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+    if (imagePart) {
+      const generatedBase64 = imagePart.inlineData.data
+      const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
 
       console.log(`   ✅ ${aspectRatio} composite generated successfully`)
 

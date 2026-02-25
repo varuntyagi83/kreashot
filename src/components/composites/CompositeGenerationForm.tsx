@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -52,6 +52,7 @@ export function CompositeGenerationForm({
   isGenerating,
   setIsGenerating,
 }: CompositeGenerationFormProps) {
+  const generatingRef = useRef(false)
   const [mode, setMode] = useState<'all_combinations' | 'selected'>(
     'selected'
   )
@@ -99,6 +100,9 @@ export function CompositeGenerationForm({
   }, [category.id, format])
 
   const handleGenerate = async () => {
+    if (generatingRef.current) return
+    generatingRef.current = true
+
     // Validation
     if (mode === 'selected' && (selectedShots.length === 0 || selectedBackgrounds.length === 0)) {
       toast.error('Please select at least one angled shot and one background')
@@ -166,6 +170,8 @@ export function CompositeGenerationForm({
       console.error('Error generating composites:', error)
       toast.error(error.message || 'Failed to generate composites')
       setIsGenerating(false)
+    } finally {
+      generatingRef.current = false
     }
   }
 

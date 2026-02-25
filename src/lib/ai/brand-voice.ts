@@ -122,7 +122,12 @@ ${JSON_SCHEMA}`
     response_format: { type: 'json_object' },
   })
 
-  const parsed = JSON.parse(response.choices[0].message.content || '{}')
+  let parsed
+  try {
+    parsed = JSON.parse(response.choices[0]?.message?.content || '{}')
+  } catch {
+    throw new Error('Brand voice extraction returned invalid JSON. Please try again.')
+  }
   return { ...parsed, extracted_from: 'text', extracted_at: new Date().toISOString() }
 }
 
@@ -157,7 +162,12 @@ ${JSON_SCHEMA}`
     response_format: { type: 'json_object' },
   })
 
-  const parsed = JSON.parse(response.choices[0].message.content || '{}')
+  let parsed
+  try {
+    parsed = JSON.parse(response.choices[0]?.message?.content || '{}')
+  } catch {
+    throw new Error('Brand voice extraction returned invalid JSON. Please try again.')
+  }
   return { ...parsed, extracted_from: 'qa', extracted_at: new Date().toISOString() }
 }
 
@@ -188,6 +198,9 @@ ${lookAndFeel ? `Brand Style Context: ${lookAndFeel}\n\n` : ''}Based on what you
 ${JSON_SCHEMA}`,
   })
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 120000)
+
   const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -199,7 +212,9 @@ ${JSON_SCHEMA}`,
         responseMimeType: 'application/json',
       },
     }),
+    signal: controller.signal,
   })
+  clearTimeout(timeout)
 
   if (!response.ok) {
     const err = await response.text()
@@ -208,7 +223,12 @@ ${JSON_SCHEMA}`,
 
   const data = await response.json()
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
-  const parsed = JSON.parse(text)
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    throw new Error('Brand voice image analysis returned invalid JSON. Please try again.')
+  }
   return { ...parsed, extracted_from: 'images', extracted_at: new Date().toISOString() }
 }
 

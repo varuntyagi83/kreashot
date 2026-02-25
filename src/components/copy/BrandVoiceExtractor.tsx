@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -88,6 +88,7 @@ export function BrandVoiceExtractor({
   const [profile, setProfile] = useState<BrandVoiceProfile | null>(initialProfile ?? null)
   const [expanded, setExpanded] = useState(!initialProfile)
   const [extracting, setExtracting] = useState(false)
+  const extractingRef = useRef(false)
   const [activeTab, setActiveTab] = useState<'qa' | 'text' | 'images'>('qa')
 
   // Q&A state
@@ -104,6 +105,8 @@ export function BrandVoiceExtractor({
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   const handleExtract = async () => {
+    if (extractingRef.current) return
+    extractingRef.current = true
     setExtracting(true)
     try {
       let body: any = { method: activeTab, lookAndFeel }
@@ -137,6 +140,7 @@ export function BrandVoiceExtractor({
       toast.error(error.message || 'Failed to extract brand voice')
     } finally {
       setExtracting(false)
+      extractingRef.current = false
     }
   }
 

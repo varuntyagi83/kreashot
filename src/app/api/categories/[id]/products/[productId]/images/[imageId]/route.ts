@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { deleteFile } from '@/lib/storage'
 
 // PATCH /api/categories/[id]/products/[productId]/images/[imageId] - Set as primary
 export async function PATCH(
@@ -100,13 +101,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from('product-images')
-      .remove([image.file_path])
-
-    if (storageError) {
+    // Delete from storage (use correct provider based on how the image was stored)
+    try {
+      if (image.storage_provider === 'gdrive' && image.gdrive_file_id) {
+        await deleteFile(image.gdrive_file_id, { provider: 'gdrive' })
+      } else {
+        const { error: storageError } = await supabase.storage
+          .from('product-images')
+          .remove([image.file_path])
+        if (storageError) {
+          console.error('Supabase storage deletion error:', storageError)
+        }
+      }
+    } catch (storageError) {
       console.error('Storage deletion error:', storageError)
+      // Continue with database cleanup even if storage deletion fails
     }
 
     // If this was the primary image, set another image as primary

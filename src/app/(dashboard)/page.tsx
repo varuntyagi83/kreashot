@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -7,6 +8,55 @@ import { Plus, FolderOpen, Palette, Sparkles } from 'lucide-react'
 
 export default function DashboardPage() {
   const { user } = useAuth()
+  const [categoryCount, setCategoryCount] = useState<number | null>(null)
+  const [productCount, setProductCount] = useState<number | null>(null)
+  const [creativeCount, setCreativeCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    async function fetchCounts() {
+      try {
+        const res = await fetch('/api/categories')
+        if (res.ok) {
+          const data = await res.json()
+          const categories = data.categories || []
+          setCategoryCount(categories.length)
+
+          let products = 0
+          let creatives = 0
+          for (const cat of categories) {
+            try {
+              const [prodRes, compRes, finalRes] = await Promise.all([
+                fetch(`/api/categories/${cat.id}/products`),
+                fetch(`/api/categories/${cat.id}/composites`),
+                fetch(`/api/categories/${cat.id}/final-assets`),
+              ])
+              if (prodRes.ok) {
+                const d = await prodRes.json()
+                products += (d.products || []).length
+              }
+              if (compRes.ok) {
+                const d = await compRes.json()
+                creatives += (d.composites || []).length
+              }
+              if (finalRes.ok) {
+                const d = await finalRes.json()
+                creatives += (d.finalAssets || d.assets || []).length
+              }
+            } catch {
+              // Skip individual category errors
+            }
+          }
+          setProductCount(products)
+          setCreativeCount(creatives)
+        }
+      } catch {
+        setCategoryCount(0)
+        setProductCount(0)
+        setCreativeCount(0)
+      }
+    }
+    fetchCounts()
+  }, [])
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -28,7 +78,7 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold">2</div>
+              <div className="text-3xl font-bold">{categoryCount ?? '–'}</div>
               <Button size="sm">
                 <Plus className="h-4 w-4 mr-1" />
                 New Category
@@ -41,13 +91,13 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Palette className="h-5 w-5" />
-              Brand Assets
+              Products
             </CardTitle>
-            <CardDescription>Logos, fonts, and colors</CardDescription>
+            <CardDescription>Uploaded product images</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between">
-              <div className="text-3xl font-bold">0</div>
+              <div className="text-3xl font-bold">{productCount ?? '–'}</div>
               <Button size="sm" variant="outline">
                 Upload Assets
               </Button>
@@ -64,7 +114,7 @@ export default function DashboardPage() {
             <CardDescription>Total creatives created</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">0</div>
+            <div className="text-3xl font-bold">{creativeCount ?? '–'}</div>
           </CardContent>
         </Card>
       </div>

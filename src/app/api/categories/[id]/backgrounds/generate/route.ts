@@ -41,17 +41,21 @@ export async function POST(
     const body = await request.json()
     const {
       prompt,
+      userPrompt,
       count = 1,
       referenceAssetIds,
       format = '1:1' // NEW: Format parameter
     } = body
+
+    // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
+    const resolvedPrompt = prompt || userPrompt
 
     // Validate format
     const formatDimensions = getFormatDimensions(format)
     console.log(`Generating ${format} backgrounds (${formatDimensions.width}x${formatDimensions.height})`)
 
     // Validation
-    if (!prompt) {
+    if (!resolvedPrompt) {
       return NextResponse.json(
         { error: 'prompt is required' },
         { status: 400 }
@@ -146,19 +150,28 @@ export async function POST(
     console.log(
       `Generating ${count} ${format} backgrounds for category ${category.name}...`
     )
-    console.log(`Prompt: ${prompt}`)
+    console.log(`Prompt: ${resolvedPrompt}`)
     console.log(`Look & Feel: ${category.look_and_feel}`)
     console.log(`Style references: ${styleReferenceImages.length}`)
     console.log(`Format: ${format} (${formatDimensions.width}x${formatDimensions.height})`)
 
     const generatedBackgrounds = await generateBackgrounds(
-      prompt,
+      resolvedPrompt,
       category.look_and_feel,
       count,
       styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
       format, // NEW: Pass aspect ratio
       '2K' // NEW: Image size
     )
+
+    const mappedBackgrounds = generatedBackgrounds.map((bg) => ({
+      promptUsed: bg.promptUsed,
+      imageData: bg.imageData,
+      mimeType: bg.mimeType,
+      // Legacy field names for backwards compatibility
+      image_base64: bg.imageData,
+      image_mime_type: bg.mimeType,
+    }))
 
     return NextResponse.json({
       message: `Generated ${generatedBackgrounds.length} background variations`,
@@ -167,11 +180,8 @@ export async function POST(
         name: category.name,
         slug: category.slug,
       },
-      results: generatedBackgrounds.map((bg) => ({
-        promptUsed: bg.promptUsed,
-        image_base64: bg.imageData,
-        image_mime_type: bg.mimeType,
-      })),
+      backgrounds: mappedBackgrounds,
+      results: mappedBackgrounds,
     })
   } catch (error) {
     console.error('Error generating backgrounds:', error)

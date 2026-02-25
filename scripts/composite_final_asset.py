@@ -14,7 +14,7 @@ import urllib.request
 
 def download_image(url):
     """Download image from URL and return PIL Image"""
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=30) as response:
         return Image.open(BytesIO(response.read()))
 
 
@@ -163,7 +163,11 @@ def composite_final_asset(
 
 if __name__ == '__main__':
     # Read input from stdin (JSON)
-    input_data = json.loads(sys.stdin.read())
+    try:
+        input_data = json.loads(sys.stdin.read())
+    except json.JSONDecodeError as e:
+        print(json.dumps({'success': False, 'error': f'Invalid JSON input: {e}'}))
+        sys.exit(1)
 
     template_data = input_data['template_data']
     composite_url = input_data['composite_url']

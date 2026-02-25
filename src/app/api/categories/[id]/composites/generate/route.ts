@@ -140,11 +140,11 @@ export async function POST(
       console.log(`Selected mode: ${compositionPairs.length} pairs`)
     }
 
-    // Limit to prevent excessive generation
-    if (compositionPairs.length > 50) {
+    // Limit to prevent excessive generation and memory issues
+    if (compositionPairs.length > 10) {
       return NextResponse.json(
         {
-          error: `Too many composites requested (${compositionPairs.length}). Maximum is 50. Use batch processing or reduce selection.`,
+          error: `Too many composites requested (${compositionPairs.length}). Maximum is 10 per batch. Use batch processing or reduce selection.`,
           total_combinations: compositionPairs.length,
         },
         { status: 400 }

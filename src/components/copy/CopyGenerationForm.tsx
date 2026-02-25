@@ -57,6 +57,7 @@ export function CopyGenerationForm({
   const [uploadingPdf, setUploadingPdf] = useState(false)
   const [currentBrandDoc, setCurrentBrandDoc] = useState<string | null>(brandDocName ?? null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const generatingRef = useRef(false)
 
   const totalCombinations = selectedTypes.length * selectedTones.length
 
@@ -118,7 +119,10 @@ export function CopyGenerationForm({
   // ── Generate ──────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
-    if (!brief.trim()) { toast.error('Please enter a brief'); return }
+    if (generatingRef.current) return
+    generatingRef.current = true
+
+    if (!brief.trim()) { toast.error('Please enter a brief'); generatingRef.current = false; return }
     if (selectedTypes.length === 0) { toast.error('Select at least one copy type'); return }
     if (selectedTones.length === 0) { toast.error('Select at least one tone'); return }
 
@@ -145,6 +149,7 @@ export function CopyGenerationForm({
       toast.error(error.message || 'Failed to generate copy')
     } finally {
       setIsGenerating(false)
+      generatingRef.current = false
     }
   }
 

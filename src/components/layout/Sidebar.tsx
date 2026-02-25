@@ -34,7 +34,7 @@ export function Sidebar() {
 
   useEffect(() => {
     fetchCategories()
-  }, [])
+  }, [pathname])
 
   const fetchCategories = async () => {
     try {
