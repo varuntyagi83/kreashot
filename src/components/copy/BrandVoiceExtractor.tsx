@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -88,6 +88,24 @@ export function BrandVoiceExtractor({
   const [profile, setProfile] = useState<BrandVoiceProfile | null>(initialProfile ?? null)
   const [expanded, setExpanded] = useState(!initialProfile)
   const [extracting, setExtracting] = useState(false)
+
+  // Fetch brand voice from backend on mount if not provided via props.
+  // This handles the case where Radix Tabs unmounts/remounts the component.
+  useEffect(() => {
+    if (profile) return
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch(`/api/categories/${categoryId}/brand-voice`)
+        const data = await res.json()
+        if (data.brand_voice) {
+          setProfile(data.brand_voice)
+          onProfileChange?.(data.brand_voice)
+          setExpanded(false)
+        }
+      } catch { /* ignore — form stays visible */ }
+    }
+    fetchProfile()
+  }, [categoryId]) // eslint-disable-line react-hooks/exhaustive-deps
   const extractingRef = useRef(false)
   const [activeTab, setActiveTab] = useState<'qa' | 'text' | 'images'>('qa')
 
