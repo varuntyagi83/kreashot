@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 
-// GET /api/references/search?q=query - Search brand assets and products
+// GET /api/references/search?q=query - Search brand assets, guidelines, and products
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
@@ -23,6 +23,14 @@ export async function GET(request: NextRequest) {
       .select('id, file_name, file_path, mime_type, storage_url, storage_path')
       .eq('user_id', user.id)
       .ilike('file_name', `%${query}%`)
+      .limit(5)
+
+    // Search brand guidelines library
+    const { data: guidelines } = await supabase
+      .from('brand_guidelines')
+      .select('id, name, source_file_name, is_default')
+      .eq('user_id', user.id)
+      .ilike('name', `%${query}%`)
       .limit(5)
 
     // Search products across all categories
@@ -48,6 +56,13 @@ export async function GET(request: NextRequest) {
       }
     })
 
+    const guidelineResults = (guidelines || []).map((g) => ({
+      id: g.id,
+      type: 'guideline' as const,
+      name: g.name,
+      isImage: false,
+    }))
+
     const productResults = (products || []).map((product: any) => ({
       id: product.id,
       type: 'product' as const,
@@ -56,7 +71,7 @@ export async function GET(request: NextRequest) {
       categoryId: product.category.id,
     }))
 
-    const results = [...brandAssetResults, ...productResults]
+    const results = [...guidelineResults, ...brandAssetResults, ...productResults]
 
     return NextResponse.json({ results })
   } catch (error) {

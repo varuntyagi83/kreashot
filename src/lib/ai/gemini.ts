@@ -23,7 +23,7 @@ export async function analyzeProductImage(
   mimeType: string = 'image/jpeg'
 ): Promise<string> {
   try {
-    const model = getGenAI().getGenerativeModel({ model: 'gemini-3-pro-image-preview' })
+    const model = getGenAI().getGenerativeModel({ model: 'gemini-3.1-pro-preview' })
 
     // Convert base64 to proper format if needed
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
@@ -217,8 +217,10 @@ export async function generateBackgrounds(
   lookAndFeel: string,
   count: number = 1,
   styleReferenceImages?: Array<{ data: string; mimeType: string }>,
-  aspectRatio: string = '1:1', // NEW: Aspect ratio (1:1, 16:9, 9:16, 4:5)
-  imageSize: string = '2K' // NEW: Image size (2K, 4K)
+  aspectRatio: string = '1:1',
+  imageSize: string = '2K',
+  brandGuidelines?: string,
+  brandColorDescription?: string // Pre-computed natural-language color description (from DB)
 ): Promise<
   Array<{
     promptUsed: string
@@ -244,25 +246,26 @@ export async function generateBackgrounds(
       console.log(`  → Starting background ${i + 1}/${count}...`)
 
       // Build the background generation prompt
-      const prompt = `Generate a high-quality product photography background in ${aspectRatio} aspect ratio with the following characteristics:
+      // Use pre-computed color description if available (saved at upload time in brand_guidelines.color_description)
+      const colorDesc = brandColorDescription || ''
+
+      const prompt = `${colorDesc ? `COLOR DIRECTIVE (HIGHEST PRIORITY — read this FIRST):
+${colorDesc}
+The dominant surface color (wall, backdrop) MUST be this exact color — a confident, clearly visible mid-tone. Not washed out, not pale, not faded, not gray. The hue must be unmistakable and saturated enough to be immediately recognizable.
+` : ''}Generate a ${aspectRatio} product photography background.
 
 Category Style: ${lookAndFeel}
+
 User Request: ${userPrompt}
 
-CRITICAL INSTRUCTIONS:
-- This is ONLY a background — no products, no text, no logos, no watermarks
-- The background should complement a product that will be composited on top later
-- Leave clear space in the center/foreground for a product to be placed
-- Match the lighting style to the category aesthetic
-- Professional, studio-quality output suitable for e-commerce
-- Aspect ratio: ${aspectRatio} (strictly enforced)
-- The scene should feel natural and inviting
-- Consider depth of field, lighting, and composition
-- Make it visually appealing and aligned with modern product photography trends
-
-${styleReferenceImages && styleReferenceImages.length > 0 ? 'Use the provided reference images as style guidance for colors, mood, and aesthetic.' : ''}
-
-Return a professional product photography background.`
+RULES:
+- Background ONLY — no products, no text, no logos, no watermarks
+- No objects, furniture, shelves, or props unless explicitly requested
+- Follow the user's description exactly
+- Professional studio quality, e-commerce ready
+- Aspect ratio: ${aspectRatio} (strict)
+${colorDesc ? '- Wall color is the SINGLE MOST IMPORTANT element — it must match the COLOR DIRECTIVE above' : ''}
+${styleReferenceImages && styleReferenceImages.length > 0 ? '- Use the provided reference images as style guidance for colors, mood, and aesthetic' : ''}`
 
       try {
         const contentParts: any[] = []
@@ -289,8 +292,8 @@ Return a professional product photography background.`
             parts: contentParts
           }],
           generationConfig: {
-            temperature: 0.7, // Higher for creative backgrounds
-            topP: 0.95,
+            temperature: 0.4, // Lower for accurate color/mood matching
+            topP: 0.9,
             maxOutputTokens: 32768,
             responseModalities: ['IMAGE'],
             imageConfig: {
@@ -316,28 +319,36 @@ Return a professional product photography background.`
 
         if (!response.ok) {
           const errorText = await response.text()
-          throw new Error(`Gemini API error: ${response.status} - ${errorText}`)
+          console.error(`  ❌ Gemini API ${response.status} for ${aspectRatio} bg ${i + 1}:`, errorText.substring(0, 500))
+          throw new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 200)}`)
         }
 
         const data = await response.json()
 
+        // Check for safety/blocked responses
+        const candidate = data.candidates?.[0]
+        if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+          console.warn(`  ⚠️  Background ${i + 1} finish reason: ${candidate.finishReason}`)
+        }
+
         // Search all parts for image data
-        const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+        const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data)
         if (imagePart) {
           const generatedBase64 = imagePart.inlineData.data
           const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-          console.log(`  ✅ Background ${i + 1} done`)
+          console.log(`  ✅ Background ${i + 1} done (${aspectRatio})`)
           return {
             promptUsed: prompt,
             imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
             mimeType: generatedMimeType,
           }
         } else {
-          console.warn(`  ⚠️  No image in response for background ${i + 1}`)
-          throw new Error('No image generated in response')
+          const responsePreview = JSON.stringify(data).substring(0, 300)
+          console.warn(`  ⚠️  No image in response for ${aspectRatio} background ${i + 1}. Response: ${responsePreview}`)
+          throw new Error(`No image generated for ${aspectRatio}`)
         }
       } catch (error) {
-        console.error(`  ❌ Error generating ${aspectRatio} background ${i + 1}:`, error)
+        console.error(`  ❌ Error generating ${aspectRatio} background ${i + 1}:`, error instanceof Error ? error.message : error)
         return null
       }
     }))

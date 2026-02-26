@@ -2,20 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Package, Image as ImageIcon, ExternalLink } from 'lucide-react'
+import { Package, Image as ImageIcon, ExternalLink, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface ParsedReference {
   type: 'text' | 'reference'
   content: string
-  referenceType?: 'brand-asset' | 'product'
+  referenceType?: 'brand-asset' | 'product' | 'guideline'
   referenceId?: string
   referenceName?: string
 }
 
 interface ReferenceDetails {
   id: string
-  type: 'brand-asset' | 'product'
+  type: 'brand-asset' | 'product' | 'guideline'
   name: string
   preview?: string
   isImage?: boolean
@@ -53,7 +53,7 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
         type: 'reference',
         content: match[0],
         referenceName: match[1],
-        referenceType: match[2] as 'brand-asset' | 'product',
+        referenceType: match[2] as 'brand-asset' | 'product' | 'guideline',
         referenceId: match[3],
       })
 
@@ -123,6 +123,20 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
               categoryId: productData.category.id,
             })
           }
+        } else if (ref.referenceType === 'guideline') {
+          const { data } = await supabase
+            .from('brand_guidelines')
+            .select('id, name, source_file_name')
+            .eq('id', ref.referenceId)
+            .single()
+
+          if (data) {
+            newReferences.set(key, {
+              id: data.id,
+              type: 'guideline',
+              name: data.name,
+            })
+          }
         }
       }
 
@@ -156,7 +170,9 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-primary/10 text-primary text-xs font-medium"
               title={details?.name || part.referenceName}
             >
-              {part.referenceType === 'brand-asset' ? (
+              {part.referenceType === 'guideline' ? (
+                <FileText className="h-3 w-3" />
+              ) : part.referenceType === 'brand-asset' ? (
                 <ImageIcon className="h-3 w-3" />
               ) : (
                 <Package className="h-3 w-3" />
@@ -175,7 +191,11 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
               key={`${ref.type}-${ref.id}`}
               className="flex items-center gap-2 p-2 border rounded-md hover:bg-accent transition-colors cursor-pointer text-xs"
             >
-              {ref.type === 'brand-asset' && ref.isImage && ref.preview ? (
+              {ref.type === 'guideline' ? (
+                <div className="w-12 h-12 bg-primary/10 rounded flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+              ) : ref.type === 'brand-asset' && ref.isImage && ref.preview ? (
                 <img
                   src={ref.preview}
                   alt={ref.name}
@@ -194,7 +214,11 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{ref.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {ref.type === 'brand-asset' ? 'Brand Asset' : `Product in ${ref.categoryName}`}
+                  {ref.type === 'guideline'
+                    ? 'Brand Guidelines'
+                    : ref.type === 'brand-asset'
+                      ? 'Brand Asset'
+                      : `Product in ${ref.categoryName}`}
                 </p>
               </div>
 

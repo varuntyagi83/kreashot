@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Card } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BackgroundGenerationForm } from './BackgroundGenerationForm'
+import { BrandGuidelinesManager } from '@/components/brand-guidelines/BrandGuidelinesManager'
 import { BackgroundPreviewGrid } from './BackgroundPreviewGrid'
 import { BackgroundGallery } from './BackgroundGallery'
 
@@ -60,6 +61,9 @@ export function BackgroundGenerationWorkspace({
           Generate AI backgrounds for {category.name} using Gemini AI
         </p>
       </div>
+
+      {/* Brand Guidelines Library */}
+      <BrandGuidelinesManager />
 
       {/* Generation Form */}
       <BackgroundGenerationForm

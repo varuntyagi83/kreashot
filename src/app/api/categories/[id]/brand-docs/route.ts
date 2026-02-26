@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { extractPdfText } from '@/lib/pdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,9 +62,9 @@ export async function POST(
       )
     }
 
-    // Truncate to a reasonable size for AI context (keep first ~8000 chars)
-    const truncatedText = extractedText.trim().substring(0, 8000)
-    const wasTruncated = extractedText.trim().length > 8000
+    // Truncate to a reasonable size for AI context (keep first ~20000 chars)
+    const truncatedText = extractedText.trim().substring(0, 20000)
+    const wasTruncated = extractedText.trim().length > 20000
 
     // Save to categories table
     const { error: updateError } = await supabase
@@ -136,34 +137,3 @@ export async function DELETE(
   }
 }
 
-/**
- * Extract text content from a PDF ArrayBuffer using pdfjs-dist
- */
-async function extractPdfText(arrayBuffer: ArrayBuffer): Promise<string> {
-  try {
-    // Dynamically import to avoid build-time issues
-    const pdfjsLib = await import('pdfjs-dist/legacy/build/pdf.mjs' as any).catch(
-      () => import('pdfjs-dist' as any)
-    )
-
-    const data = new Uint8Array(arrayBuffer)
-    const loadingTask = pdfjsLib.getDocument({ data, useWorkerFetch: false, isEvalSupported: false })
-    const pdf = await loadingTask.promise
-
-    let fullText = ''
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum)
-      const textContent = await page.getTextContent()
-      const pageText = textContent.items
-        .map((item: any) => ('str' in item ? item.str : ''))
-        .join(' ')
-      fullText += pageText + '\n'
-    }
-
-    return fullText
-  } catch (error) {
-    console.error('PDF parsing error:', error)
-    throw new Error('Failed to parse PDF. Please ensure the file is a valid, text-based PDF.')
-  }
-}

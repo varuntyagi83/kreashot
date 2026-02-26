@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Download, Save, Trash2, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Download, Save, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface GeneratedBackground {
@@ -44,6 +44,7 @@ export function BackgroundPreviewGrid({
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [backgroundName, setBackgroundName] = useState('')
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
 
   const handleSaveClick = (index: number) => {
     setSelectedIndex(index)
@@ -162,7 +163,10 @@ export function BackgroundPreviewGrid({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {backgrounds.map((background, index) => (
               <div key={index} className="space-y-3">
-                <div className="relative group aspect-video rounded-lg overflow-hidden bg-muted">
+                <div
+                  className="relative group aspect-video rounded-lg overflow-hidden bg-muted cursor-pointer"
+                  onClick={() => setPreviewIndex(index)}
+                >
                   <img
                     src={background.imageData}
                     alt={`Generated background ${index + 1}`}
@@ -213,6 +217,94 @@ export function BackgroundPreviewGrid({
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Lightbox — near-fullscreen overlay */}
+      <Dialog open={previewIndex !== null} onOpenChange={(open) => { if (!open) setPreviewIndex(null) }}>
+        <DialogContent
+          className="max-w-[95vw] max-h-[95vh] w-auto p-0 overflow-hidden border-0 bg-black/95 gap-0"
+          showCloseButton={false}
+        >
+          <DialogTitle className="sr-only">
+            Background Preview {previewIndex !== null ? previewIndex + 1 : ''}
+          </DialogTitle>
+          {previewIndex !== null && (
+            <div className="relative flex flex-col">
+              {/* Close button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute top-3 right-3 z-20 text-white/80 hover:text-white hover:bg-white/10 rounded-full"
+                onClick={() => setPreviewIndex(null)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+
+              {/* Image container — fills viewport at correct aspect ratio */}
+              <div className="flex items-center justify-center p-4" style={{ minHeight: '60vh' }}>
+                <img
+                  src={backgrounds[previewIndex].imageData}
+                  alt={`Generated background ${previewIndex + 1}`}
+                  className="max-h-[calc(95vh-4rem)] max-w-[90vw] w-auto h-auto object-contain rounded"
+                />
+              </div>
+
+              {/* Format badge */}
+              {backgrounds[previewIndex].format && (
+                <div className="absolute top-4 left-4 bg-black/70 text-white text-sm font-mono font-semibold px-3 py-1 rounded z-10">
+                  {backgrounds[previewIndex].format}
+                </div>
+              )}
+
+              {/* Navigation arrows */}
+              {backgrounds.length > 1 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full text-white/80 hover:text-white hover:bg-white/10 h-10 w-10"
+                    onClick={(e) => { e.stopPropagation(); setPreviewIndex((prev) => prev !== null ? (prev - 1 + backgrounds.length) % backgrounds.length : 0) }}
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full text-white/80 hover:text-white hover:bg-white/10 h-10 w-10"
+                    onClick={(e) => { e.stopPropagation(); setPreviewIndex((prev) => prev !== null ? (prev + 1) % backgrounds.length : 0) }}
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                </>
+              )}
+
+              {/* Footer with actions */}
+              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
+                <p className="text-sm text-white/60">
+                  {previewIndex + 1} of {backgrounds.length}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/20 text-white hover:bg-white/10"
+                    onClick={() => handleDownload(backgrounds[previewIndex], previewIndex)}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => { setPreviewIndex(null); handleSaveClick(previewIndex) }}
+                  >
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Save Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>

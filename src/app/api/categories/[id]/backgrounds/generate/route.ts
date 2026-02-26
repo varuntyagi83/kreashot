@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
+import { parseReferenceTokens } from '@/lib/references'
 
 /**
  * POST /api/categories/[id]/backgrounds/generate
@@ -26,10 +27,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user and get look_and_feel
+    // Verify category belongs to user and get look_and_feel + brand_guidelines
     const { data: category } = await supabase
       .from('categories')
-      .select('id, name, slug, look_and_feel')
+      .select('id, name, slug, look_and_feel, brand_guidelines')
       .eq('id', categoryId)
       .eq('user_id', user.id)
       .single()
@@ -48,6 +49,7 @@ export async function POST(
       referenceAssetIds,
       formats,            // NEW: Array of formats
       format = '1:1',     // Legacy: single format (backwards compatible)
+      colorWorld,         // NEW: Selected color world (e.g. "World of Green palette")
     } = body
 
     // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
@@ -84,8 +86,81 @@ export async function POST(
       )
     }
 
-    // Use form-submitted lookAndFeel if provided, otherwise fall back to DB value
-    const resolvedLookAndFeel = (lookAndFeel && lookAndFeel.trim()) || category.look_and_feel
+    // Parse @[name](type:id) reference tokens from both prompt and lookAndFeel
+    const { cleanText: cleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
+    const { cleanText: cleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
+      (lookAndFeel && lookAndFeel.trim()) || ''
+    )
+
+    // Collect unique guideline IDs from both fields
+    const allRefs = [...promptRefs, ...lafRefs]
+    const guidelineRefs = allRefs.filter(r => r.type === 'guideline')
+    const uniqueGuidelineIds = [...new Set(guidelineRefs.map(r => r.id))]
+
+    let resolvedGuidelinesText = ''
+    let resolvedColorDescription = ''
+
+    // Fetch guidelines referenced via @ tokens
+    if (uniqueGuidelineIds.length > 0) {
+      const { data: guidelines } = await supabase
+        .from('brand_guidelines')
+        .select('id, name, extracted_text, color_description')
+        .in('id', uniqueGuidelineIds)
+        .eq('user_id', user.id)
+
+      if (guidelines?.length) {
+        resolvedGuidelinesText = guidelines
+          .map(g => `--- ${g.name} ---\n${g.extracted_text}`)
+          .join('\n\n')
+        resolvedColorDescription = guidelines
+          .map(g => g.color_description)
+          .filter(Boolean)
+          .join('\n\n')
+        console.log(`Resolved ${guidelines.length} brand guideline reference(s) (${resolvedGuidelinesText.length} chars, color: ${resolvedColorDescription.length} chars)`)
+      }
+    }
+
+    // If colorWorld is selected but no color description was loaded (no @ references),
+    // fetch color descriptions from ALL of the user's guidelines
+    if (colorWorld && !resolvedColorDescription) {
+      const { data: allGuidelines } = await supabase
+        .from('brand_guidelines')
+        .select('color_description')
+        .eq('user_id', user.id)
+
+      if (allGuidelines?.length) {
+        resolvedColorDescription = allGuidelines
+          .map(g => g.color_description)
+          .filter(Boolean)
+          .join('\n\n')
+        console.log(`Loaded color descriptions from all guidelines for colorWorld "${colorWorld}" (${resolvedColorDescription.length} chars)`)
+      }
+    }
+
+    // Filter color description to ONLY the selected color world
+    if (colorWorld && resolvedColorDescription) {
+      const lines = resolvedColorDescription.split('\n').filter(l => l.trim())
+      const worldLower = colorWorld.toLowerCase()
+      const filtered = lines.filter(line => {
+        const lower = line.toLowerCase()
+        // Include lines that mention the selected world (e.g., "World of Green palette: ...")
+        if (lower.includes(worldLower)) return true
+        // Include lighting and mood lines (always relevant)
+        if (lower.includes('lighting') || lower.includes('mood')) return true
+        // EXCLUDE everything else — especially other "Brand color" lines
+        // that would confuse the model with gold, silver, pink, etc.
+        return false
+      })
+      resolvedColorDescription = filtered.join('\n')
+      console.log(`Filtered to "${colorWorld}": "${resolvedColorDescription}"`)
+    }
+
+    // Merge @-referenced guidelines with category-level brand_guidelines (backwards compatible)
+    const finalGuidelines = [category.brand_guidelines, resolvedGuidelinesText]
+      .filter(Boolean).join('\n\n').substring(0, 24000) || undefined
+
+    // Use form-submitted lookAndFeel if provided (cleaned of tokens), otherwise fall back to DB value
+    const resolvedLookAndFeel = cleanLookAndFeel || category.look_and_feel
 
     if (!resolvedLookAndFeel) {
       return NextResponse.json(
@@ -112,9 +187,21 @@ export async function POST(
         .select('id, storage_path, storage_provider, storage_url, gdrive_file_id')
         .in('id', referenceAssetIds)
 
+      // Also check brand_assets table (stored in Supabase Storage)
+      const { data: brandAssets } = await supabase
+        .from('brand_assets')
+        .select('id, storage_path, storage_url, metadata')
+        .in('id', referenceAssetIds)
+
       const allReferences = [
         ...(productImages || []),
         ...(angledShots || []),
+        ...(brandAssets || []).map((ba) => ({
+          ...ba,
+          storage_provider: 'supabase' as const,
+          file_path: ba.storage_path,
+          mime_type: ba.metadata?.file_type || 'image/jpeg',
+        })),
       ]
 
       // Download and convert to base64
@@ -170,9 +257,10 @@ export async function POST(
     console.log(
       `Generating ${count} background(s) x ${formatsToGenerate.length} format(s) for category ${category.name}...`
     )
-    console.log(`Prompt: ${resolvedPrompt}`)
+    console.log(`Prompt: ${cleanPrompt}`)
     console.log(`Look & Feel: ${resolvedLookAndFeel}`)
     console.log(`Style references: ${styleReferenceImages.length}`)
+    console.log(`Brand guidelines: ${finalGuidelines ? `${finalGuidelines.length} chars` : 'none'}`)
     console.log(`Formats: ${formatsToGenerate.join(', ')}`)
 
     const allMappedBackgrounds: Array<{
@@ -184,34 +272,59 @@ export async function POST(
       image_mime_type: string
     }> = []
 
-    for (const fmt of formatsToGenerate) {
+    const failedFormats: string[] = []
+
+    for (let fi = 0; fi < formatsToGenerate.length; fi++) {
+      const fmt = formatsToGenerate[fi]
       const fmtDimensions = getFormatDimensions(fmt)
       console.log(`  Generating ${count} ${fmt} backgrounds (${fmtDimensions.width}x${fmtDimensions.height})...`)
 
-      const generatedBackgrounds = await generateBackgrounds(
-        resolvedPrompt,
-        resolvedLookAndFeel,
-        count,
-        styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
-        fmt,
-        '2K'
-      )
+      // Add a short delay between format batches to avoid Gemini rate limits
+      if (fi > 0) {
+        console.log(`  ⏳ Waiting 3s before next format to avoid rate limits...`)
+        await new Promise(resolve => setTimeout(resolve, 3000))
+      }
 
-      for (const bg of generatedBackgrounds) {
-        allMappedBackgrounds.push({
-          promptUsed: bg.promptUsed,
-          imageData: bg.imageData,
-          mimeType: bg.mimeType,
-          format: fmt,
-          // Legacy field names for backwards compatibility
-          image_base64: bg.imageData,
-          image_mime_type: bg.mimeType,
-        })
+      try {
+        const generatedBackgrounds = await generateBackgrounds(
+          cleanPrompt,
+          resolvedLookAndFeel,
+          count,
+          styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+          fmt,
+          '2K',
+          finalGuidelines,
+          resolvedColorDescription || undefined
+        )
+
+        for (const bg of generatedBackgrounds) {
+          allMappedBackgrounds.push({
+            promptUsed: bg.promptUsed,
+            imageData: bg.imageData,
+            mimeType: bg.mimeType,
+            format: fmt,
+            // Legacy field names for backwards compatibility
+            image_base64: bg.imageData,
+            image_mime_type: bg.mimeType,
+          })
+        }
+      } catch (fmtError) {
+        console.error(`  ❌ Format ${fmt} failed:`, fmtError instanceof Error ? fmtError.message : fmtError)
+        failedFormats.push(fmt)
       }
     }
 
+    if (allMappedBackgrounds.length === 0) {
+      return NextResponse.json(
+        { error: `All format generations failed (${failedFormats.join(', ')}). Check server logs for details.` },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
-      message: `Generated ${allMappedBackgrounds.length} background variation(s) across ${formatsToGenerate.length} format(s)`,
+      message: failedFormats.length > 0
+        ? `Generated ${allMappedBackgrounds.length} background(s). Failed formats: ${failedFormats.join(', ')}`
+        : `Generated ${allMappedBackgrounds.length} background variation(s) across ${formatsToGenerate.length} format(s)`,
       category: {
         id: category.id,
         name: category.name,
@@ -219,6 +332,7 @@ export async function POST(
       },
       backgrounds: allMappedBackgrounds,
       results: allMappedBackgrounds,
+      failedFormats: failedFormats.length > 0 ? failedFormats : undefined,
     })
   } catch (error) {
     console.error('Error generating backgrounds:', error)

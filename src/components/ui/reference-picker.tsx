@@ -4,11 +4,11 @@ import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { Package, Image as ImageIcon } from 'lucide-react'
+import { Package, Image as ImageIcon, FileText } from 'lucide-react'
 
 interface Reference {
   id: string
-  type: 'brand-asset' | 'product'
+  type: 'brand-asset' | 'product' | 'guideline'
   name: string
   preview?: string
   isImage?: boolean
@@ -38,9 +38,9 @@ export function ReferencePicker({
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
+  const [isSearching, setIsSearching] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const supabase = createClient()
 
   // Detect @ mentions and extract search query
   useEffect(() => {
@@ -48,13 +48,21 @@ export function ReferencePicker({
     if (!textarea) return
 
     const text = value
-    const pos = cursorPosition
+    // Use the tracked cursorPosition, but also read directly from DOM as fallback
+    const pos = cursorPosition || textarea.selectionStart
 
     // Find the @ symbol before cursor
     const textBeforeCursor = text.substring(0, pos)
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
 
     if (lastAtIndex === -1) {
+      setShowSuggestions(false)
+      return
+    }
+
+    // Check if the @ is inside an already-completed reference token @[...](...)
+    const textFromAt = text.substring(lastAtIndex)
+    if (/^@\[[^\]]+\]\([^)]+\)/.test(textFromAt)) {
       setShowSuggestions(false)
       return
     }
@@ -80,6 +88,7 @@ export function ReferencePicker({
     abortRef.current?.abort()
     const controller = new AbortController()
     abortRef.current = controller
+    setIsSearching(true)
 
     try {
       const response = await fetch(
@@ -90,10 +99,15 @@ export function ReferencePicker({
         const data = await response.json()
         setSuggestions(data.results || [])
         setSelectedIndex(0)
+      } else {
+        console.error('Reference search failed:', response.status)
+        setSuggestions([])
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') return
       console.error('Failed to fetch suggestions:', error)
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -155,7 +169,7 @@ export function ReferencePicker({
     }
   }
 
-  const handleClick = () => {
+  const handleSelect = () => {
     if (textareaRef.current) {
       setCursorPosition(textareaRef.current.selectionStart)
     }
@@ -168,15 +182,27 @@ export function ReferencePicker({
         value={value}
         onChange={(e) => handleChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        onClick={handleClick}
+        onKeyUp={handleSelect}
+        onClick={handleSelect}
+        onSelect={handleSelect}
         placeholder={placeholder}
         className={cn('font-mono text-sm', className)}
         disabled={disabled}
         rows={rows}
       />
 
-      {showSuggestions && suggestions.length > 0 && (
+      {showSuggestions && (
         <div className="absolute z-50 mt-1 w-full max-w-md bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-y-auto">
+          {isSearching && suggestions.length === 0 && (
+            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+              Searching...
+            </div>
+          )}
+          {!isSearching && suggestions.length === 0 && (
+            <div className="px-3 py-4 text-sm text-muted-foreground text-center">
+              No guidelines, assets, or products found
+            </div>
+          )}
           {suggestions.map((suggestion, index) => (
             <button
               key={`${suggestion.type}-${suggestion.id}`}
@@ -188,7 +214,11 @@ export function ReferencePicker({
               onClick={() => insertReference(suggestion)}
               onMouseEnter={() => setSelectedIndex(index)}
             >
-              {suggestion.type === 'brand-asset' && suggestion.isImage && suggestion.preview ? (
+              {suggestion.type === 'guideline' ? (
+                <div className="w-10 h-10 bg-primary/10 rounded flex items-center justify-center">
+                  <FileText className="h-5 w-5 text-primary" />
+                </div>
+              ) : suggestion.type === 'brand-asset' && suggestion.isImage && suggestion.preview ? (
                 <img
                   src={suggestion.preview}
                   alt={suggestion.name}
@@ -207,7 +237,11 @@ export function ReferencePicker({
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-sm truncate">{suggestion.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {suggestion.type === 'brand-asset' ? 'Brand Asset' : `Product in ${suggestion.categoryName}`}
+                  {suggestion.type === 'guideline'
+                    ? 'Brand Guidelines'
+                    : suggestion.type === 'brand-asset'
+                      ? 'Brand Asset'
+                      : `Product in ${suggestion.categoryName}`}
                 </p>
               </div>
             </button>

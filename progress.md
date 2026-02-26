@@ -291,14 +291,133 @@
 | `src/components/products/ProductImageUpload.tsx` | #14 — blob URL cleanup |
 | `Issues.md` | NEW — full QA issues tracker with 42 findings |
 
-**Full issue tracker:** See `Issues.md` in project root (42 findings, 7 fixed, 35 tracked for future)
+**Full issue tracker:** See `Issues.md` in project root
+
+---
+
+### QA Audit Round 2 — Exhaustive (2026-02-26):
+- [x] **Deep-dive audit across 6 dimensions** — deletion flows, retry logic, folder hierarchy, frontend UX, security, data integrity
+- **Result:** 27 new issues found (#43-#69), total now 69 issues (7 fixed, 1 WONTFIX, 61 tracked)
+- **27 issues affect core functionality** — generation failures, data loss, UI broken, data integrity
+- **Format/folder hierarchy verified clean** — no inconsistencies found, all 77 assets correct
+
+**Key new findings:**
+| # | Issue | Severity |
+|---|-------|----------|
+| 43 | Product deletion orphans GDrive files | CRITICAL |
+| 44 | No retry on Gemini 429/503 | CRITICAL |
+| 45 | Angled shots silent fallback to original | HIGH |
+| 46 | Primary image race condition | HIGH |
+| 47 | Category rename breaks GDrive paths | HIGH |
+| 48 | Admin auth bypass if env undefined | HIGH |
+| 50 | GDrive retry skips 429 | HIGH |
+| 67 | Missing force-dynamic on API routes | HIGH |
+
+**Full issue tracker:** See `Issues.md` (69 findings with core-functionality impact analysis)
+
+### Background Generation Enhancements (2026-02-26):
+- [x] **Look & Feel textarea expanded** — 500 → 2000 characters, 5 rows, resizable
+  - DB column is `TEXT` (unlimited), no backend changes needed
+  - File: `src/components/backgrounds/BackgroundGenerationForm.tsx`
+
+- [x] **Style Reference Image Picker** — select brand assets as style guides for Gemini
+  - Fetches image-type brand assets from `GET /api/brand-assets` on mount
+  - Toggle-select up to 4 images as style references (shown as thumbnails)
+  - Selected asset IDs sent as `referenceAssetIds` to generate API
+  - API now also resolves brand assets (previously only product_images + angled_shots)
+  - File: `src/components/backgrounds/BackgroundGenerationForm.tsx`
+
+- [x] **Brand guidelines injected into Gemini prompt** — PDF-extracted text now used for backgrounds
+  - Category's `brand_guidelines` (from uploaded PDF) fetched in generate API
+  - Passed as new `brandGuidelines` param to `generateBackgrounds()` in gemini.ts
+  - Injected as "Brand Guidelines" block in Gemini prompt (colors, fonts, visual rules)
+  - Previously only used for copy generation — now also guides background aesthetics
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `src/components/backgrounds/BackgroundGenerationForm.tsx` | Look & Feel 2000 chars, style reference picker, sends referenceAssetIds |
+| `src/app/api/categories/[id]/backgrounds/generate/route.ts` | Fetches brand_guidelines, resolves brand_assets, passes brandGuidelines to Gemini |
+| `src/lib/ai/gemini.ts` | `generateBackgrounds()` accepts `brandGuidelines`, injects into prompt |
+
+---
+
+### Brand Guidelines Library + Color Translation Pipeline (2026-02-26):
+- [x] **Brand Guidelines Library** — new `brand_guidelines` table for user-level PDF library
+  - Upload PDFs via `POST /api/brand-guidelines` → Gemini Vision extracts content
+  - Two-step extraction: (1) `extractPdfWithVision()` via Gemini 2.0 Flash for raw content, (2) `translateGuidelinesToColorDescription()` via Gemini 3.1 Pro Preview for color names
+  - Color description saved to `brand_guidelines.color_description` column at upload time
+  - Migration: `brand_guidelines` table with extracted_text, color_description, file_name, etc.
+
+- [x] **@ Reference Picker** — `@[Name](type:id)` tokens for inline brand guideline references
+  - ReferencePicker component: fuzzy search across brand guidelines + brand assets
+  - Both Look & Feel and Background Description fields support @ mentions
+  - Backend parses tokens via `parseReferenceTokens()`, fetches matching guidelines
+  - Color descriptions from referenced guidelines injected into Gemini image prompt
+
+- [x] **Color World Dropdown** — select specific color palette from brand guidelines
+  - `parseColorWorlds()` extracts palette names from color_description text
+  - Dropdown in BackgroundGenerationForm between Look & Feel and prompt fields
+  - Backend filters color description to only include selected world's colors
+  - Auto-loads color descriptions even without @ references when colorWorld is set
+
+- [x] **Model fix: gemini-3-pro-image-preview for image generation**
+  - `gemini-3.1-pro-preview` is text-only (cannot generate images) — reverted all 4 image gen URLs + 9 scripts
+  - Kept `gemini-3.1-pro-preview` for `analyzeProductImage` (text analysis) and `translateGuidelinesToColorDescription`
+
+- [x] **Format resilience** — each format generation wrapped in try/catch
+  - 3-second delay between formats to avoid rate limits
+  - Returns `failedFormats` array in response for partial success
+  - Frontend shows warning toast for partially failed formats
+
+- [x] **Color accuracy fix: vivid color names in translation prompt**
+  - Old: "muted grayish-green" → image model rendered gray walls
+  - New: "sage green, eucalyptus green, moss green, olive green" → clear GREEN
+  - Translation prompt now requires leading with color name, not modifiers
+  - Image generation prompt upgraded: COLOR DIRECTIVE section at highest priority
+  - Explicit instruction: dominant surface color MUST visibly match palette
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `src/lib/pdf.ts` | Added `extractPdfWithVision()`, `translateGuidelinesToColorDescription()` — updated prompt for vivid green-forward color names |
+| `src/lib/ai/gemini.ts` | Model URLs fixed, `brandColorDescription` param, COLOR DIRECTIVE prompt section |
+| `src/app/api/brand-guidelines/route.ts` | Brand guidelines library CRUD, color_description in GET response |
+| `src/app/api/categories/[id]/backgrounds/generate/route.ts` | colorWorld filtering, auto-fetch guidelines, format resilience |
+| `src/components/backgrounds/BackgroundGenerationForm.tsx` | Color world dropdown, parseColorWorlds, @ reference support |
+| `src/lib/references.ts` | parseReferenceTokens() for @[name](type:id) syntax |
+| `src/components/ui/reference-picker.tsx` | Fuzzy search across guidelines + brand assets |
+
+---
+
+### Background Generation Tuning & Lightbox (2026-02-26):
+- [x] **Color world filtering fix** — other brand colors (Gold, Silver, Blue, Pink) were leaking into filtered prompt when "World of Green" selected. Old bug: `lower.includes('brand color')` matched ALL lines. Fixed to only include lines matching the selected world name + lighting/mood keywords.
+  - File: `src/app/api/categories/[id]/backgrounds/generate/route.ts` lines 140-156
+
+- [x] **Phantom table/surface removed** — the instruction "Leave clear space in the center/foreground for a product to be placed" caused Gemini to render a tabletop. Replaced with "Do NOT add objects, furniture, shelves, or props unless the user explicitly requests them" + "Follow the user's description exactly".
+  - File: `src/lib/ai/gemini.ts` lines 262-271
+
+- [x] **Temperature lowered for color accuracy** — 0.7 → 0.4, topP 0.95 → 0.9 for more controlled, faithful output
+  - File: `src/lib/ai/gemini.ts` lines 301-303
+
+- [x] **Click-to-preview lightbox** — clicking a generated background opens a full-screen preview dialog
+  - max-w-5xl container, max-h-[80vh] image
+  - Left/right navigation arrows with modulo cycling
+  - Format badge overlay
+  - Footer: counter ("1 of 3"), Download and Save buttons
+  - File: `src/components/backgrounds/BackgroundPreviewGrid.tsx`
+
+- [x] **Re-translate color description script** — `scripts/retranslate-color-description.ts`
+  - Re-runs color translation with updated vivid prompt
+  - Old: "muted grayish-green" → New: "sage green, eucalyptus green, moss green, olive green"
+  - Uses dotenv for env loading (source .env.local failed on multi-word values)
 
 ---
 
 ## 🚧 In Progress
 
 ### Current Focus:
-*No active work*
+*Refining sage green generation — latest result "much better but still can be improved"*
 
 ---
 
