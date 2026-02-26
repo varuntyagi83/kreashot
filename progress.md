@@ -266,6 +266,35 @@
 
 ---
 
+### QA Audit Fixes (2026-02-26):
+- [x] **#5 CompositeGenerationForm loading state** — `setIsGenerating(false)` moved from catch to finally
+- [x] **#4 Batch generation partial failure** — `Promise.all` → `Promise.allSettled` in openai.ts; per-item catch in gemini.ts
+- [x] **#6 Error boundaries** — added `error.tsx` to root app and `(dashboard)` route segments
+- [x] **#7 Base64 size validation** — 20MB limit on backgrounds, angled-shots, composites POST routes
+- [x] **#12 Brand-assets file validation** — MIME whitelist (JPEG/PNG/WebP/SVG/PDF) + 50MB size limit
+- [x] **#13 ReferencePicker memory leak** — AbortController cancels stale requests on new keystrokes
+- [x] **#14 ProductImageUpload blob URL leak** — useMemo + useEffect cleanup with revokeObjectURL
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `src/components/composites/CompositeGenerationForm.tsx` | #5 — setIsGenerating in finally block |
+| `src/lib/ai/openai.ts` | #4 — Promise.allSettled for copy kit |
+| `src/lib/ai/gemini.ts` | #4 — per-item error catch in background generation |
+| `src/app/error.tsx` | NEW — #6 global error boundary |
+| `src/app/(dashboard)/error.tsx` | NEW — #6 dashboard error boundary |
+| `src/app/api/categories/[id]/backgrounds/route.ts` | #7 — 20MB base64 size check |
+| `src/app/api/categories/[id]/angled-shots/route.ts` | #7 — 20MB base64 size check |
+| `src/app/api/categories/[id]/composites/route.ts` | #7 — 20MB base64 size check |
+| `src/app/api/brand-assets/route.ts` | #12 — file type + size validation |
+| `src/components/ui/reference-picker.tsx` | #13 — AbortController for stale requests |
+| `src/components/products/ProductImageUpload.tsx` | #14 — blob URL cleanup |
+| `Issues.md` | NEW — full QA issues tracker with 42 findings |
+
+**Full issue tracker:** See `Issues.md` in project root (42 findings, 7 fixed, 35 tracked for future)
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:

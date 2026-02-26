@@ -176,9 +176,9 @@ export function CompositeGenerationForm({
     } catch (error: any) {
       console.error('Error generating composites:', error)
       toast.error(error.message || 'Failed to generate composites')
-      setIsGenerating(false)
     } finally {
       generatingRef.current = false
+      setIsGenerating(false)
     }
   }
 

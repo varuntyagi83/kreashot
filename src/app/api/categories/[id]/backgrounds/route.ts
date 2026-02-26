@@ -167,6 +167,15 @@ export async function POST(
       )
     }
 
+    // Validate image size (20MB max decoded)
+    const MAX_BASE64_LENGTH = 20 * 1024 * 1024 * 1.34 // ~27MB as base64
+    if (imageData.length > MAX_BASE64_LENGTH) {
+      return NextResponse.json(
+        { error: 'Image too large (max 20MB)' },
+        { status: 400 }
+      )
+    }
+
     // Generate slug
     const slug = generateSlug(name)
 

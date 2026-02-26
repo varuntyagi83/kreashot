@@ -93,36 +93,44 @@ export async function generateCopyKit(
     }
   }
 
-  // Generate all in parallel
-  try {
-    const results = await Promise.all(
-      combinations.map(async ({ copyType, tone }) => {
-        const prompt = buildCopyPrompt(brief, copyType, tone, targetAudience)
+  // Generate all in parallel — use allSettled so partial failures return successful results
+  const settled = await Promise.allSettled(
+    combinations.map(async ({ copyType, tone }) => {
+      const prompt = buildCopyPrompt(brief, copyType, tone, targetAudience)
 
-        const response = await getOpenAI().chat.completions.create({
-          model: 'gpt-4o',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt },
-          ],
-          temperature: 0.8,
-          max_tokens: 500,
-        })
-
-        return {
-          copyType,
-          tone,
-          promptUsed: prompt,
-          generatedText: response.choices[0]?.message?.content || '',
-        } as CopyKitItem
+      const response = await getOpenAI().chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.8,
+        max_tokens: 500,
       })
-    )
 
-    return results
-  } catch (error) {
-    console.error('Error generating copy kit:', error)
-    throw new Error(`Failed to generate copy kit: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      return {
+        copyType,
+        tone,
+        promptUsed: prompt,
+        generatedText: response.choices[0]?.message?.content || '',
+      } as CopyKitItem
+    })
+  )
+
+  const results = settled
+    .filter((r): r is PromiseFulfilledResult<CopyKitItem> => r.status === 'fulfilled')
+    .map((r) => r.value)
+
+  const failures = settled.filter((r) => r.status === 'rejected')
+  if (failures.length > 0) {
+    console.warn(`Copy kit: ${failures.length}/${settled.length} combinations failed`)
   }
+
+  if (results.length === 0) {
+    throw new Error('All copy generation requests failed')
+  }
+
+  return results
 }
 
 /**

@@ -338,10 +338,18 @@ Return a professional product photography background.`
         }
       } catch (error) {
         console.error(`  ❌ Error generating ${aspectRatio} background ${i + 1}:`, error)
-        throw error
+        return null
       }
     }))
-      results.push(...batchResults)
+      results.push(...batchResults.filter((r): r is NonNullable<typeof r> => r !== null))
+    }
+
+    if (results.length === 0) {
+      throw new Error('All background generation requests failed')
+    }
+
+    if (results.length < count) {
+      console.warn(`Backgrounds: ${results.length}/${count} succeeded (${count - results.length} failed)`)
     }
 
     return results

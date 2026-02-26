@@ -39,6 +39,7 @@ export function ReferencePicker({
   const [searchQuery, setSearchQuery] = useState('')
   const [cursorPosition, setCursorPosition] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
   const supabase = createClient()
 
   // Detect @ mentions and extract search query
@@ -75,14 +76,23 @@ export function ReferencePicker({
   }, [value, cursorPosition])
 
   const fetchSuggestions = async (query: string) => {
+    // Cancel previous in-flight request
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+
     try {
-      const response = await fetch(`/api/references/search?q=${encodeURIComponent(query)}`)
+      const response = await fetch(
+        `/api/references/search?q=${encodeURIComponent(query)}`,
+        { signal: controller.signal }
+      )
       if (response.ok) {
         const data = await response.json()
         setSuggestions(data.results || [])
         setSelectedIndex(0)
       }
     } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') return
       console.error('Failed to fetch suggestions:', error)
     }
   }

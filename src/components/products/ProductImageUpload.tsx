@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -21,6 +21,15 @@ export function ProductImageUpload({
   const [uploading, setUploading] = useState(false)
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Create stable blob URLs and clean up on change/unmount
+  const previewUrls = useMemo(
+    () => selectedFiles.map((f) => URL.createObjectURL(f)),
+    [selectedFiles]
+  )
+  useEffect(() => {
+    return () => { previewUrls.forEach((url) => URL.revokeObjectURL(url)) }
+  }, [previewUrls])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -111,7 +120,7 @@ export function ProductImageUpload({
             <div key={index} className="relative group">
               <div className="aspect-square rounded-lg overflow-hidden bg-muted">
                 <img
-                  src={URL.createObjectURL(file)}
+                  src={previewUrls[index]}
                   alt={file.name}
                   className="w-full h-full object-cover"
                 />
