@@ -221,14 +221,14 @@ export function BackgroundPreviewGrid({
       {/* Preview Lightbox — near-fullscreen overlay */}
       <Dialog open={previewIndex !== null} onOpenChange={(open) => { if (!open) setPreviewIndex(null) }}>
         <DialogContent
-          className="max-w-[95vw] max-h-[95vh] w-auto p-0 overflow-hidden border-0 bg-black/95 gap-0"
+          className="max-w-[95vw] sm:max-w-[95vw] max-h-[95vh] w-auto p-0 overflow-hidden border-0 bg-black/95 gap-0"
           showCloseButton={false}
         >
           <DialogTitle className="sr-only">
             Background Preview {previewIndex !== null ? previewIndex + 1 : ''}
           </DialogTitle>
           {previewIndex !== null && (
-            <div className="relative flex flex-col">
+            <div className="relative flex flex-col max-h-[95vh] overflow-hidden">
               {/* Close button */}
               <Button
                 variant="ghost"
@@ -239,13 +239,23 @@ export function BackgroundPreviewGrid({
                 <X className="h-5 w-5" />
               </Button>
 
-              {/* Image container — fills viewport at correct aspect ratio */}
-              <div className="flex items-center justify-center p-4" style={{ minHeight: '60vh' }}>
-                <img
-                  src={backgrounds[previewIndex].imageData}
-                  alt={`Generated background ${previewIndex + 1}`}
-                  className="max-h-[calc(95vh-4rem)] max-w-[90vw] w-auto h-auto object-contain rounded"
-                />
+              {/* Image container — respects the background's aspect ratio */}
+              <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+                <div
+                  className="relative max-h-[calc(95vh-6rem)] max-w-[90vw] rounded overflow-hidden"
+                  style={{
+                    aspectRatio: backgrounds[previewIndex].format
+                      ? backgrounds[previewIndex].format.replace(':', '/')
+                      : 'auto',
+                    width: '90vw',
+                  }}
+                >
+                  <img
+                    src={backgrounds[previewIndex].imageData}
+                    alt={`Generated background ${previewIndex + 1}`}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
               </div>
 
               {/* Format badge */}
@@ -278,15 +288,15 @@ export function BackgroundPreviewGrid({
               )}
 
               {/* Footer with actions */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-white/10">
+              <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-white/10">
                 <p className="text-sm text-white/60">
                   {previewIndex + 1} of {backgrounds.length}
                 </p>
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
-                    className="border-white/20 text-white hover:bg-white/10"
+                    className="border border-white/20 bg-transparent text-white hover:bg-white/10"
                     onClick={() => handleDownload(backgrounds[previewIndex], previewIndex)}
                   >
                     <Download className="h-4 w-4 mr-2" />
