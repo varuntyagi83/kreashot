@@ -42,6 +42,7 @@ interface Background {
   width: number | null
   height: number | null
   storage_url: string
+  gdrive_file_id: string | null
   prompt_used: string | null
   created_at: string
 }
@@ -267,15 +268,19 @@ export function BackgroundGallery({
                 loading="lazy"
                 onError={(e) => {
                   const target = e.currentTarget
-                  // Try alternate URL format before showing placeholder
-                  if (target.dataset.retried !== 'true') {
-                    target.dataset.retried = 'true'
-                    // Try without sz parameter (some files work better this way)
-                    const url = background.storage_url
-                    if (url.includes('thumbnail?id=')) {
-                      target.src = url.replace(/&sz=w\d+/, '&sz=w1000')
-                    }
+                  const retryCount = parseInt(target.dataset.retryCount || '0')
+                  const fileId = background.gdrive_file_id
+
+                  if (retryCount === 0 && fileId) {
+                    // Try lh3 CDN URL (most reliable for public files)
+                    target.dataset.retryCount = '1'
+                    target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
+                  } else if (retryCount <= 1 && fileId) {
+                    // Try old thumbnail endpoint as last resort
+                    target.dataset.retryCount = '2'
+                    target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
                   } else {
+                    target.dataset.retryCount = '3'
                     target.src =
                       'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f1f5f9" width="400" height="300"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
                   }

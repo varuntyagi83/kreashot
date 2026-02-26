@@ -164,10 +164,10 @@ export class GoogleDriveAdapter implements StorageAdapter {
           supportsAllDrives: true,
         })
 
-        // Use Google Drive thumbnail API for image embedding
-        // This format works in <img> tags without CORS issues and doesn't expire
-        // sz=w2000 ensures high quality (max 2000px width)
-        const publicUrl = `https://drive.google.com/thumbnail?id=${data.id}&sz=w2000`
+        // Use Google's CDN URL for image embedding
+        // lh3.googleusercontent.com/d/{id} is the most reliable format for
+        // publicly shared files — works in <img> tags without CORS issues
+        const publicUrl = `https://lh3.googleusercontent.com/d/${data.id}=w2000`
 
         return {
           path,

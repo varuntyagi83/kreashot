@@ -35,6 +35,11 @@ const nextConfig: NextConfig = {
       {
         protocol: 'https',
         hostname: 'lh3.googleusercontent.com',
+        pathname: '/d/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
         pathname: '/drive-storage/**',
       },
     ],

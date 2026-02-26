@@ -36,11 +36,13 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protected routes - everything except auth routes is protected
+  // Protected routes - everything except auth routes and admin API routes is protected
   const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
+  const isAdminApiRoute = request.nextUrl.pathname.startsWith('/api/admin')
 
   // Redirect to login if user is not authenticated and trying to access protected routes
-  if (!user && !isAuthRoute) {
+  // Admin API routes use their own Bearer token auth
+  if (!user && !isAuthRoute && !isAdminApiRoute) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }
 
