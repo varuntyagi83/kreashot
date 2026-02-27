@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
+import sharp from 'sharp'
+import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 
 // GET /api/categories/[id]/products/[productId]/images - List product images
 export async function GET(
@@ -112,18 +114,11 @@ export async function POST(
     // Get form data
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
-    const format = formData.get('format') as string | null // Aspect ratio (1:1, 4:5, 9:16, 16:9)
+    const clientFormat = formData.get('format') as string | null // Fallback only
 
     if (files.length === 0) {
       return NextResponse.json({ error: 'No files provided' }, { status: 400 })
     }
-
-    if (!format) {
-      return NextResponse.json({ error: 'Format (aspect ratio) is required' }, { status: 400 })
-    }
-
-    // Convert format from "4:5" to "4x5" for folder naming
-    const formatFolder = format.replace(':', 'x')
 
     // Check if this is the first image (will be primary)
     const { count: existingCount } = await supabase
@@ -143,6 +138,23 @@ export async function POST(
         continue
       }
 
+      // Convert file to buffer
+      const buffer = Buffer.from(await file.arrayBuffer())
+
+      // Detect actual image dimensions and determine the correct format
+      let detectedFormat = clientFormat || '1:1'
+      try {
+        const metadata = await sharp(buffer).metadata()
+        if (metadata.width && metadata.height) {
+          detectedFormat = detectFormatFromDimensions(metadata.width, metadata.height)
+          console.log(`🔍 Detected image dimensions: ${metadata.width}x${metadata.height} → format: ${detectedFormat}`)
+        }
+      } catch (dimError) {
+        console.warn(`⚠️ Could not detect image dimensions, using client format: ${clientFormat}`, dimError)
+      }
+
+      const formatFolder = formatToFolderName(detectedFormat)
+
       // Generate filename following hierarchy:
       // {category-slug}/{product-slug}/product-images/angled-shots/{aspect-ratio}/{filename}
       const fileExt = file.name.split('.').pop() || 'jpg'
@@ -157,9 +169,6 @@ export async function POST(
       const storagePath = `${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
-
-      // Convert file to buffer
-      const buffer = Buffer.from(await file.arrayBuffer())
 
       // Upload to Google Drive
       const storageFile = await uploadFile(buffer, storagePath, {

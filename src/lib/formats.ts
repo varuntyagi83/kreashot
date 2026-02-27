@@ -80,3 +80,26 @@ export function formatToFolderName(format: string): string {
 export function folderNameToFormat(folderName: string): string {
   return folderName.replace('x', ':')
 }
+
+/**
+ * Detect the closest matching format from actual image dimensions.
+ * Compares the image's aspect ratio against all known formats
+ * and returns the best match.
+ */
+export function detectFormatFromDimensions(width: number, height: number): string {
+  const ratio = width / height
+
+  let bestFormat = '1:1'
+  let bestDiff = Infinity
+
+  for (const [key, config] of Object.entries(FORMATS)) {
+    const formatRatio = config.width / config.height
+    const diff = Math.abs(ratio - formatRatio)
+    if (diff < bestDiff) {
+      bestDiff = diff
+      bestFormat = key
+    }
+  }
+
+  return bestFormat
+}

@@ -27,7 +27,7 @@ interface BackgroundPreviewGridProps {
   backgrounds: GeneratedBackground[]
   categoryId: string
   categorySlug: string
-  format?: string // NEW: Format metadata
+  format?: string // kept for backwards compatibility but not used for saving
   onBackgroundSaved: () => void
   onClearAll: () => void
 }
@@ -36,7 +36,6 @@ export function BackgroundPreviewGrid({
   backgrounds,
   categoryId,
   categorySlug,
-  format = '1:1', // NEW: Default to 1:1
   onBackgroundSaved,
   onClearAll,
 }: BackgroundPreviewGridProps) {
@@ -75,7 +74,7 @@ export function BackgroundPreviewGrid({
           promptUsed: background.promptUsed,
           imageData: background.imageData,
           mimeType: background.mimeType,
-          format: background.format || format,
+          format: background.format,
         }),
       })
 
@@ -85,7 +84,7 @@ export function BackgroundPreviewGrid({
         throw new Error(data.error || 'Failed to save background')
       }
 
-      toast.success(`Background "${backgroundName}" saved successfully!`)
+      toast.success(`Background "${backgroundName}" (${background.format}) saved successfully!`)
       onBackgroundSaved()
       setSaveDialogOpen(false)
       setBackgroundName('')
@@ -127,7 +126,7 @@ export function BackgroundPreviewGrid({
             promptUsed: background.promptUsed,
             imageData: background.imageData,
             mimeType: background.mimeType,
-            format: background.format || format,
+            format: background.format,
           }),
         })
       } catch (error) {
