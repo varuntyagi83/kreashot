@@ -584,13 +584,7 @@ Image 2 (Background): This is the background scene/environment.
 
 ${userPrompt ? `USER INSTRUCTION: ${userPrompt}\n\n` : ''}${lookAndFeel ? `STYLE GUIDELINE: ${lookAndFeel}\n\n` : ''}${safeZoneInstructions}
 
-CRITICAL INSTRUCTIONS:
-
-PRESERVE EXACTLY (DO NOT CHANGE):
-✓ Product appearance: Keep the EXACT labels, text, branding, colors, and shape
-✓ Product design: Maintain all visual details of the product exactly as shown
-✓ Background scene: Keep models, hands, props, and scene elements unchanged
-✓ Background setting: Preserve the environment, mood boxes, objects as-is
+COMPOSITING INSTRUCTIONS:
 
 WHAT YOU SHOULD DO:
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE - This is the most important requirement!' : 'Place the product NATURALLY in the background scene'}
@@ -602,20 +596,22 @@ WHAT YOU SHOULD DO:
 ✓ Scale the product appropriately for the scene ${safeZones ? '(while keeping it within the safe zone)' : ''}
 
 WHAT YOU MUST NOT DO:
-✗ Do NOT alter the product's labels, text, or branding
 ✗ Do NOT change the background model/person's appearance
 ✗ Do NOT modify the product's colors or design
-✗ Do NOT add new text, logos, or watermarks of any kind
 ✗ Do NOT change the core elements of either image
-✗ Do NOT add headlines, taglines, CTAs, slogans, or any copy whatsoever
-✗ Do NOT render any words, letters, or typographic elements on the image
+✗ Do NOT add any NEW text that does not already exist on the product — no headlines, taglines, CTAs, slogans, watermarks, captions, or any overlaid copy whatsoever
+✗ Do NOT add any typographic elements, titles, or editorial text to the image
 
-IMPORTANT — THIS IS A TEXT-FREE VISUAL COMPOSITE:
-This image is the visual foundation of an ad. All copy (headlines, hooks, CTAs, body text) will be added separately in a later stage by a dedicated compositing tool. Adding text here would permanently bake it into pixels, making it impossible to edit or A/B test later. The composite MUST be clean — product on background, nothing else.
+NOTE ON ADDED TEXT: This composite is the visual foundation of an ad. Headlines, hooks, and CTAs will be added in a later production stage. Do NOT bake any overlay text into this image.
 
-Think of this as taking a real product and photographing it in the background scene with professional lighting and composition. The product and background are real and fixed—you're just creating the photograph.
+⚠️ HIGHEST PRIORITY — PRODUCT FIDELITY (READ THIS LAST, REMEMBER IT FIRST):
+The product in Image 1 has text printed on its packaging — brand name, product name, ingredient lists, certifications, and other label text. This text is PART OF THE PHYSICAL PRODUCT. It is NOT overlay text. It is NOT a headline or caption.
 
-Return a professional, advertisement-quality composite image with NO text of any kind.`
+You MUST reproduce every word, letter, and character visible on the product packaging EXACTLY as shown in Image 1. Do not alter, rearrange, blur, simplify, omit, or re-render any text that is part of the product surface. The label must be pixel-faithful to the input.
+
+If you are unsure whether something is "product text" or "overlay text" — if it appears in Image 1 on the product surface, it is product text and MUST be preserved exactly.
+
+Return a professional, advertisement-quality composite photograph.`
 
     // Prepare content parts with both images
     const contentParts: any[] = []
@@ -643,6 +639,20 @@ Return a professional, advertisement-quality composite image with NO text of any
 
     // Build request body using direct REST API format
     const requestBody = {
+      systemInstruction: {
+        parts: [{
+          text: `You are a professional photo compositor specializing in product photography.
+
+YOUR JOB: Take a product and a background scene and composite them into a single, realistic photograph — as if the product was physically placed and photographed in that scene.
+
+ABSOLUTE RULES:
+- The product is SACRED. Every label, every word, every letter, every logo, every color on the product packaging MUST appear in the final composite EXACTLY as it appears in the input image. This includes ingredient lists, brand names, product names, taglines printed on the packaging, barcodes, certification marks — every single visual element on the product surface.
+- You are NOT a graphic designer. You do NOT add any text, headlines, captions, watermarks, or typographic elements to the image. Your output is purely photographic — a product sitting in a scene, nothing more.
+- The background scene is also fixed. Do not alter people, hands, props, or environmental elements in the background.
+
+Think of yourself as operating a camera, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.`
+        }]
+      },
       contents: [{
         parts: contentParts
       }],

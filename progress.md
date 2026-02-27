@@ -1,6 +1,6 @@
 # AdForge - Implementation Progress
 
-**Last Updated:** 2026-02-25
+**Last Updated:** 2026-02-27
 
 ---
 
@@ -72,6 +72,20 @@
   - Composites are now enforced as text-free visual foundations
   - Warning note added to `CompositeGenerationForm.tsx` for users
   - Text/copy belongs only in the Final Assets stage
+
+- [x] **Composite Product Text Preservation Fix (2026-02-27)**
+  - **Problem:** Composite generation was altering/destroying product packaging text (labels, brand names, ingredients). Green Complex product text was being tampered with.
+  - **Root causes identified:**
+    1. Contradictory prompt — "NO text of any kind" overrode "preserve product labels" due to recency bias
+    2. No `systemInstruction` (unlike angled shots which preserved text correctly)
+    3. Prompt never distinguished "product packaging text" from "overlay/editorial text"
+    4. Hardcoded MIME type (`image/jpeg`) regardless of actual image format
+  - **Fixes applied:**
+    - Added `systemInstruction` with photo compositor persona emphasizing product fidelity
+    - Rewrote prompt to clearly separate "product packaging text = SACRED" from "overlay text = FORBIDDEN"
+    - Moved product fidelity instructions to end of prompt (strongest signal position)
+    - Removed the contradictory "NO text of any kind" line
+    - Added `detectMimeType()` using magic bytes in `composites/generate/route.ts`
 
 - [x] **Critical Bug Fix: Composite Unique Constraint (2026-02-23)**
   - Removed `UNIQUE (angled_shot_id, background_id)` constraint from `composites` table

@@ -4,6 +4,12 @@ import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 
+function detectMimeType(buffer: Buffer): string {
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png'
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return 'image/webp'
+  return 'image/jpeg' // JPEG default (covers FF D8 FF and unknown formats)
+}
+
 /**
  * POST /api/categories/[id]/composites/generate
  * Generates AI composites by combining angled shots with backgrounds
@@ -266,12 +272,12 @@ export async function POST(
           continue
         }
 
-        // Convert to base64
+        // Convert to base64 with actual MIME type detection from magic bytes
         const angledShotBase64 = angledShotBuffer.toString('base64')
-        const angledShotMimeType = 'image/jpeg'
+        const angledShotMimeType = detectMimeType(angledShotBuffer)
 
         const backgroundBase64 = backgroundBuffer.toString('base64')
-        const backgroundMimeType = 'image/jpeg'
+        const backgroundMimeType = detectMimeType(backgroundBuffer)
 
         // Generate composite using Gemini (with template safe zones if available)
         const composite = await generateComposite(
