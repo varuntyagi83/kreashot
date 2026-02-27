@@ -252,19 +252,35 @@ export async function generateBackgrounds(
       const prompt = `${colorDesc ? `COLOR DIRECTIVE (HIGHEST PRIORITY — read this FIRST):
 ${colorDesc}
 The dominant surface color (wall, backdrop) MUST be this exact color — a confident, clearly visible mid-tone. Not washed out, not pale, not faded, not gray. The hue must be unmistakable and saturated enough to be immediately recognizable.
-` : ''}Generate a ${aspectRatio} product photography background.
+` : ''}Create a hyper-realistic ${aspectRatio} product photography background — a real photograph, not a render.
 
 Category Style: ${lookAndFeel}
 
 User Request: ${userPrompt}
 
-RULES:
-- Background ONLY — no products, no text, no logos, no watermarks
-- No objects, furniture, shelves, or props unless explicitly requested
-- Follow the user's description exactly
-- Professional studio quality, e-commerce ready
+PHOTOREALISM DIRECTIVES:
+- Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9), RAW photo, 8K resolution
+- Natural, physically accurate lighting — use soft diffused studio light, ambient window light with gentle shadows, or golden-hour side lighting as appropriate for the scene
+- Realistic material textures: visible surface grain on wood, subtle imperfections on concrete, fabric weave on linen, micro-scratches on metal — nothing looks brand-new or computer-generated
+- Shallow depth of field where appropriate (f/1.8–f/4) with natural bokeh in the background
+- Accurate color science: true-to-life white balance, no oversaturation, no HDR glow
+- Subtle lens characteristics: gentle vignetting, minor chromatic aberration at edges — the hallmarks of a real camera lens
+
+ABSOLUTE EXCLUSIONS (negative prompt):
+- NO illustration, cartoon, painting, watercolor, sketch, line art
+- NO CGI, 3D render, digital art, vector graphics, clip art
+- NO artificial/plastic look, uncanny smoothness, or synthetic textures
+- NO oversaturated colors, HDR tonemapping artifacts, or neon glow
+- NO text, typography, watermarks, logos, or UI elements
+- NO products, people, or objects unless the user explicitly requested them
+
+COMPOSITION RULES:
+- Background ONLY — clean surface/scene ready for a product to be composited later
+- Follow the user's description exactly — do not add unrequested elements
+- Leave clear space in the center/foreground for product placement
+- Professional e-commerce quality: the image must be indistinguishable from a real studio photograph
 - Aspect ratio: ${aspectRatio} (strict)
-${colorDesc ? '- Wall color is the SINGLE MOST IMPORTANT element — it must match the COLOR DIRECTIVE above' : ''}
+${colorDesc ? '- Wall/backdrop color is the SINGLE MOST IMPORTANT element — it must match the COLOR DIRECTIVE above' : ''}
 ${styleReferenceImages && styleReferenceImages.length > 0 ? '- Use the provided reference images as style guidance for colors, mood, and aesthetic' : ''}`
 
       try {
@@ -288,6 +304,23 @@ ${styleReferenceImages && styleReferenceImages.length > 0 ? '- Use the provided 
 
         // Build request body using direct REST API format
         const requestBody = {
+          systemInstruction: {
+            parts: [{
+              text: `You are a world-class commercial product photographer operating in a professional studio.
+
+YOUR CRAFT:
+- You shoot with high-end full-frame cameras (Canon EOS R5, Sony A7R V) and premium lenses
+- Every image you produce is indistinguishable from a real RAW photograph
+- You understand physically accurate lighting: how light wraps around surfaces, how shadows fall naturally, how materials reflect and absorb light
+- You never produce anything that looks illustrated, rendered, or digitally generated
+
+QUALITY STANDARD:
+- Output must pass as a real photograph to a professional art director
+- Textures must be physically accurate: wood grain, fabric weave, stone porosity, metal reflections
+- Lighting must be consistent and physically plausible — no floating shadows or impossible reflections
+- Colors must be true-to-life with proper white balance — no oversaturation or HDR artifacts`
+            }]
+          },
           contents: [{
             parts: contentParts
           }],
