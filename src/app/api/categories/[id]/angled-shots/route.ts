@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
+import sharp from 'sharp'
+import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 
 /**
  * GET /api/categories/[id]/angled-shots
@@ -161,7 +163,7 @@ export async function POST(
       promptUsed,
       imageData,
       mimeType,
-      format = '1:1', // Aspect ratio (defaults to 1:1)
+      format: clientFormat, // Client-sent format (fallback only)
     } = body
 
     // Validate required fields
@@ -190,14 +192,26 @@ export async function POST(
       )
     }
 
-    // Calculate width and height based on format
-    const formatDimensions: Record<string, { width: number; height: number }> = {
-      '1:1': { width: 1080, height: 1080 },
-      '16:9': { width: 1920, height: 1080 },
-      '9:16': { width: 1080, height: 1920 },
-      '4:5': { width: 1080, height: 1350 },
+    // Convert base64 to buffer first (needed for sharp detection)
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
+    const buffer = Buffer.from(base64Data, 'base64')
+
+    // Detect actual image dimensions from the buffer
+    let detectedFormat = clientFormat || '1:1'
+    let actualWidth = 1080
+    let actualHeight = 1080
+    try {
+      const metadata = await sharp(buffer).metadata()
+      if (metadata.width && metadata.height) {
+        detectedFormat = detectFormatFromDimensions(metadata.width, metadata.height)
+        actualWidth = metadata.width
+        actualHeight = metadata.height
+        console.log(`🔍 Angled shot dimensions: ${metadata.width}x${metadata.height} → format: ${detectedFormat}`)
+      }
+    } catch (dimError) {
+      console.warn(`⚠️ Could not detect angled shot dimensions, using client format: ${clientFormat}`, dimError)
     }
-    const dimensions = formatDimensions[format] || formatDimensions['1:1']
+    const format = detectedFormat
 
     // Verify product belongs to this category and get slug and name
     const { data: product } = await supabase
@@ -229,14 +243,10 @@ export async function POST(
     // Extract filename without extension for the angled-shots subfolder
     const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
 
-    // Convert base64 to buffer
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
-    const buffer = Buffer.from(base64Data, 'base64')
-
     // Generate filename using the folder structure per STORAGE_HIERARCHY.md:
     // {category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const formatFolder = format.replace(':', 'x') // "4:5" → "4x5"
+    const formatFolder = formatToFolderName(format) // "4:5" → "4x5"
     const fileName = `${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
@@ -260,9 +270,9 @@ export async function POST(
         angle_description: angleDescription,
         display_name: displayName, // Product-prefixed display name
         prompt_used: promptUsed || null,
-        format: format, // Aspect ratio (1:1, 16:9, 9:16, 4:5)
-        width: dimensions.width,
-        height: dimensions.height,
+        format: format, // Detected from actual image dimensions
+        width: actualWidth,
+        height: actualHeight,
         storage_provider: 'gdrive',
         storage_path: storageFile.path,
         storage_url: storageFile.publicUrl,

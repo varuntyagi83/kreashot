@@ -1,42 +1,69 @@
 /**
  * Predefined angle variations for product photography
  * This file can be safely imported by both client and server components
+ *
+ * Each prompt describes the VISUAL RESULT (what the viewer sees),
+ * not abstract degrees — this gives Gemini a clearer target image.
  */
 
 export const ANGLE_VARIATIONS = [
   {
     name: 'front',
     description: 'Front view, straight on',
-    prompt: 'Camera is at 0° horizontal orbit, 0° vertical elevation (eye-level). Lens points directly at the front face center. Position the camera directly in front of the product. The front face should be fully visible and centered in the frame.',
+    prompt: `Photograph the product from DIRECTLY IN FRONT at eye level.
+The camera is perfectly centered — the product's front label/face fills the frame.
+The viewer sees only the front surface. No side, top, or back is visible.
+This is a classic "hero shot" — clean, symmetrical, front-facing.`,
   },
   {
-    name: 'left_30deg',
-    description: 'Left side, 30 degree angle',
-    prompt: 'Camera orbits 30° counterclockwise (as seen from above). Elevation stays at eye-level (0° vertical). The front face should STILL BE THE MAIN FOCUS taking up 70-80% of the visible product, with just the left edge becoming slightly visible (20-30%). This is a subtle angle change, not a dramatic rotation.',
+    name: 'left_side',
+    description: 'Left side view',
+    prompt: `Photograph the product from the LEFT SIDE — the camera has moved 90° to the left.
+The viewer is now looking at the LEFT SIDE of the product. The front label is NO LONGER visible.
+You can see the side surface, the side edge, and possibly the cap/top from a side angle.
+This is a completely different view from the front — imagine walking around the product to its left.`,
   },
   {
-    name: 'right_30deg',
-    description: 'Right side, 30 degree angle',
-    prompt: 'Camera orbits 30° clockwise (as seen from above). Elevation stays at eye-level (0° vertical). The front face should STILL BE THE MAIN FOCUS taking up 70-80% of the visible product, with just the right edge becoming slightly visible (20-30%). This is a subtle angle change, not a dramatic rotation.',
+    name: 'right_side',
+    description: 'Right side view',
+    prompt: `Photograph the product from the RIGHT SIDE — the camera has moved 90° to the right.
+The viewer is now looking at the RIGHT SIDE of the product. The front label is NO LONGER visible.
+You can see the side surface, the side edge, and possibly the cap/top from a side angle.
+This is a completely different view from the front — imagine walking around the product to its right.`,
   },
   {
-    name: 'top_45deg',
-    description: 'Top view, 45 degree angle',
-    prompt: 'Camera stays centered (0° horizontal orbit) but elevates to 45° above the horizon, tilting down to keep the product centered in frame. The top surface should be clearly visible, and you can see down onto the product from above.',
+    name: 'top_down',
+    description: 'Top-down overhead view',
+    prompt: `Photograph the product from DIRECTLY ABOVE — a bird's-eye / top-down shot.
+The camera is positioned overhead looking straight down at the product.
+The viewer sees the TOP of the product — the cap, lid, or top surface.
+The front label should NOT be visible (or only barely visible at the edges).
+The product appears circular or from above. This is a flat-lay perspective.`,
   },
   {
     name: 'three_quarter_left',
-    description: 'Three-quarter view from left',
-    prompt: 'Camera orbits 45° counterclockwise (as seen from above) at eye-level elevation. You should see TWO DISTINCT FACES: the front should take up about 60% of the visible surface, and the left side should take up about 40%. Both faces must be clearly visible. This is a classic product photography angle showing two faces.',
+    description: 'Three-quarter view from front-left',
+    prompt: `Photograph the product from a THREE-QUARTER ANGLE from the front-left.
+The camera is positioned at roughly 45° to the left and slightly elevated.
+The viewer sees TWO distinct faces: the front label AND the left side.
+About 60% front face visible, 40% left side visible.
+This is the classic "hero 3/4 shot" commonly used in e-commerce product photography.`,
   },
   {
     name: 'three_quarter_right',
-    description: 'Three-quarter view from right',
-    prompt: 'Camera orbits 45° clockwise (as seen from above) at eye-level elevation. You should see TWO DISTINCT FACES: the front should take up about 60% of the visible surface, and the right side should take up about 40%. Both faces must be clearly visible. This is a classic product photography angle showing two faces.',
+    description: 'Three-quarter view from front-right',
+    prompt: `Photograph the product from a THREE-QUARTER ANGLE from the front-right.
+The camera is positioned at roughly 45° to the right and slightly elevated.
+The viewer sees TWO distinct faces: the front label AND the right side.
+About 60% front face visible, 40% right side visible.
+This is the classic "hero 3/4 shot" commonly used in e-commerce product photography.`,
   },
   {
-    name: 'isometric',
-    description: 'Isometric view',
-    prompt: 'Camera orbits 30° counterclockwise AND elevates 30° above the horizon. Three surfaces visible simultaneously: front face, left side, and top. This technical drawing style shows three dimensions at once.',
+    name: 'back',
+    description: 'Back view showing rear label/info',
+    prompt: `Photograph the product from the BACK — the camera is behind the product.
+The viewer sees the REAR of the product: the back label, ingredients list, nutritional info, or barcode.
+The front label is NOT visible at all.
+Imagine you picked up the product and turned it around 180° — that's what the viewer sees.`,
   },
 ]

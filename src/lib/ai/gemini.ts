@@ -97,28 +97,34 @@ export async function generateAngledShots(
       const batchResults = await Promise.all(batch.map(async (angle) => {
       console.log(`  → Starting ${angle.name}...`)
 
-      const prompt = `PRIMARY DIRECTIVE — CAMERA ANGLE CHANGE:
+      const prompt = `TASK: Re-photograph this product from a COMPLETELY DIFFERENT camera angle.
+
+CAMERA POSITION:
 ${angle.prompt}
 
 Target view: ${angle.description}
 ${lookAndFeel ? `\nSTYLE: ${lookAndFeel}` : ''}
-Aspect ratio: ${aspectRatio}
 
+The output image MUST show a visually DISTINCT perspective from the input image.
+If the input shows the front, and the target is a side view, the front label should NOT be the main visible face.
 Generate a high-quality professional product photograph from this exact camera angle.`
 
       try {
         const requestBody = {
           systemInstruction: {
             parts: [{
-              text: `You are a professional product photographer operating a camera on a fixed turntable rig.
+              text: `You are a professional product photographer with a camera on a turntable rig.
 
-ABSOLUTE RULES — NEVER VIOLATE THESE:
-- The product is PHYSICALLY FIXED on the turntable — it never changes shape, design, text, labels, colors, or orientation.
-- You can ONLY move the camera to a new position around or above the product.
-- ALL text, logos, and labels on the product must remain PIXEL-PERFECT — never alter, rearrange, or hallucinate text.
-- The product must always remain right-side up — NEVER flip or invert it.
-- Maintain the same background color, lighting style, and any surrounding props.
-- Output must match the requested aspect ratio exactly.`
+YOUR JOB: Move the camera to a new position around the product and take a photograph from that new angle.
+The product stays on the turntable. You walk around it with your camera.
+
+RULES:
+- The product is the SAME product — same shape, same colors, same materials, same brand.
+- When viewed from the side or back, the front label naturally becomes hidden — this is CORRECT and EXPECTED.
+- Different angles REVEAL different faces of the product (sides, back, top) — each shot should look distinctly different.
+- Keep the same clean background and studio lighting style.
+- The product stays upright (don't flip it upside down).
+- Preserve any text/labels that ARE visible from the new angle — but don't force the front label to appear in every shot.`
             }]
           },
           contents: [{
@@ -135,8 +141,8 @@ ABSOLUTE RULES — NEVER VIOLATE THESE:
             ]
           }],
           generationConfig: {
-            temperature: 0.35,
-            topP: 0.9,
+            temperature: 0.5,
+            topP: 0.95,
             maxOutputTokens: 32768,
             responseModalities: ['IMAGE'],
             imageConfig: {
