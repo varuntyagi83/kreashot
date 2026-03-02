@@ -127,7 +127,11 @@ export async function generateCopyKit(
   }
 
   if (results.length === 0) {
-    throw new Error('All copy generation requests failed')
+    const firstFailure = failures[0] as PromiseRejectedResult
+    const reason = firstFailure?.reason instanceof Error
+      ? firstFailure.reason.message
+      : String(firstFailure?.reason ?? 'Unknown error')
+    throw new Error(`All copy generation requests failed: ${reason}`)
   }
 
   return results
