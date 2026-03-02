@@ -1,5 +1,8 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { ANGLE_VARIATIONS } from './angle-variations'
+import type { BrandVoiceProfile } from './brand-voice'
+import { formatBrandVoiceForPrompt } from './brand-voice'
+import type { CopyType, CopyVariation, CopyKitItem } from './openai'
 
 // Lazy initialization of Gemini AI client
 let genAI: GoogleGenerativeAI | null = null
@@ -709,6 +712,121 @@ Think of yourself as operating a camera, not Photoshop. You photograph what exis
     console.error('Error generating composite:', error)
     throw new Error('Failed to generate composite')
   }
+}
+
+// ── Copy generation (Gemini Flash) ───────────────────────────────────────────
+
+function buildCopySystemPrompt(
+  lookAndFeel?: string,
+  brandGuidelines?: string,
+  brandVoice?: BrandVoiceProfile | null
+): string {
+  let system = `You are an expert copywriter specialising in e-commerce and performance marketing. You write copy that converts.`
+  if (lookAndFeel) system += `\n\nBRAND STYLE: ${lookAndFeel}`
+  if (brandGuidelines) system += `\n\nBRAND GUIDELINES (from uploaded brand document — follow these closely):\n${brandGuidelines}`
+  if (brandVoice) {
+    system += `\n\n${formatBrandVoiceForPrompt(brandVoice)}`
+    system += `\n\nThe brand voice profile above is the most important context. Every word you write must align with it.`
+  }
+  system += `\n\nReturn ONLY the copy text itself — no explanations, no labels, no quotes around it.`
+  return system
+}
+
+function buildCopyUserPrompt(
+  brief: string,
+  copyType: string,
+  tone?: string,
+  targetAudience?: string
+): string {
+  let prompt = `Write a ${copyType} for:\n${brief}\n\n`
+  if (tone) prompt += `Tone: ${tone}\n\n`
+  if (targetAudience) prompt += `Target Audience: ${targetAudience}\n\n`
+  prompt += `Requirements:\n`
+  switch (copyType) {
+    case 'hook':
+      prompt += `- Write a compelling 1-2 sentence hook\n- Grab attention immediately\n- Max 280 characters`; break
+    case 'cta':
+      prompt += `- Write a strong call-to-action\n- Action-oriented and persuasive\n- Max 50 characters`; break
+    case 'headline':
+      prompt += `- Write a powerful headline\n- Clear benefit or emotional trigger\n- Max 100 characters`; break
+    case 'tagline':
+      prompt += `- Write a memorable tagline\n- Concise, catchy, brand-aligned\n- Max 80 characters`; break
+    case 'body':
+      prompt += `- Write persuasive body copy\n- 2-4 short paragraphs\n- Focus on benefits, not features\n- Max 500 words`; break
+  }
+  return prompt
+}
+
+export async function generateCopyVariationsGemini(
+  brief: string,
+  copyType: CopyType,
+  lookAndFeel: string,
+  count: number = 1,
+  tone?: string,
+  targetAudience?: string,
+  brandGuidelines?: string,
+  brandVoice?: BrandVoiceProfile | null
+): Promise<CopyVariation[]> {
+  const model = getGenAI().getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    systemInstruction: buildCopySystemPrompt(lookAndFeel, brandGuidelines, brandVoice),
+  })
+  const prompt = buildCopyUserPrompt(brief, copyType, tone, targetAudience)
+  const results: CopyVariation[] = []
+  for (let i = 0; i < count; i++) {
+    const result = await model.generateContent(prompt)
+    results.push({ promptUsed: prompt, generatedText: result.response.text() })
+  }
+  return results
+}
+
+export async function generateCopyKitGemini(
+  brief: string,
+  copyTypes: CopyType[],
+  tones: string[],
+  lookAndFeel: string,
+  targetAudience?: string,
+  brandGuidelines?: string,
+  brandVoice?: BrandVoiceProfile | null
+): Promise<CopyKitItem[]> {
+  const model = getGenAI().getGenerativeModel({
+    model: 'gemini-2.0-flash',
+    systemInstruction: buildCopySystemPrompt(lookAndFeel, brandGuidelines, brandVoice),
+  })
+
+  const combinations: { copyType: CopyType; tone: string }[] = []
+  for (const copyType of copyTypes) {
+    for (const tone of tones) {
+      combinations.push({ copyType, tone })
+    }
+  }
+
+  const settled = await Promise.allSettled(
+    combinations.map(async ({ copyType, tone }) => {
+      const prompt = buildCopyUserPrompt(brief, copyType, tone, targetAudience)
+      const result = await model.generateContent(prompt)
+      return { copyType, tone, promptUsed: prompt, generatedText: result.response.text() } as CopyKitItem
+    })
+  )
+
+  const results = settled
+    .filter((r): r is PromiseFulfilledResult<CopyKitItem> => r.status === 'fulfilled')
+    .map((r) => r.value)
+
+  const failures = settled.filter((r) => r.status === 'rejected')
+  if (failures.length > 0) {
+    console.warn(`Copy kit (Gemini): ${failures.length}/${settled.length} combinations failed`)
+  }
+
+  if (results.length === 0) {
+    const firstFailure = failures[0] as PromiseRejectedResult
+    const reason = firstFailure?.reason instanceof Error
+      ? firstFailure.reason.message
+      : String(firstFailure?.reason ?? 'Unknown error')
+    throw new Error(`All copy generation requests failed: ${reason}`)
+  }
+
+  return results
 }
 
 /**

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { generateCopyVariations, generateCopyKit, CopyType } from '@/lib/ai/openai'
+import { generateCopyVariationsGemini as generateCopyVariations, generateCopyKitGemini as generateCopyKit } from '@/lib/ai/gemini'
+import type { CopyType } from '@/lib/ai/openai'
 
 const VALID_COPY_TYPES: CopyType[] = ['hook', 'cta', 'body', 'tagline', 'headline']
 
