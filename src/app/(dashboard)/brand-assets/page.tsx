@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Layers } from 'lucide-react'
 import { BrandAssetCard } from '@/components/brand-assets/BrandAssetCard'
 import { UploadBrandAsset } from '@/components/brand-assets/UploadBrandAsset'
 import { toast } from 'sonner'
@@ -24,6 +24,25 @@ export default function BrandAssetsPage() {
   const [assets, setAssets] = useState<BrandAsset[]>([])
   const [loading, setLoading] = useState(true)
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [seeding, setSeeding] = useState(false)
+
+  const handleSeedOverlays = async () => {
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/brand-assets/seed-overlays', { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success(data.message)
+        fetchAssets()
+      } else {
+        toast.error(data.error || 'Failed to seed overlays')
+      }
+    } catch {
+      toast.error('Failed to seed overlays')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   const fetchAssets = async () => {
     try {
@@ -82,10 +101,16 @@ export default function BrandAssetsPage() {
             Manage your global brand assets - logos, fonts, and colors
           </p>
         </div>
-        <Button onClick={() => setUploadDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Upload Asset
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleSeedOverlays} disabled={seeding}>
+            <Layers className="h-4 w-4 mr-2" />
+            {seeding ? 'Generating...' : 'Seed Overlays'}
+          </Button>
+          <Button onClick={() => setUploadDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Upload Asset
+          </Button>
+        </div>
       </div>
 
       {assets.length === 0 ? (
