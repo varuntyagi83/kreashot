@@ -199,6 +199,17 @@ export function CompositePreviewGrid({
                       <Download className="h-4 w-4" />
                     </Button>
                   </div>
+
+                  {composite.prompt_used && (
+                    <details className="text-xs">
+                      <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                        View prompt used
+                      </summary>
+                      <p className="mt-2 text-muted-foreground bg-muted p-2 rounded whitespace-pre-wrap">
+                        {composite.prompt_used}
+                      </p>
+                    </details>
+                  )}
                 </div>
               </div>
             ))}
