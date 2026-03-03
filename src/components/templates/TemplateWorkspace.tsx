@@ -9,7 +9,6 @@ import { PropertiesPanel } from './PropertiesPanel'
 import { ToolbarTemplateBuilder } from './ToolbarTemplateBuilder'
 import { TemplateSamplePreview } from './TemplateSamplePreview'
 import { TemplateGallery } from './TemplateGallery'
-import { FormatSelector } from './FormatSelector'
 import { getFormatDimensions, getFormatConfig } from '@/lib/formats'
 import { toast } from 'sonner'
 
@@ -98,6 +97,11 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
     }
   }
 
+  // Sync selectedFormat when parent format prop changes
+  useEffect(() => {
+    setSelectedFormat(format)
+  }, [format])
+
   useEffect(() => {
     fetchGuidelines()
   }, [categoryId])
@@ -116,8 +120,8 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
       id: `layer-${Date.now()}`,
       type,
       name: '',
-      x: 25,
-      y: 25,
+      x: type === 'background' ? 0 : 25,
+      y: type === 'background' ? 0 : 25,
       width: type === 'background' ? 100 : 50,
       height: type === 'background' ? 100 : 50,
       z_index: layers.length,
@@ -361,37 +365,19 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
 
         {/* Tab 2: Template Builder */}
         <TabsContent value="builder" className="space-y-4">
-          {/* Format Selector & Template Name */}
-          <div className="border rounded-lg p-4 bg-card space-y-4">
-            <div>
-              <label className="text-sm font-medium mb-2 block">Template Name</label>
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="Enter template name (e.g., Product Ad Template)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-            </div>
-
-            <div>
-              <FormatSelector
-                value={selectedFormat}
-                onChange={(newFormat) => {
-                  if (hasChanges && currentTemplateId) {
-                    const confirmed = window.confirm(
-                      'You have unsaved changes. Switching formats will discard them. Continue?'
-                    )
-                    if (!confirmed) return
-                  }
-                  setSelectedFormat(newFormat)
-                }}
-                disabled={false}
-              />
-              <p className="text-sm text-muted-foreground mt-2">
-                Select a format to create or edit a template for that aspect ratio.
-              </p>
-            </div>
+          {/* Template Name */}
+          <div className="border rounded-lg p-4 bg-card">
+            <label className="text-sm font-medium mb-2 block">Template Name</label>
+            <input
+              type="text"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="Enter template name (e.g., Product Ad Template)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-sm text-muted-foreground mt-2">
+              Format: <span className="font-medium">{selectedFormat}</span> — change the format using the selector above.
+            </p>
           </div>
 
           <ToolbarTemplateBuilder

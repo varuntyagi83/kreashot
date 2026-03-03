@@ -211,8 +211,8 @@ export function TemplateBuilderCanvas({
               scaleX: lw / (img.width || 1),
               scaleY: lh / (img.height || 1),
               selectable: !layer.locked,
-              stroke: isSelected ? '#000000' : layerColor,
-              strokeWidth: isSelected ? 2 : 1,
+              stroke: isSelected ? '#2563eb' : undefined,
+              strokeWidth: isSelected ? 2 : 0,
               ...commonControls,
             })
             ;(img as CustomFabricObject).customData = { isLayer: true, layerId: layer.id }

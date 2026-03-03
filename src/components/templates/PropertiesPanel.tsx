@@ -48,7 +48,7 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
           setAngledShots(
             (data.angledShots || []).map((s: any) => ({
               id: s.id,
-              name: s.name || `Shot ${s.id.slice(0, 6)}`,
+              name: s.display_name || s.angle_description || s.angle_name || `Shot ${s.id.slice(0, 6)}`,
               url: s.public_url || s.storage_url,
             }))
           )
