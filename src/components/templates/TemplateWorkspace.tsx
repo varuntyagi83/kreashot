@@ -53,6 +53,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
   const [gridEnabled, setGridEnabled] = useState(true)
 
   const [isSaving, setIsSaving] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -308,6 +309,49 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
     }
   }
 
+  // Export template as a final asset using the latest composite
+  const handleExportAsFinalAsset = async () => {
+    if (!currentTemplateId) {
+      toast.error('Save the template first before exporting as a final asset')
+      return
+    }
+
+    setIsExporting(true)
+    try {
+      // Build layerTexts from text layers' sample_text so text renders on the image
+      const layerTexts: Record<string, string> = {}
+      for (const layer of layers) {
+        if (layer.type === 'text') {
+          const key = layer.name || layer.id
+          layerTexts[key] = layer.sample_text || ''
+        }
+      }
+
+      const response = await fetch(`/api/categories/${categoryId}/final-assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${templateName || 'Template'} – ${selectedFormat}`,
+          format: selectedFormat,
+          templateId: currentTemplateId,
+          ...(Object.keys(layerTexts).length > 0 && { layerTexts }),
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Export failed')
+      }
+
+      toast.success('Final asset saved to Google Drive! View it in the Final Assets tab.')
+    } catch (error: any) {
+      toast.error(error.message || 'Export failed')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   // Edit template from gallery
   const handleEditTemplate = (template: Template) => {
     setCurrentTemplateId(template.id)
@@ -400,6 +444,9 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
             onToggleGrid={() => setGridEnabled(!gridEnabled)}
             gridEnabled={gridEnabled}
             isSaving={isSaving}
+            onExportAsFinalAsset={handleExportAsFinalAsset}
+            isExporting={isExporting}
+            canExport={!!currentTemplateId}
           />
 
           <div className="grid grid-cols-12 gap-4">

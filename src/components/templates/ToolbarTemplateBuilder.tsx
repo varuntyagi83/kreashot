@@ -9,7 +9,7 @@ import {
   Tag,
   Grid3x3,
   Save,
-  Download,
+  ImageDown,
   Plus,
   Layers
 } from 'lucide-react'
@@ -27,6 +27,9 @@ interface ToolbarTemplateBuilderProps {
   onToggleGrid: () => void
   gridEnabled: boolean
   isSaving?: boolean
+  onExportAsFinalAsset?: () => void
+  isExporting?: boolean
+  canExport?: boolean
 }
 
 export function ToolbarTemplateBuilder({
@@ -36,6 +39,9 @@ export function ToolbarTemplateBuilder({
   onToggleGrid,
   gridEnabled,
   isSaving = false,
+  onExportAsFinalAsset,
+  isExporting = false,
+  canExport = false,
 }: ToolbarTemplateBuilderProps) {
   return (
     <div className="h-14 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 flex items-center gap-2">
@@ -104,6 +110,20 @@ export function ToolbarTemplateBuilder({
       </Button>
 
       <div className="flex-1" />
+
+      {/* Export as Final Asset */}
+      {onExportAsFinalAsset && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onExportAsFinalAsset}
+          disabled={isExporting || !canExport}
+          title={!canExport ? 'Save the template first' : 'Generate final asset using latest composite'}
+        >
+          <ImageDown className="h-4 w-4 mr-2" />
+          {isExporting ? 'Exporting...' : 'Export as Final Asset'}
+        </Button>
+      )}
 
       {/* Save Button */}
       <Button
