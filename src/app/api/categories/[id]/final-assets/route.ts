@@ -61,6 +61,7 @@ export async function POST(
       copyDocId,
       templateId,
       logoUrl,
+      layerTexts,
     } = body
 
     const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
@@ -153,9 +154,14 @@ export async function POST(
       )
     }
 
-    // 3. Fetch copy doc (optional — no on-image text if not provided)
+    // 3. Build copy_text for Python script.
+    // If per-layer texts were provided (layerTexts map), use those directly.
+    // Each key is a layer name; Python resolves text via copy_text.get(layer_name).
+    // Fall back to a single copyDoc text for backwards-compat templates.
     let copyText: any = { generated_text: '' }
-    if (copyDocId) {
+    if (layerTexts && Object.keys(layerTexts).length > 0) {
+      copyText = layerTexts
+    } else if (copyDocId) {
       const { data: copyDoc } = await supabase
         .from('copy_docs')
         .select('generated_text, copy_type')

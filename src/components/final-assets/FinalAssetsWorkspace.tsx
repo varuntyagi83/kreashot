@@ -20,20 +20,26 @@ interface FinalAsset {
   created_at: string
 }
 
+interface TemplateLayer {
+  id: string
+  type: string
+  name?: string
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  z_index?: number
+  sample_text?: string
+  font_size?: number
+  color?: string
+}
+
 interface Template {
   id: string
   name: string
   format: string
   template_data?: {
-    layers?: Array<{
-      id: string
-      type: string
-      x?: number
-      y?: number
-      width?: number
-      height?: number
-      z_index?: number
-    }>
+    layers?: TemplateLayer[]
     safe_zones?: Array<{
       id: string
       name: string
@@ -89,6 +95,22 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [selectedCompositeId, setSelectedCompositeId] = useState<string>('')
   const [selectedCopyDocId, setSelectedCopyDocId] = useState<string>('')
+
+  // Per-layer text inputs (keyed by layer name)
+  const [layerTexts, setLayerTexts] = useState<Record<string, string>>({})
+
+  // When selected template changes, initialise layerTexts from its text layers
+  useEffect(() => {
+    const template = templates.find(t => t.id === selectedTemplateId)
+    const textLayers = template?.template_data?.layers?.filter(l => l.type === 'text') ?? []
+    const initial: Record<string, string> = {}
+    for (const layer of textLayers) {
+      const key = layer.name || layer.id
+      initial[key] = layerTexts[key] ?? layer.sample_text ?? ''
+    }
+    setLayerTexts(initial)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTemplateId, templates])
 
   // Fetch all data
   useEffect(() => {
@@ -253,6 +275,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           ...(selectedCopyDocId && { copyDocId: selectedCopyDocId }),
           ...(selectedTemplateId && { templateId: selectedTemplateId }),
           ...(logo && { logoUrl: logo.storage_url }),
+          ...(Object.keys(layerTexts).length > 0 && { layerTexts }),
         })
       })
 
@@ -397,6 +420,35 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 Only tagline copy is baked onto the image. Headline, hook, CTA, and body go in Ad Export.
               </p>
             </div>
+
+            {/* Per-layer text inputs — shown when template has text layers */}
+            {Object.keys(layerTexts).length > 0 && (
+              <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
+                <Label className="text-sm font-medium">Text Layers</Label>
+                <p className="text-xs text-muted-foreground -mt-1">
+                  Enter the text for each layer in your template
+                </p>
+                {templates.find(t => t.id === selectedTemplateId)?.template_data?.layers
+                  ?.filter(l => l.type === 'text')
+                  .map(layer => {
+                    const key = layer.name || layer.id
+                    return (
+                      <div key={layer.id} className="space-y-1">
+                        <Label htmlFor={`layer-${key}`} className="text-xs capitalize text-muted-foreground">
+                          {key.replace(/_/g, ' ')}
+                        </Label>
+                        <Input
+                          id={`layer-${key}`}
+                          value={layerTexts[key] ?? ''}
+                          onChange={e => setLayerTexts(prev => ({ ...prev, [key]: e.target.value }))}
+                          placeholder={layer.sample_text || `Text for ${key}`}
+                          disabled={generating}
+                        />
+                      </div>
+                    )
+                  })}
+              </div>
+            )}
 
             {/* Logo selector */}
             <div className="space-y-2">
