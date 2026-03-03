@@ -32,7 +32,12 @@ export default function BrandAssetsPage() {
       const res = await fetch('/api/brand-assets/seed-overlays', { method: 'POST' })
       const data = await res.json()
       if (res.ok) {
-        toast.success(data.message)
+        const firstError = data.results?.find((r: any) => r.status === 'error')
+        if (firstError) {
+          toast.error(`${data.message} — first error: ${firstError.error}`)
+        } else {
+          toast.success(data.message)
+        }
         fetchAssets()
       } else {
         toast.error(data.error || 'Failed to seed overlays')
