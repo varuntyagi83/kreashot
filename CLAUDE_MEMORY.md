@@ -2,8 +2,9 @@
 
 ## Project Info
 - Repo: https://github.com/varuntyagi83/adforge-railway
-- Project path: /Users/varuntyagi/Downloads/Claude Research/AdForge-Railway/adforge
+- Project path: /Users/varuntyagi/Downloads/Claude Research/AdForge-Railway (git root — Next.js app is at root, NOT in adforge/ subfolder)
 - Git remote: origin → https://github.com/varuntyagi83/adforge-railway.git
+- Deployed on: Railway (NOT Vercel) — Dockerfile, railway.toml, .railwayignore at root
 - Stack: Next.js, TypeScript, Tailwind, shadcn/ui, Supabase, Google Drive storage
 
 ## Workflow Preferences
@@ -34,19 +35,22 @@
 ## Critical Architectural Rules (must know before writing any code)
 
 ### Google Drive URLs
-- Always use `https://drive.google.com/thumbnail?id={FILE_ID}&sz=w2000` format
-- Never use the older `uc?export=view` format — two templates still have this, it's a known inconsistency
+- Always use `https://lh3.googleusercontent.com/d/{FILE_ID}=w2000` format (Google CDN)
+- The gdrive-adapter.ts generates this automatically on every upload
+- BackgroundGallery.tsx has an old fallback to `drive.google.com/thumbnail` — known inconsistency, low priority
 
 ### Storage Sync Pattern (universal — no exceptions)
 - Every table that stores files MUST have: `storage_provider`, `storage_path`, `storage_url`, `gdrive_file_id`
 - Deletion order is ALWAYS: delete from storage first, then delete from DB
 - DB triggers queue deletions; cron job processes every 5 minutes
-- See `docs/STORAGE_SYNC.md` for full pattern
+- `docs/` folder has been moved to `archived_docs/` — storage sync pattern is fully live in DB triggers
 
-### Database Constraint Bug (open, not fixed)
-- `composites_angled_shot_id_background_id_key` unique constraint exists in DB
-- This blocks creating multiple composites from the same angled shot + background pair (breaks A/B testing)
-- Must drop this constraint before any user testing — see `CRITICAL_FIX_COMPOSITE_CONSTRAINT.md`
+### Database Constraint (RESOLVED)
+- `composites_angled_shot_id_background_id_key` — this constraint NO LONGER EXISTS in live DB (was dropped)
+- Current composites unique constraint is only `UNIQUE(category_id, slug)` — A/B testing is unblocked
+
+### Known DB Quirk (not breaking, leave alone)
+- `product_images` table has no `category_id` column — intentional, join through `products` table instead
 
 ### Template System (fully built)
 - API routes exist, DB schema ready, one template per (category, format) enforced
