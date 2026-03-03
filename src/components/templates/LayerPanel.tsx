@@ -32,6 +32,8 @@ export function LayerPanel({
         return '📝'
       case 'logo':
         return '🏷️'
+      case 'overlay':
+        return '🎨'
       default:
         return '▫️'
     }
@@ -40,7 +42,7 @@ export function LayerPanel({
   const sortedLayers = [...layers].sort((a, b) => b.z_index - a.z_index)
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="w-full bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-semibold text-sm">Layers</h3>
         <p className="text-xs text-muted-foreground mt-1">

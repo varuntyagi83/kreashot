@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import { TemplateLayer } from '@/lib/types/template'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Trash2 } from 'lucide-react'
 
 interface AssetOption {
   id: string
@@ -16,9 +18,10 @@ interface PropertiesPanelProps {
   layer: TemplateLayer | null
   categoryId: string
   onLayerUpdate: (updates: Partial<TemplateLayer>) => void
+  onLayerDelete: (layerId: string) => void
 }
 
-export function PropertiesPanel({ layer, categoryId, onLayerUpdate }: PropertiesPanelProps) {
+export function PropertiesPanel({ layer, categoryId, onLayerUpdate, onLayerDelete }: PropertiesPanelProps) {
   const [overlays, setOverlays] = useState<AssetOption[]>([])
   const [angledShots, setAngledShots] = useState<AssetOption[]>([])
   const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
@@ -70,7 +73,7 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate }: Properties
 
   if (!layer) {
     return (
-      <div className="w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex items-center justify-center">
+      <div className="w-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex items-center justify-center">
         <p className="text-sm text-muted-foreground text-center px-4">
           Select a layer to edit its properties
         </p>
@@ -79,7 +82,7 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate }: Properties
   }
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="w-full bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 className="font-semibold text-sm">Properties</h3>
         <p className="text-xs text-muted-foreground mt-1 capitalize">
@@ -481,6 +484,19 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate }: Properties
             </p>
           </div>
         )}
+      </div>
+
+      {/* Delete layer */}
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700">
+        <Button
+          variant="destructive"
+          size="sm"
+          className="w-full"
+          onClick={() => onLayerDelete(layer.id)}
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete Layer
+        </Button>
       </div>
     </div>
   )

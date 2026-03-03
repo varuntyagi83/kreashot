@@ -438,6 +438,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
                 layer={selectedLayer}
                 categoryId={categoryId}
                 onLayerUpdate={handleSelectedLayerUpdate}
+                onLayerDelete={handleDeleteLayer}
               />
             </div>
           </div>
