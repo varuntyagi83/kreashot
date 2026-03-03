@@ -1,3 +1,6 @@
+// Extend route timeout to 300s for Gemini image generation (7 shots × ~30-60s each)
+export const maxDuration = 300
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateAngledShots } from '@/lib/ai/gemini'

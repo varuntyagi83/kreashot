@@ -1,3 +1,6 @@
+// Extend route timeout for Python compositor + GDrive upload
+export const maxDuration = 300
+
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
