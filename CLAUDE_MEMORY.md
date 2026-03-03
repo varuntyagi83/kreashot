@@ -9,6 +9,7 @@
 
 ## Workflow Preferences
 - Commit + push after every change
+- Always update CLAUDE_MEMORY.md before and after making changes
 
 ## API Keys (in .env.local)
 - `GOOGLE_GEMINI_API_KEY` — used for image generation (angled shots, backgrounds, composites) and copy (Gemini Flash fallback)
@@ -17,24 +18,28 @@
 
 ## Current Pipeline (Phases) — ALL IMPLEMENTED
 
-1. Product image upload
-2. Angled shots — Gemini (`gemini-2.0-flash-preview-image-generation`)
-3. Backgrounds — Gemini (prompt display added to BackgroundPreviewGrid)
-4. Composites — Gemini (product + background; prompt display added to CompositePreviewGrid)
-5. Copy generation — OpenAI gpt-4o (`generateCopyKit` in `src/lib/ai/openai.ts`)
-6. Final asset generation — **LIVE** (`src/components/final-assets/FinalAssetsWorkspace.tsx` + Python PIL script)
-7. Ad export — **LIVE** (`src/components/ad-export/AdExportWorkspace.tsx` — CSV download)
+Tab order in category page matches this pipeline exactly:
+
+1. **Assets** — Product image upload
+2. **Angled Shots** — Gemini (`gemini-2.0-flash-preview-image-generation`)
+3. **Backgrounds** — Gemini (prompt display added to BackgroundPreviewGrid)
+4. **Composites** — Gemini (product + background; prompt display in CompositePreviewGrid)
+5. **Copy** — OpenAI gpt-4o (`generateCopyKit` in `src/lib/ai/openai.ts`) ← **before Templates**
+6. **Templates** — Visual canvas-based template builder (Fabric.js)
+7. **Final Assets** — **LIVE** (`FinalAssetsWorkspace.tsx` + Python PIL script)
+8. **Ad Export** — **LIVE** (`AdExportWorkspace.tsx` — CSV download for Meta Ads Manager)
+9. **Guidelines** — Upload brand guidelines (separate concern, at end)
 
 ## Copy Types and Where They Belong
 Valid copy types: `hook`, `cta`, `body`, `tagline`, `headline`
 
-| Copy type  | Where it goes             |
-|------------|---------------------------|
-| `tagline`  | Baked onto the image (Final Asset Phase 6) |
-| `headline` | Meta copy field (Ad Export CSV only)       |
-| `hook`     | Meta copy field (Ad Export CSV only)       |
-| `cta`      | Meta copy field (Ad Export CSV only)       |
-| `body`     | Meta copy field (Ad Export CSV only)       |
+| Copy type  | Where it goes                                     |
+|------------|---------------------------------------------------|
+| `tagline`  | Baked onto the image (Final Asset Phase 7)        |
+| `headline` | Meta copy field (Ad Export CSV only)              |
+| `hook`     | Meta copy field (Ad Export CSV only)              |
+| `cta`      | Meta copy field (Ad Export CSV only)              |
+| `body`     | Meta copy field (Ad Export CSV only)              |
 
 **Rule:** Only `tagline` copy is baked onto the final asset image. Everything else is Meta copy.
 
@@ -47,9 +52,9 @@ Valid copy types: `hook`, `cta`, `body`, `tagline`, `headline`
 ## Ad Architecture (Meta ads)
 ```
 COMPOSITE (AI — product on background)
-    ↓ [Phase 6]
-FINAL ASSET = composite + tagline text baked in + logo
     ↓ [Phase 7]
+FINAL ASSET = composite + tagline text baked in + logo
+    ↓ [Phase 8]
 AD EXPORT CSV = final_asset image_url + hook + headline + cta + body
     ↓ [Manual]
 Meta Ads Manager upload
@@ -69,6 +74,8 @@ Meta Ads Manager upload
 - Always use `https://lh3.googleusercontent.com/d/{FILE_ID}=w2000` format (Google CDN)
 - The gdrive-adapter.ts generates this automatically on every upload
 - BackgroundGallery.tsx has an old fallback to `drive.google.com/thumbnail` — known inconsistency, low priority
+- **IMPORTANT:** Google Drive CDN does NOT send `Access-Control-Allow-Origin` when `Origin` header is present.
+  Never use `crossOrigin: 'anonymous'` when loading these URLs into canvas/fabric.js — it causes silent load failure.
 
 ### Storage Sync Pattern (universal — no exceptions)
 - Every table that stores files MUST have: `storage_provider`, `storage_path`, `storage_url`, `gdrive_file_id`
@@ -86,29 +93,33 @@ Meta Ads Manager upload
 ### Template System (fully built)
 - API routes exist, DB schema ready, one template per (category, format) enforced
 - All layer positions stored as percentages (0–100) for scale independence
-- Layer types currently supported: `background`, `product`, `text`, `logo`
+- Layer types: `background`, `product`, `text`, `logo`, `overlay` (all five supported)
 - Safe zones must be respected in composites and final asset generation
-- PropertiesPanel.tsx handles layer properties UI
+- PropertiesPanel.tsx handles layer properties UI; categoryId is passed from TemplateWorkspace
 
-## Planned Feature: Graphic Overlay Layer Type
-**Context:** Sunday Natural brand design uses structured graphic elements (dashed circle, text grid,
-headline frame, text column) as transparent PNG overlays placed between the composite and text layers.
-These are designed once in Figma and reused across all ads in a campaign.
+### Template Layer Fields (src/lib/types/template.ts)
+- `source_url` — overlay layers only; the actual overlay PNG URL; **used by PIL renderer**
+- `preview_url` — product/background layers; URL of image to preview in canvas; **PIL ignores this**
+- `sample_text` — text layers; sample tagline text for canvas preview; **PIL ignores this**
 
-**Architecture decision:** Add `overlay` as a new layer type in the template system.
+### Template Builder Canvas (TemplateBuilderCanvas.tsx)
+- Uses Fabric.js v6 (`fabric ^6.9.1`)
+- Layer rendering is async: product/background/overlay layers load real images via `fabric.Image.fromURL(url)` (no crossOrigin)
+- Text layers render with actual font/color/size settings via `fabric.Textbox`
+- Falls back to colored placeholder rect if image URL is missing or fails to load
+- Layer colours: background=blue, product=purple, text=orange, logo=green, overlay=pink
 
-**What to build:**
-1. **Brand Graphic Overlays upload** — new section under Brand Assets for uploading transparent PNGs
-   (stored in Google Drive under `brand-assets/overlays/`)
-2. **`overlay` layer type in template builder** — PropertiesPanel shows an image picker (select from
-   uploaded overlays); layer stores `source_url` pointing to the overlay PNG
-3. **PIL script handles `overlay` type** — paste transparent PNG at layer position/size using PIL's
-   alpha compositing (already supported via `Image.paste(img, mask=img)`)
-4. **Template canvas preview** — show overlay thumbnail in TemplateBuilderCanvas
+### Graphic Overlay Layer Type (FULLY BUILT)
+- Upload: Brand Assets → Upload → Graphic Overlay (transparent PNG) → stored in Supabase `brand-assets` bucket
+- Template builder: Add overlay layer → PropertiesPanel shows picker from brand assets filtered to `asset_type='overlay'`
+- Canvas preview: shows actual PNG via `fabric.Image.fromURL(source_url)`
+- PIL rendering (`scripts/composite_final_asset.py`): alpha-composites overlay PNG at layer position/size
+- `source_url` IS saved in template_data (unlike preview_url which is preview-only)
+- Rendering order: background (z:0) → composite/product (z:1) → overlay PNG (z:2) → text (z:3) → logo (z:4)
 
-**Rendering order:** background (z:0) → composite/product (z:1) → overlay PNG (z:2) → text (z:3) → logo (z:4)
-
-**Why not build it into the composite Gemini step:** Graphic overlays are brand design elements, not
-AI-generated content. They must be pixel-perfect and reproducible — AI generation would vary each time.
-
-**Status:** Not yet built. Agreed architecture as of 2026-03-03.
+### PropertiesPanel Layer Pickers (added 2026-03-03)
+- **Product layer**: fetches angled shots from `/api/categories/[id]/angled-shots` → `angledShots` state → picker sets `preview_url`
+- **Background layer**: fetches from `/api/categories/[id]/backgrounds` → picker sets `preview_url`
+- **Overlay layer**: fetches from `/api/brand-assets` filtered to `asset_type='overlay'` → picker sets `source_url`
+- **Text layer**: "Sample Text" input → sets `sample_text` for canvas preview
+- Layer delete: visible "Delete Layer" button at bottom of PropertiesPanel (not hover-only)

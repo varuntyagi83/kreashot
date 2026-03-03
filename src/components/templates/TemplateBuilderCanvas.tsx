@@ -199,7 +199,10 @@ export function TemplateBuilderCanvas({
 
         if (imageUrl) {
           try {
-            const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' })
+            // No crossOrigin: Google Drive CDN (lh3.googleusercontent.com) does not send
+          // Access-Control-Allow-Origin when Origin header is present, causing load failure.
+          // Canvas becomes tainted but toDataURL() is never needed for this preview canvas.
+          const img = await fabric.Image.fromURL(imageUrl)
             if (cancelled) break
 
             img.set({
