@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { v4 as uuidv4 } from 'uuid'
-import sharp from 'sharp'
 
 // Each overlay is a transparent PNG (1080×1080) generated from an SVG.
 // White strokes/fills so they work on any background colour.
@@ -140,19 +139,18 @@ export async function POST() {
       }
 
       try {
-        // Convert SVG → transparent PNG buffer via sharp
-        const pngBuffer = await sharp(Buffer.from(overlay.svg))
-          .png()
-          .toBuffer()
-
-        const fileName = `${uuidv4()}.png`
+        // Upload SVG directly — sharp SVG→PNG conversion requires librsvg which is not
+        // available on all Railway/Docker environments. SVGs work in Fabric.js canvas
+        // and the <img> preview. PIL overlay rendering falls back to skipping SVG layers.
+        const svgBuffer = Buffer.from(overlay.svg, 'utf-8')
+        const fileName = `${uuidv4()}.svg`
         const filePath = `${user.id}/${fileName}`
 
         // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from('brand-assets')
-          .upload(filePath, pngBuffer, {
-            contentType: 'image/png',
+          .upload(filePath, svgBuffer, {
+            contentType: 'image/svg+xml',
             upsert: false,
           })
 
@@ -171,8 +169,8 @@ export async function POST() {
           storage_url: publicUrl,
           metadata: {
             file_name: fileName,
-            file_size: pngBuffer.length,
-            file_type: 'image/png',
+            file_size: svgBuffer.length,
+            file_type: 'image/svg+xml',
             seeded: true,
           },
         })

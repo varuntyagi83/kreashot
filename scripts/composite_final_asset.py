@@ -184,6 +184,12 @@ def composite_final_asset(
                 sys.stderr.write("    ⏭️  Overlay layer has no source_url, skipping\n")
                 continue
 
+            # SVG overlays (seeded overlays) cannot be opened by PIL — skip gracefully.
+            # Upload a PNG overlay via Brand Assets to use it in final asset rendering.
+            if source_url.lower().endswith('.svg') or 'image/svg' in source_url:
+                sys.stderr.write("    ⏭️  SVG overlay skipped in PIL render (upload a PNG overlay to bake it in)\n")
+                continue
+
             overlay_image = download_image(source_url)
             overlay_image = overlay_image.resize((lw, lh), Image.Resampling.LANCZOS)
 
