@@ -1,4 +1,4 @@
-// Extend route timeout to 300s for Gemini image generation (7 shots × ~30-60s each)
+// Extend route timeout hint (effective on Vercel; Railway uses nginx timeout)
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -13,12 +13,12 @@ import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 /**
  * POST /api/categories/[id]/angled-shots/generate
  *
- * Generates angled shot variations from a product image using Gemini AI
- * and saves each one directly to Google Drive + Supabase — no base64 in response.
- *
- * Previously the route returned all images as base64 to the client which then
- * re-uploaded them. That caused Railway proxy timeouts (7 × 1-2 MB response).
- * Now generate + save happens entirely server-side.
+ * Supports two modes:
+ *   - Single-angle mode (recommended): pass `angleName` — generates 1 image and saves it.
+ *     The client calls this 7 times sequentially, once per angle.
+ *     Each call completes in 20-50s, safely within Railway's proxy timeout.
+ *   - Bulk mode (legacy): omit `angleName` — generates all angles in one request.
+ *     Kept for backward compatibility but risks Railway proxy timeout on longer runs.
  */
 export async function POST(
   request: NextRequest,
@@ -48,7 +48,7 @@ export async function POST(
     }
 
     const body = await request.json()
-    const { productId, productImageId, selectedAngles, format = '1:1' } = body
+    const { productId, productImageId, selectedAngles, angleName, format = '1:1' } = body
 
     if (!productId || !productImageId) {
       return NextResponse.json(
@@ -127,17 +127,27 @@ export async function POST(
 
     const base64Image = imageBuffer.toString('base64')
 
-    const anglesToGenerate = selectedAngles
-      ? ANGLE_VARIATIONS.filter((angle) => selectedAngles.includes(angle.name))
-      : ANGLE_VARIATIONS
+    // Determine which angles to generate
+    let anglesToGenerate: typeof ANGLE_VARIATIONS
+    if (angleName) {
+      // Single-angle mode: one angle per request (avoids Railway proxy timeout)
+      const found = ANGLE_VARIATIONS.find((a) => a.name === angleName)
+      if (!found) {
+        return NextResponse.json({ error: `Unknown angle: ${angleName}` }, { status: 400 })
+      }
+      anglesToGenerate = [found]
+    } else if (selectedAngles) {
+      anglesToGenerate = ANGLE_VARIATIONS.filter((a) => selectedAngles.includes(a.name))
+    } else {
+      anglesToGenerate = ANGLE_VARIATIONS
+    }
 
     if (anglesToGenerate.length === 0) {
       return NextResponse.json({ error: 'No valid angles selected' }, { status: 400 })
     }
 
-    console.log(`🎨 Generating ${anglesToGenerate.length} angled shots for ${product.name} [${format}]...`)
+    console.log(`🎨 Generating ${anglesToGenerate.map(a => a.name).join(', ')} for ${product.name} [${format}]...`)
 
-    // Generate all shots via Gemini (batched concurrency handled inside)
     const generatedShots = await generateAngledShots(
       base64Image,
       productImage.mime_type,
@@ -148,14 +158,13 @@ export async function POST(
 
     const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
 
-    // Save each shot to GDrive + DB directly — no base64 returned to client
+    // Save each shot to GDrive + DB
     const savedShots = await Promise.all(
       generatedShots.map(async (shot) => {
         try {
           const base64Data = shot.imageData.replace(/^data:image\/\w+;base64,/, '')
           const buffer = Buffer.from(base64Data, 'base64')
 
-          // Detect actual dimensions for format tagging
           let detectedFormat = format
           let actualWidth = 1080
           let actualHeight = 1080
@@ -218,10 +227,10 @@ export async function POST(
     )
 
     const saved = savedShots.filter(Boolean)
-    console.log(`✅ Saved ${saved.length}/${generatedShots.length} angled shots`)
+    console.log(`✅ Saved ${saved.length}/${generatedShots.length} shots`)
 
     return NextResponse.json({
-      message: `Generated and saved ${saved.length} angled shots for ${format} format`,
+      message: `Generated and saved ${saved.length} shot(s) for ${format} format`,
       count: saved.length,
       format,
       angledShots: saved,
@@ -229,9 +238,7 @@ export async function POST(
   } catch (error) {
     console.error('Error generating angled shots:', error)
     return NextResponse.json(
-      {
-        error: error instanceof Error ? error.message : 'Failed to generate angled shots',
-      },
+      { error: error instanceof Error ? error.message : 'Failed to generate angled shots' },
       { status: 500 }
     )
   }

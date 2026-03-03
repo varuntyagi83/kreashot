@@ -125,9 +125,11 @@ RULES:
 - The product is the SAME product — same shape, same colors, same materials, same brand.
 - When viewed from the side or back, the front label naturally becomes hidden — this is CORRECT and EXPECTED.
 - Different angles REVEAL different faces of the product (sides, back, top) — each shot should look distinctly different.
-- Keep the same clean background and studio lighting style.
+- BACKGROUND: Keep the EXACT SAME background color and style as the input image. Do not change it to warm tones, shadows, or gradients if the original is clean white/neutral.
+- COLORS: Do NOT change any colors. The label color, bottle color, cap color, glass color, and all packaging colors must match the original image exactly — pixel-for-pixel accurate color reproduction. If the label is sage green, it stays sage green. If the glass is amber brown, it stays amber brown.
+- LIGHTING: Preserve the same studio lighting style. Do not add warm glows, shadows, or vignettes not present in the original.
 - The product stays upright (don't flip it upside down).
-- CRITICAL: Do NOT alter, invent, or hallucinate any text, words, numbers, or logos on the product. Any text or logo visible from the new angle must be reproduced EXACTLY as it appears on the original product — same characters, same font style, same placement on the packaging. If you cannot read it clearly, keep it blurred/indistinct rather than guessing.
+- CRITICAL — TEXT & LOGOS: Do NOT alter, invent, or hallucinate any text, words, numbers, or logos on the product. Any text or logo visible from the new angle must be reproduced EXACTLY as it appears on the original — same characters, same font style, same placement. If you cannot read it clearly, keep it blurred/indistinct rather than guessing.
 - Preserve any text/labels that ARE visible from the new angle — but do not force the front label to appear in shots where it would naturally be hidden.`
             }]
           },
