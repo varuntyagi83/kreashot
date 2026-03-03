@@ -15,21 +15,52 @@
 - `OPENAI_API_KEY` — used for copy generation (gpt-4o). Was exhausted (429 quota) on 2026-03-03; restored after topping up.
 - Google Drive credentials for asset storage
 
-## Current Pipeline (Phases)
+## Current Pipeline (Phases) — ALL IMPLEMENTED
+
 1. Product image upload
-2. Angled shots — Gemini (`gemini-3-pro-image-preview`)
-3. Backgrounds — Gemini
-4. Composites — Gemini (product + background)
+2. Angled shots — Gemini (`gemini-2.0-flash-preview-image-generation`)
+3. Backgrounds — Gemini (prompt display added to BackgroundPreviewGrid)
+4. Composites — Gemini (product + background; prompt display added to CompositePreviewGrid)
 5. Copy generation — OpenAI gpt-4o (`generateCopyKit` in `src/lib/ai/openai.ts`)
-6. Final asset generation — **STUB** (Phase 6, not yet implemented)
-7. Ad export — **STUB** (Phase 7, not yet implemented)
+6. Final asset generation — **LIVE** (`src/components/final-assets/FinalAssetsWorkspace.tsx` + Python PIL script)
+7. Ad export — **LIVE** (`src/components/ad-export/AdExportWorkspace.tsx` — CSV download)
+
+## Copy Types and Where They Belong
+Valid copy types: `hook`, `cta`, `body`, `tagline`, `headline`
+
+| Copy type  | Where it goes             |
+|------------|---------------------------|
+| `tagline`  | Baked onto the image (Final Asset Phase 6) |
+| `headline` | Meta copy field (Ad Export CSV only)       |
+| `hook`     | Meta copy field (Ad Export CSV only)       |
+| `cta`      | Meta copy field (Ad Export CSV only)       |
+| `body`     | Meta copy field (Ad Export CSV only)       |
+
+**Rule:** Only `tagline` copy is baked onto the final asset image. Everything else is Meta copy.
+
+## Template Text Layer Naming Convention
+- Text layers that render on-image MUST be named `tagline`
+- The Python PIL script (`scripts/composite_final_asset.py`) matches `layer.name` to `copy_type`
+- DEFAULT_LAYERS in `final-assets/route.ts` uses `name: 'tagline'` for the text layer
+- PropertiesPanel.tsx shows a hint on text layers explaining this convention
+
+## Ad Architecture (Meta ads)
+```
+COMPOSITE (AI — product on background)
+    ↓ [Phase 6]
+FINAL ASSET = composite + tagline text baked in + logo
+    ↓ [Phase 7]
+AD EXPORT CSV = final_asset image_url + hook + headline + cta + body
+    ↓ [Manual]
+Meta Ads Manager upload
+```
 
 ## Gemini copy fallback
 - `generateCopyVariationsGemini` and `generateCopyKitGemini` exist in `src/lib/ai/gemini.ts`
 - Can be swapped in via `src/app/api/categories/[id]/copy-docs/generate/route.ts` if OpenAI quota runs out
 
 ## Key Reference Files (always read when starting work)
-- `Issues.md` — 61 open bugs with file locations, severity, and fix-safety notes. Check before touching any file.
+- `Issues.md` — open bugs with file locations, severity, and fix-safety notes. Check before touching any file.
 - `progress.md` — full implementation log: what's built, what's pending, intended order.
 
 ## Critical Architectural Rules (must know before writing any code)
@@ -55,27 +86,29 @@
 ### Template System (fully built)
 - API routes exist, DB schema ready, one template per (category, format) enforced
 - All layer positions stored as percentages (0–100) for scale independence
-- Default template data in `src/types/templates.ts`
+- Layer types currently supported: `background`, `product`, `text`, `logo`
 - Safe zones must be respected in composites and final asset generation
+- PropertiesPanel.tsx handles layer properties UI
 
-## Planned Feature: "Bring Your Own Copy" (CSV ingestion)
-**Context:** Requested by Moritz (CDO, Sunday Natural) after Jutta (CMO) delivered finished ad creatives with pre-written hooks/captions. Moritz wants AdForge to accept external copy as an alternative to AI-generated copy, and overlay it onto composite images the same way.
+## Planned Feature: Graphic Overlay Layer Type
+**Context:** Sunday Natural brand design uses structured graphic elements (dashed circle, text grid,
+headline frame, text column) as transparent PNG overlays placed between the composite and text layers.
+These are designed once in Figma and reused across all ads in a campaign.
+
+**Architecture decision:** Add `overlay` as a new layer type in the template system.
 
 **What to build:**
-1. **CSV ingestion endpoint** — accept a CSV upload with columns:
-   - `asset_name` — e.g. "Cycle Komplex – Hook 1"
-   - `composite_image_url` — Google Drive URL of the composite
-   - `hook` / `headline` — short overlay text
-   - `caption_c1`, `caption_c2`, `caption_c3` — ad captions (not overlaid, used for Meta)
-   - `format` — 1:1 / 4:5 / 9:16
-2. **Text overlay engine** — use `sharp` (server-side Node.js) to render hook/headline text onto composite images with brand font, size, and placement guardrails
-3. **Final ad export** — save finished images (text baked in) to Google Drive; output CSV with asset names + Drive URLs for manual Meta upload
-4. **UI** — new section in the category workflow (Phase 6) with two modes:
-   - "AI Copy" — current flow (copy generated by tool)
-   - "Import Copy" — CSV upload mode
+1. **Brand Graphic Overlays upload** — new section under Brand Assets for uploading transparent PNGs
+   (stored in Google Drive under `brand-assets/overlays/`)
+2. **`overlay` layer type in template builder** — PropertiesPanel shows an image picker (select from
+   uploaded overlays); layer stores `source_url` pointing to the overlay PNG
+3. **PIL script handles `overlay` type** — paste transparent PNG at layer position/size using PIL's
+   alpha compositing (already supported via `Image.paste(img, mask=img)`)
+4. **Template canvas preview** — show overlay thumbnail in TemplateBuilderCanvas
 
-**Notes:**
-- Phases 6 & 7 are currently stubs (`501 Not Implemented`) — this feature fills them
-- Text baking onto images is NEW for both copy modes (currently copy is stored as text only, not rendered onto images)
-- Meta upload is NOT in scope — manual upload from Drive remains the process
-- Font/style/placement guardrails need to be defined as part of this work (not yet defined in codebase)
+**Rendering order:** background (z:0) → composite/product (z:1) → overlay PNG (z:2) → text (z:3) → logo (z:4)
+
+**Why not build it into the composite Gemini step:** Graphic overlays are brand design elements, not
+AI-generated content. They must be pixel-perfect and reproducible — AI generation would vary each time.
+
+**Status:** Not yet built. Agreed architecture as of 2026-03-03.
