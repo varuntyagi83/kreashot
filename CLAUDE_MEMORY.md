@@ -141,10 +141,29 @@ Meta Ads Manager upload
 - Wired in `src/app/layout.tsx` with `attribute="class" defaultTheme="system" enableSystem`
 - Toggle in `TopBar.tsx`: Sun/Moon/Monitor icon → dropdown with Light, Dark, System options + checkmark on active
 
-### Overlay Seeder
-- `POST /api/brand-assets/seed-overlays` — generates 8 overlay PNGs (SVG→sharp) and saves to Supabase `brand-assets` bucket with `asset_type='overlay'`. Idempotent.
-- Button on Brand Assets page: "Seed Overlays"
-- Overlays: Dashed Circle Arrow, Thin Circle Ring, Double Concentric Rings, Corner Brackets, Dot Grid, Diagonal Lines, Minimal Frame, Cross Lines
+### Overlay Seeder (UPDATED 2026-03-04 — SVG→PNG migration)
+- `POST /api/brand-assets/seed-overlays` — generates SVG overlays and converts them to **PNG data URLs** using `@resvg/resvg-js` (Rust/WASM, no system deps), stored directly in `storage_url` DB column. No storage bucket needed.
+- Stored as `data:image/png;base64,...` — Python PIL compositor can read PNG data URLs; Fabric.js canvas and `<img>` tags work fine too.
+- **Re-seed upgrade**: Calling seed-overlays again auto-upgrades any existing SVG data URLs to PNG. Check: `existing.storage_url?.includes('image/svg')` → update `brand_assets.storage_url` + `asset_references.storage_url`.
+- Previously stored as `data:image/svg+xml;base64,...` — Python PIL compositor skipped these (line 189 in `composite_final_asset.py`). Fixed by storing PNG instead.
+- `brand_assets.asset_type` CHECK constraint includes `'overlay'` (migration `20260303_add_overlay_asset_type.sql` — already applied in prod).
+- Button on Brand Assets page: "Seed Overlays". Toast shows first error message on failure.
+- 10 overlays total: Dashed Circle Arrow, Thin Circle Ring, Double Concentric Rings, Corner Brackets, Dot Grid, Diagonal Lines, Minimal Frame, Vertical Line (1080×1920), Horizontal Line, Cross Lines
+- Reference brand ads use: circular overlays (ads 1, 3) and vertical line (ads 2, 4)
+- `asset_references.asset_table_id` is NOT NULL — seeder uses `.select('id').single()` to get brand_asset.id and passes it
+
+### Per-Layer Text Inputs (Final Asset Builder — added 2026-03-03)
+- `FinalAssetsWorkspace.tsx` reads selected template's text layers and renders one `Input` per named layer
+- State: `layerTexts: Record<string, string>` — keyed by `layer.name || layer.id`
+- `useEffect` on `selectedTemplateId` initialises inputs from `layer.sample_text`
+- Sends `layerTexts` map in POST body to final-assets route
+- `final-assets/route.ts` accepts `layerTexts`; if provided, uses as `copy_text` directly (Python already does `copy_text.get(layer_name)` per layer)
+- Falls back to single copyDoc `generated_text` for old templates without named layers
+
+### Multiple Overlay Support (added 2026-03-03)
+- `TemplateWorkspace.tsx` `handleAddLayer` auto-names layers sequentially: "Overlay 1", "Overlay 2", "Text 1", "Text 2", "Product 1"
+- Pattern: `const sameTypeCount = layers.filter(l => l.type === type).length + 1`
+- Prevents all overlays stacking invisibly at x:0,y:0 and appearing as identical "overlay" entries in layers panel
 
 ### Background Gen — Flat/Solid Color Path
 - `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`

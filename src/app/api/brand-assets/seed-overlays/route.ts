@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { v4 as uuidv4 } from 'uuid'
+import { Resvg } from '@resvg/resvg-js'
 
-// Each overlay is a transparent PNG (1080×1080) generated from an SVG.
+// Each overlay is a transparent PNG generated from an SVG via Resvg (Rust/WASM renderer).
+// Stored as data:image/png;base64,… so Python/PIL can composite them directly.
 // White strokes/fills so they work on any background colour.
+
+function svgToPngDataUrl(svg: string): string {
+  const resvg = new Resvg(svg)
+  const pngData = resvg.render()
+  const pngBuffer = pngData.asPng()
+  return `data:image/png;base64,${Buffer.from(pngBuffer).toString('base64')}`
+}
 
 const OVERLAYS: { name: string; svg: string }[] = [
   {
@@ -135,29 +143,53 @@ export async function POST() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const results: { name: string; status: 'created' | 'skipped' | 'error'; error?: string }[] = []
+    const results: { name: string; status: 'created' | 'updated' | 'skipped' | 'error'; error?: string }[] = []
 
     for (const overlay of OVERLAYS) {
-      // Skip if already seeded (check by name + user)
+      // Convert SVG → PNG so Python/PIL can composite it
+      let pngDataUrl: string
+      try {
+        pngDataUrl = svgToPngDataUrl(overlay.svg)
+      } catch (err: any) {
+        results.push({ name: overlay.name, status: 'error', error: `SVG→PNG conversion failed: ${err.message}` })
+        continue
+      }
+
+      // Check if already seeded
       const { data: existing } = await supabase
         .from('brand_assets')
-        .select('id')
+        .select('id, storage_url')
         .eq('user_id', user.id)
         .eq('name', overlay.name)
         .eq('asset_type', 'overlay')
         .maybeSingle()
 
       if (existing) {
-        results.push({ name: overlay.name, status: 'skipped' })
+        // If stored as SVG, upgrade to PNG so the Python compositor can render it
+        if (existing.storage_url?.includes('image/svg')) {
+          try {
+            await supabase
+              .from('brand_assets')
+              .update({ storage_url: pngDataUrl, metadata: { file_type: 'image/png', seeded: true } })
+              .eq('id', existing.id)
+
+            await supabase
+              .from('asset_references')
+              .update({ storage_url: pngDataUrl })
+              .eq('asset_table_id', existing.id)
+
+            results.push({ name: overlay.name, status: 'updated' })
+          } catch (err: any) {
+            results.push({ name: overlay.name, status: 'error', error: `Update failed: ${err.message}` })
+          }
+        } else {
+          results.push({ name: overlay.name, status: 'skipped' })
+        }
         continue
       }
 
       try {
-        // SVGs are pure text — no storage bucket needed.
-        // Encode as a data URL so Fabric.js and <img> tags can load them directly.
-        const dataUrl = `data:image/svg+xml;base64,${Buffer.from(overlay.svg, 'utf-8').toString('base64')}`
-
-        // Insert DB record
+        // Insert DB record with PNG data URL
         const { data: brandAsset, error: dbError } = await supabase
           .from('brand_assets')
           .insert({
@@ -165,9 +197,9 @@ export async function POST() {
             name: overlay.name,
             asset_type: 'overlay',
             storage_path: `data/overlay/${generateSlug(overlay.name)}`,
-            storage_url: dataUrl,
+            storage_url: pngDataUrl,
             metadata: {
-              file_type: 'image/svg+xml',
+              file_type: 'image/png',
               seeded: true,
             },
           })
@@ -184,7 +216,7 @@ export async function POST() {
           reference_id: `@global/overlay/${slug}`,
           asset_type: 'brand_asset',
           asset_table_id: brandAsset.id,
-          storage_url: dataUrl,
+          storage_url: pngDataUrl,
           display_name: overlay.name,
           searchable_text: `${overlay.name} overlay ${slug}`,
         })
@@ -196,11 +228,12 @@ export async function POST() {
     }
 
     const created = results.filter((r) => r.status === 'created').length
+    const updated = results.filter((r) => r.status === 'updated').length
     const skipped = results.filter((r) => r.status === 'skipped').length
     const errors = results.filter((r) => r.status === 'error').length
 
     return NextResponse.json({
-      message: `Seeded ${created} overlays (${skipped} already existed, ${errors} errors)`,
+      message: `Seeded ${created} overlays, upgraded ${updated} SVG→PNG (${skipped} already up-to-date, ${errors} errors)`,
       results,
     })
   } catch (error: any) {
