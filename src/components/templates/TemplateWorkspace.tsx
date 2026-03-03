@@ -116,10 +116,18 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
 
   // Add layer
   const handleAddLayer = (type: TemplateLayer['type']) => {
+    // Auto-number layers of the same type so they're distinguishable in the panel
+    const sameTypeCount = layers.filter(l => l.type === type).length + 1
+    const autoName =
+      type === 'overlay' ? `Overlay ${sameTypeCount}` :
+      type === 'text'    ? `Text ${sameTypeCount}` :
+      type === 'product' ? `Product ${sameTypeCount}` :
+      ''
+
     const newLayer: TemplateLayer = {
       id: `layer-${Date.now()}`,
       type,
-      name: '',
+      name: autoName,
       x: type === 'background' ? 0 : 25,
       y: type === 'background' ? 0 : 25,
       width: type === 'background' ? 100 : 50,
