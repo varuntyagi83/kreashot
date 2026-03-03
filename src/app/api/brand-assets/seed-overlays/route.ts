@@ -139,26 +139,9 @@ export async function POST() {
       }
 
       try {
-        // Upload SVG directly — sharp SVG→PNG conversion requires librsvg which is not
-        // available on all Railway/Docker environments. SVGs work in Fabric.js canvas
-        // and the <img> preview. PIL overlay rendering falls back to skipping SVG layers.
-        const svgBuffer = Buffer.from(overlay.svg, 'utf-8')
-        const fileName = `${uuidv4()}.svg`
-        const filePath = `${user.id}/${fileName}`
-
-        // Upload to Supabase Storage
-        const { error: uploadError } = await supabase.storage
-          .from('brand-assets')
-          .upload(filePath, svgBuffer, {
-            contentType: 'image/svg+xml',
-            upsert: false,
-          })
-
-        if (uploadError) throw new Error(uploadError.message)
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from('brand-assets').getPublicUrl(filePath)
+        // SVGs are pure text — no storage bucket needed.
+        // Encode as a data URL so Fabric.js and <img> tags can load them directly.
+        const dataUrl = `data:image/svg+xml;base64,${Buffer.from(overlay.svg, 'utf-8').toString('base64')}`
 
         // Insert DB record
         const { data: brandAsset, error: dbError } = await supabase
@@ -167,11 +150,9 @@ export async function POST() {
             user_id: user.id,
             name: overlay.name,
             asset_type: 'overlay',
-            storage_path: filePath,
-            storage_url: publicUrl,
+            storage_path: `data/overlay/${generateSlug(overlay.name)}`,
+            storage_url: dataUrl,
             metadata: {
-              file_name: fileName,
-              file_size: svgBuffer.length,
               file_type: 'image/svg+xml',
               seeded: true,
             },
@@ -179,10 +160,7 @@ export async function POST() {
           .select('id')
           .single()
 
-        if (dbError) {
-          await supabase.storage.from('brand-assets').remove([filePath])
-          throw new Error(dbError.message)
-        }
+        if (dbError) throw new Error(dbError.message)
 
         // asset_references entry
         const slug = generateSlug(overlay.name)
@@ -192,7 +170,7 @@ export async function POST() {
           reference_id: `@global/overlay/${slug}`,
           asset_type: 'brand_asset',
           asset_table_id: brandAsset.id,
-          storage_url: publicUrl,
+          storage_url: dataUrl,
           display_name: overlay.name,
           searchable_text: `${overlay.name} overlay ${slug}`,
         })
