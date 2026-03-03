@@ -244,16 +244,16 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
                 <div key={type} className="space-y-1.5">
                   <Label>{META_COPY_LABELS[type]}</Label>
                   <Select
-                    value={selectedCopy[type] || ''}
+                    value={selectedCopy[type] || '__none__'}
                     onValueChange={(val) =>
-                      setSelectedCopy((prev) => ({ ...prev, [type]: val || undefined }))
+                      setSelectedCopy((prev) => ({ ...prev, [type]: val === '__none__' ? undefined : val }))
                     }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder={`No ${type} selected`} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="__none__">None</SelectItem>
                       {options.map((doc) => (
                         <SelectItem key={doc.id} value={doc.id}>
                           {doc.generated_text.substring(0, 50)}

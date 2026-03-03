@@ -370,15 +370,15 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             <div className="space-y-2">
               <Label htmlFor="copy">On-image tagline (optional)</Label>
               <Select
-                value={selectedCopyDocId}
-                onValueChange={setSelectedCopyDocId}
+                value={selectedCopyDocId || '__none__'}
+                onValueChange={(val) => setSelectedCopyDocId(val === '__none__' ? '' : val)}
                 disabled={generating}
               >
                 <SelectTrigger id="copy">
                   <SelectValue placeholder="No on-image text" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {copyDocs
                     .filter((doc) => doc.copy_type === 'tagline' || doc.copy_type === 'headline')
                     .map((doc, index) => (
