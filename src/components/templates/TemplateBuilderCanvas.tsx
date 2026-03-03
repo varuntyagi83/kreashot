@@ -234,7 +234,7 @@ export function TemplateBuilderCanvas({
             fontSize: displayFontSize,
             fill: layer.color || '#000000',
             fontFamily: layer.font_family || 'Arial',
-            textAlign: (layer.text_align as fabric.TextAlign) || 'left',
+            textAlign: (layer.text_align as 'left' | 'center' | 'right') || 'left',
             backgroundColor: 'rgba(251, 191, 36, 0.15)',
             selectable: !layer.locked,
             stroke: isSelected ? '#000000' : layerColor,
