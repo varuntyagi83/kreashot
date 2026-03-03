@@ -87,6 +87,20 @@ const OVERLAYS: { name: string; svg: string }[] = [
 </svg>`,
   },
   {
+    name: 'Vertical Line',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">
+  <!-- Thin vertical separator line — 3pt as per brand guidelines -->
+  <line x1="540" y1="0" x2="540" y2="1920" stroke="white" stroke-width="3" opacity="0.85"/>
+</svg>`,
+  },
+  {
+    name: 'Horizontal Line',
+    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
+  <!-- Thin horizontal separator line — 3pt as per brand guidelines -->
+  <line x1="0" y1="540" x2="1080" y2="540" stroke="white" stroke-width="3" opacity="0.85"/>
+</svg>`,
+  },
+  {
     name: 'Cross Lines',
     svg: `<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
   <!-- Horizontal centre line -->
