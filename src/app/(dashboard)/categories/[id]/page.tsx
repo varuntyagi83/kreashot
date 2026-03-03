@@ -14,6 +14,7 @@ import { CompositeWorkspace } from '@/components/composites/CompositeWorkspace'
 import { CopyWorkspace } from '@/components/copy/CopyWorkspace'
 import { TemplateWorkspace } from '@/components/templates/TemplateWorkspace'
 import { FinalAssetsWorkspace } from '@/components/final-assets/FinalAssetsWorkspace'
+import { AdExportWorkspace } from '@/components/ad-export/AdExportWorkspace'
 import { FormatSelector } from '@/components/format-selector'
 import { GuidelineUploadForm } from '@/components/templates/GuidelineUploadForm'
 import { GuidelinesList } from '@/components/templates/GuidelinesList'
@@ -191,6 +192,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="ad-export">Ad Export</TabsTrigger>
         </TabsList>
 
         <TabsContent value="assets" className="space-y-4">
@@ -232,6 +234,9 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
           <FinalAssetsWorkspace categoryId={category.id} format={selectedFormat} />
         </TabsContent>
 
+        <TabsContent value="ad-export" className="space-y-4">
+          <AdExportWorkspace categoryId={category.id} format={selectedFormat} />
+        </TabsContent>
 
       </Tabs>
     </div>

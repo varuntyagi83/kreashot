@@ -236,10 +236,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       return
     }
 
-    if (!selectedCopyDocId) {
-      toast.error('Please select copy text')
-      return
-    }
+    // copyDocId is optional — image can be generated without on-image text
 
     const logo = logos.find(l => l.id === selectedLogoId) || null
 
@@ -253,7 +250,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           name: assetName,
           format,
           compositeId: selectedCompositeId,
-          copyDocId: selectedCopyDocId,
+          ...(selectedCopyDocId && { copyDocId: selectedCopyDocId }),
           ...(selectedTemplateId && { templateId: selectedTemplateId }),
           ...(logo && { logoUrl: logo.storage_url }),
         })
@@ -371,31 +368,34 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="copy">Copy Text *</Label>
+              <Label htmlFor="copy">On-image tagline (optional)</Label>
               <Select
                 value={selectedCopyDocId}
                 onValueChange={setSelectedCopyDocId}
                 disabled={generating}
               >
                 <SelectTrigger id="copy">
-                  <SelectValue placeholder="Select copy text" />
+                  <SelectValue placeholder="No on-image text" />
                 </SelectTrigger>
                 <SelectContent>
-                  {copyDocs.map((doc, index) => (
-                    <SelectItem key={doc.id} value={doc.id}>
-                      {doc.copy_type} {copyDocs.length - index} • {doc.generated_text.substring(0, 30)}...
+                  <SelectItem value="">None</SelectItem>
+                  {copyDocs
+                    .filter((doc) => doc.copy_type === 'tagline' || doc.copy_type === 'headline')
+                    .map((doc, index) => (
+                      <SelectItem key={doc.id} value={doc.id}>
+                        [{doc.copy_type}] {doc.generated_text.substring(0, 40)}...
+                      </SelectItem>
+                    ))}
+                  {copyDocs.filter(d => d.copy_type === 'tagline' || d.copy_type === 'headline').length === 0 && (
+                    <SelectItem value="none-available" disabled>
+                      No tagline/headline copy yet — generate in Copy tab
                     </SelectItem>
-                  ))}
-                  {copyDocs.length === 0 && (
-                    <SelectItem value="none" disabled>No copy docs available</SelectItem>
                   )}
                 </SelectContent>
               </Select>
-              {copyDocs.length === 0 && (
-                <p className="text-xs text-red-500">
-                  Please generate copy first in the Copy tab
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                Only tagline/headline copy is baked onto the image. Hook, CTA, and body copy go in Ad Export (Phase 7).
+              </p>
             </div>
 
             {/* Logo selector */}
@@ -447,7 +447,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
             <Button
               onClick={handleGenerate}
-              disabled={generating || !assetName.trim() || !selectedCompositeId || !selectedCopyDocId}
+              disabled={generating || !assetName.trim() || !selectedCompositeId}
               className="w-full"
             >
               {generating ? (

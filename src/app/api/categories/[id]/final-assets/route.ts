@@ -153,25 +153,15 @@ export async function POST(
       )
     }
 
-    // 3. Fetch copy doc
-    let copyText: any
+    // 3. Fetch copy doc (optional — no on-image text if not provided)
+    let copyText: any = { generated_text: '' }
     if (copyDocId) {
       const { data: copyDoc } = await supabase
         .from('copy_docs')
         .select('generated_text, copy_type')
         .eq('id', copyDocId)
         .single()
-      copyText = copyDoc || { generated_text: 'Amazing Product!' }
-    } else {
-      // Get latest copy
-      const { data: copyDocs } = await supabase
-        .from('copy_docs')
-        .select('generated_text, copy_type')
-        .eq('category_id', categoryId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      copyText = copyDocs?.[0] || { generated_text: 'Amazing Product!' }
+      if (copyDoc) copyText = copyDoc
     }
 
     // 4. Get category slug for storage path
