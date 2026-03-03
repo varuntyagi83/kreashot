@@ -195,22 +195,27 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
     setLayers(newLayers)
   }
 
-  // Reorder single layer
+  // Reorder single layer — operates on z_index values, not array positions.
+  // LayerPanel shows layers sorted descending (highest z = top of list).
+  // 'up' = bring forward = swap with the layer that has the next HIGHER z_index.
+  // 'down' = send back = swap with the layer that has the next LOWER z_index.
   const handleLayerReorder = (layerId: string, direction: 'up' | 'down') => {
-    const index = layers.findIndex((l) => l.id === layerId)
-    if (index === -1) return
+    const byZ = [...layers].sort((a, b) => a.z_index - b.z_index)
+    const idx = byZ.findIndex((l) => l.id === layerId)
+    if (idx === -1) return
 
-    const newLayers = [...layers]
-    if (direction === 'up' && index > 0) {
-      ;[newLayers[index], newLayers[index - 1]] = [newLayers[index - 1], newLayers[index]]
-      newLayers[index].z_index = layers[index - 1].z_index
-      newLayers[index - 1].z_index = layers[index].z_index
-    } else if (direction === 'down' && index < layers.length - 1) {
-      ;[newLayers[index], newLayers[index + 1]] = [newLayers[index + 1], newLayers[index]]
-      newLayers[index].z_index = layers[index + 1].z_index
-      newLayers[index + 1].z_index = layers[index].z_index
-    }
-    setLayers(newLayers)
+    const swapIdx = direction === 'up' ? idx + 1 : idx - 1
+    if (swapIdx < 0 || swapIdx >= byZ.length) return
+
+    const newZ = byZ[swapIdx].z_index
+    const oldZ = byZ[idx].z_index
+    setLayers(
+      layers.map((l) => {
+        if (l.id === byZ[idx].id) return { ...l, z_index: newZ }
+        if (l.id === byZ[swapIdx].id) return { ...l, z_index: oldZ }
+        return l
+      })
+    )
   }
 
   // Save template

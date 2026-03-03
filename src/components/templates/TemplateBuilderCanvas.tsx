@@ -284,7 +284,27 @@ export function TemplateBuilderCanvas({
       }
     }
 
-    drawLayers()
+    const drawAndActivate = async () => {
+      await drawLayers()
+      if (cancelled) return
+      // After all layers are drawn, activate the panel-selected layer in Fabric.js.
+      // setActiveObject makes the selection handles render on top of all other objects,
+      // so the user can interact with a layer even when it's visually behind another.
+      if (selectedLayerId) {
+        const target = canvas.getObjects().find(
+          (obj) =>
+            (obj as CustomFabricObject).customData?.isLayer &&
+            (obj as CustomFabricObject).customData?.layerId === selectedLayerId &&
+            !(obj as CustomFabricObject).customData?.isLabel
+        )
+        if (target) {
+          canvas.setActiveObject(target)
+          canvas.renderAll()
+        }
+      }
+    }
+
+    drawAndActivate()
     return () => { cancelled = true }
   }, [layers, selectedLayerId, width, height, onLayerSelect, onLayerUpdate])
 
