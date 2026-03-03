@@ -31,6 +31,29 @@
 - `Issues.md` — 61 open bugs with file locations, severity, and fix-safety notes. Check before touching any file.
 - `progress.md` — full implementation log: what's built, what's pending, intended order.
 
+## Critical Architectural Rules (must know before writing any code)
+
+### Google Drive URLs
+- Always use `https://drive.google.com/thumbnail?id={FILE_ID}&sz=w2000` format
+- Never use the older `uc?export=view` format — two templates still have this, it's a known inconsistency
+
+### Storage Sync Pattern (universal — no exceptions)
+- Every table that stores files MUST have: `storage_provider`, `storage_path`, `storage_url`, `gdrive_file_id`
+- Deletion order is ALWAYS: delete from storage first, then delete from DB
+- DB triggers queue deletions; cron job processes every 5 minutes
+- See `docs/STORAGE_SYNC.md` for full pattern
+
+### Database Constraint Bug (open, not fixed)
+- `composites_angled_shot_id_background_id_key` unique constraint exists in DB
+- This blocks creating multiple composites from the same angled shot + background pair (breaks A/B testing)
+- Must drop this constraint before any user testing — see `CRITICAL_FIX_COMPOSITE_CONSTRAINT.md`
+
+### Template System (fully built)
+- API routes exist, DB schema ready, one template per (category, format) enforced
+- All layer positions stored as percentages (0–100) for scale independence
+- Default template data in `src/types/templates.ts`
+- Safe zones must be respected in composites and final asset generation
+
 ## Planned Feature: "Bring Your Own Copy" (CSV ingestion)
 **Context:** Requested by Moritz (CDO, Sunday Natural) after Jutta (CMO) delivered finished ad creatives with pre-written hooks/captions. Moritz wants AdForge to accept external copy as an alternative to AI-generated copy, and overlay it onto composite images the same way.
 
