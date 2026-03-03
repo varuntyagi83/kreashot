@@ -2,11 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
-import { downloadFile } from '@/lib/storage'
+import { downloadFile, uploadFile } from '@/lib/storage'
+import { createDisplayName } from '@/lib/ai/format-angle-name'
+import sharp from 'sharp'
+import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 
 /**
  * POST /api/categories/[id]/angled-shots/generate
- * Generates angled shot variations from a product image using AI
+ *
+ * Generates angled shot variations from a product image using Gemini AI
+ * and saves each one directly to Google Drive + Supabase — no base64 in response.
+ *
+ * Previously the route returned all images as base64 to the client which then
+ * re-uploaded them. That caused Railway proxy timeouts (7 × 1-2 MB response).
+ * Now generate + save happens entirely server-side.
  */
 export async function POST(
   request: NextRequest,
@@ -16,7 +25,6 @@ export async function POST(
     const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    // Check authentication
     const {
       data: { user },
     } = await supabase.auth.getUser()
@@ -25,10 +33,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user
     const { data: category } = await supabase
       .from('categories')
-      .select('id, name, look_and_feel')
+      .select('id, name, slug, look_and_feel')
       .eq('id', categoryId)
       .eq('user_id', user.id)
       .single()
@@ -37,7 +44,6 @@ export async function POST(
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get request body
     const body = await request.json()
     const { productId, productImageId, selectedAngles, format = '1:1' } = body
 
@@ -48,7 +54,6 @@ export async function POST(
       )
     }
 
-    // Validate format
     const validFormats = ['1:1', '16:9', '9:16', '4:5']
     if (!validFormats.includes(format)) {
       return NextResponse.json(
@@ -57,10 +62,9 @@ export async function POST(
       )
     }
 
-    // Verify product belongs to this category
     const { data: product } = await supabase
       .from('products')
-      .select('id, name, category_id')
+      .select('id, name, slug, category_id')
       .eq('id', productId)
       .eq('category_id', categoryId)
       .single()
@@ -69,7 +73,6 @@ export async function POST(
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Get the product image from database and storage
     const { data: productImage } = await supabase
       .from('product_images')
       .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
@@ -78,17 +81,13 @@ export async function POST(
       .single()
 
     if (!productImage) {
-      return NextResponse.json(
-        { error: 'Product image not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Product image not found' }, { status: 404 })
     }
 
-    // Download the image from storage (Google Drive or Supabase)
+    // Download source image from GDrive or Supabase
     let imageBuffer: Buffer | null = null
 
     if (productImage.storage_provider === 'gdrive') {
-      // Prefer gdrive_file_id for direct download (1 API call) over storage_path (folder traversal)
       const gdriveKey = productImage.gdrive_file_id || productImage.storage_path
       if (!gdriveKey) {
         return NextResponse.json(
@@ -96,8 +95,6 @@ export async function POST(
           { status: 500 }
         )
       }
-      console.log(`Downloading from Google Drive via adapter (key: ${gdriveKey.substring(0, 20)}...)`)
-
       try {
         imageBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
       } catch (error) {
@@ -108,99 +105,129 @@ export async function POST(
         )
       }
     } else {
-      // Fallback to Supabase Storage
-      console.log(`Downloading from Supabase Storage: ${productImage.file_path}`)
-
       const { data: downloadedBlob, error: downloadError } = await supabase.storage
         .from('product-images')
         .download(productImage.file_path)
 
       if (downloadError || !downloadedBlob) {
-        console.error('Error downloading from Supabase Storage:', downloadError)
         return NextResponse.json(
           { error: 'Failed to download product image from Supabase Storage' },
           { status: 500 }
         )
       }
-
-      const arrayBuf = await downloadedBlob.arrayBuffer()
-      imageBuffer = Buffer.from(arrayBuf)
+      imageBuffer = Buffer.from(await downloadedBlob.arrayBuffer())
     }
 
     if (!imageBuffer) {
-      return NextResponse.json(
-        { error: 'Failed to download product image' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to download product image' }, { status: 500 })
     }
 
-    // Convert buffer to base64
     const base64Image = imageBuffer.toString('base64')
-    const imageData = `data:${productImage.mime_type};base64,${base64Image}`
 
-    // Determine which angles to generate
     const anglesToGenerate = selectedAngles
-      ? ANGLE_VARIATIONS.filter((angle) =>
-          selectedAngles.includes(angle.name)
-        )
+      ? ANGLE_VARIATIONS.filter((angle) => selectedAngles.includes(angle.name))
       : ANGLE_VARIATIONS
 
     if (anglesToGenerate.length === 0) {
-      return NextResponse.json(
-        { error: 'No valid angles selected' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'No valid angles selected' }, { status: 400 })
     }
 
-    // Generate angled shots using Gemini AI
-    console.log(
-      `Generating ${anglesToGenerate.length} angled shots for product ${product.name} in ${format} format...`
-    )
+    console.log(`🎨 Generating ${anglesToGenerate.length} angled shots for ${product.name} [${format}]...`)
 
+    // Generate all shots via Gemini (batched concurrency handled inside)
     const generatedShots = await generateAngledShots(
       base64Image,
       productImage.mime_type,
       anglesToGenerate,
       category.look_and_feel || undefined,
-      format // Pass the aspect ratio to Gemini
+      format
     )
 
+    const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
+
+    // Save each shot to GDrive + DB directly — no base64 returned to client
+    const savedShots = await Promise.all(
+      generatedShots.map(async (shot) => {
+        try {
+          const base64Data = shot.imageData.replace(/^data:image\/\w+;base64,/, '')
+          const buffer = Buffer.from(base64Data, 'base64')
+
+          // Detect actual dimensions for format tagging
+          let detectedFormat = format
+          let actualWidth = 1080
+          let actualHeight = 1080
+          try {
+            const metadata = await sharp(buffer).metadata()
+            if (metadata.width && metadata.height) {
+              detectedFormat = detectFormatFromDimensions(metadata.width, metadata.height)
+              actualWidth = metadata.width
+              actualHeight = metadata.height
+            }
+          } catch {
+            // use client-provided format as fallback
+          }
+
+          const fileExt = shot.mimeType?.split('/')[1] || 'jpg'
+          const formatFolder = formatToFolderName(detectedFormat)
+          const fileName = `${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
+
+          const storageFile = await uploadFile(buffer, fileName, {
+            contentType: shot.mimeType || 'image/jpeg',
+            provider: 'gdrive',
+          })
+
+          const displayName = createDisplayName(product.name, shot.angleName)
+
+          const { data: angledShot, error: dbError } = await supabase
+            .from('angled_shots')
+            .insert({
+              product_id: productId,
+              product_image_id: productImageId,
+              category_id: categoryId,
+              user_id: user.id,
+              angle_name: shot.angleName,
+              angle_description: shot.angleDescription,
+              display_name: displayName,
+              prompt_used: shot.promptUsed || null,
+              format: detectedFormat,
+              width: actualWidth,
+              height: actualHeight,
+              storage_provider: 'gdrive',
+              storage_path: storageFile.path,
+              storage_url: storageFile.publicUrl,
+              gdrive_file_id: storageFile.fileId || null,
+              metadata: {},
+            })
+            .select()
+            .single()
+
+          if (dbError) {
+            console.error(`DB insert failed for ${shot.angleName}:`, dbError)
+            return null
+          }
+
+          return { ...angledShot, public_url: storageFile.publicUrl }
+        } catch (err) {
+          console.error(`Failed to save ${shot.angleName}:`, err)
+          return null
+        }
+      })
+    )
+
+    const saved = savedShots.filter(Boolean)
+    console.log(`✅ Saved ${saved.length}/${generatedShots.length} angled shots`)
+
     return NextResponse.json({
-      message: `Generated ${generatedShots.length} angled shot variations for ${format} format`,
-      format, // Include format in response
-      category: {
-        id: category.id,
-        name: category.name,
-      },
-      product: {
-        id: product.id,
-        name: product.name,
-      },
-      sourceImage: {
-        id: productImage.id,
-        fileName: productImage.file_name,
-      },
-      generatedShots: generatedShots.map((shot) => ({
-        angleName: shot.angleName,
-        angleDescription: shot.angleDescription,
-        promptUsed: shot.promptUsed,
-        // Note: imageData is included for preview but not saved yet
-        preview: shot.imageData.substring(0, 100) + '...', // Truncate for response
-      })),
-      // Full data for client-side preview/saving
-      previewData: generatedShots.map((shot) => ({
-        ...shot,
-        format, // Include format in each preview item
-      })),
+      message: `Generated and saved ${saved.length} angled shots for ${format} format`,
+      count: saved.length,
+      format,
+      angledShots: saved,
     })
   } catch (error) {
     console.error('Error generating angled shots:', error)
     return NextResponse.json(
       {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to generate angled shots',
+        error: error instanceof Error ? error.message : 'Failed to generate angled shots',
       },
       { status: 500 }
     )

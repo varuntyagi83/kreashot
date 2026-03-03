@@ -127,7 +127,8 @@ RULES:
 - Different angles REVEAL different faces of the product (sides, back, top) — each shot should look distinctly different.
 - Keep the same clean background and studio lighting style.
 - The product stays upright (don't flip it upside down).
-- Preserve any text/labels that ARE visible from the new angle — but don't force the front label to appear in every shot.`
+- CRITICAL: Do NOT alter, invent, or hallucinate any text, words, numbers, or logos on the product. Any text or logo visible from the new angle must be reproduced EXACTLY as it appears on the original product — same characters, same font style, same placement on the packaging. If you cannot read it clearly, keep it blurred/indistinct rather than guessing.
+- Preserve any text/labels that ARE visible from the new angle — but do not force the front label to appear in shots where it would naturally be hidden.`
             }]
           },
           contents: [{

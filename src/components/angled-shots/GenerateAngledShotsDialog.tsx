@@ -106,8 +106,8 @@ export function GenerateAngledShotsDialog({
     setGenerating(true)
 
     try {
-      // Generate angled shots
-      const generateResponse = await fetch(
+      // Generate and save all shots server-side in one request (no base64 round-trip)
+      const response = await fetch(
         `/api/categories/${categoryId}/angled-shots/generate`,
         {
           method: 'POST',
@@ -115,60 +115,26 @@ export function GenerateAngledShotsDialog({
           body: JSON.stringify({
             productId: selectedProductId,
             productImageId: selectedImageId,
-            format, // Pass current aspect ratio
+            format,
           }),
         }
       )
 
-      const generateData = await generateResponse.json()
+      const data = await response.json()
 
-      if (!generateResponse.ok) {
-        toast.error(generateData.error || 'Failed to generate angled shots')
-        setGenerating(false)
+      if (!response.ok) {
+        toast.error(data.error || 'Failed to generate angled shots')
         return
       }
 
-      const generatedShots = generateData.previewData || []
-      toast.success(`Generated ${generatedShots.length} angled shots!`)
-
-      // Automatically save all generated shots
-      setSaving(true)
-      setGenerating(false)
-
-      const savePromises = generatedShots.map(async (shot: any) => {
-        const saveResponse = await fetch(
-          `/api/categories/${categoryId}/angled-shots`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              productId: selectedProductId,
-              productImageId: selectedImageId,
-              angleName: shot.angleName,
-              angleDescription: shot.angleDescription,
-              promptUsed: shot.promptUsed,
-              imageData: shot.imageData,
-              mimeType: shot.mimeType,
-              format, // Include format
-            }),
-          }
-        )
-
-        if (!saveResponse.ok) {
-          throw new Error(`Failed to save ${shot.angleDescription}`)
-        }
-      })
-
-      await Promise.all(savePromises)
-
-      toast.success(`Saved ${generatedShots.length} angled shots for ${format} format!`)
+      toast.success(`Generated and saved ${data.count} angled shots for ${format} format!`)
       onGenerated()
       setOpen(false)
       setSelectedProductId('')
       setSelectedImageId('')
     } catch (error) {
       console.error('Error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to process angled shots')
+      toast.error(error instanceof Error ? error.message : 'Failed to generate angled shots')
     } finally {
       setGenerating(false)
       setSaving(false)
