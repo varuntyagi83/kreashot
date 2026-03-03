@@ -184,6 +184,7 @@ export function UploadBrandAsset({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="logo">Logo</SelectItem>
+                  <SelectItem value="overlay">Graphic Overlay (transparent PNG)</SelectItem>
                   <SelectItem value="font">Font</SelectItem>
                   <SelectItem value="color_palette">Color Palette</SelectItem>
                   <SelectItem value="watermark">Watermark</SelectItem>

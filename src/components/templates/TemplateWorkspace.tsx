@@ -111,7 +111,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
   }, [layers, safeZones])
 
   // Add layer
-  const handleAddLayer = (type: TemplateLayer['type']) => {
+  const handleAddLayer = (type: TemplateLayer['type'] | 'overlay') => {
     const newLayer: TemplateLayer = {
       id: `layer-${Date.now()}`,
       type,
@@ -135,6 +135,12 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
       newLayer.padding = 10
       newLayer.width = 15
       newLayer.height = 15
+    } else if (type === 'overlay') {
+      newLayer.source_url = ''
+      newLayer.x = 0
+      newLayer.y = 0
+      newLayer.width = 100
+      newLayer.height = 100
     }
 
     setLayers([...layers, newLayer])

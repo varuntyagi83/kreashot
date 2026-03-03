@@ -2,15 +2,16 @@
 
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { 
-  Image, 
-  Package, 
-  Type, 
-  Tag, 
-  Grid3x3, 
-  Save, 
+import {
+  Image,
+  Package,
+  Type,
+  Tag,
+  Grid3x3,
+  Save,
   Download,
-  Plus
+  Plus,
+  Layers
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -20,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 interface ToolbarTemplateBuilderProps {
-  onAddLayer: (type: 'background' | 'product' | 'text' | 'logo') => void
+  onAddLayer: (type: 'background' | 'product' | 'text' | 'logo' | 'overlay') => void
   onAddSafeZone: (type: 'safe' | 'restricted') => void
   onSave: () => void
   onToggleGrid: () => void
@@ -62,6 +63,10 @@ export function ToolbarTemplateBuilder({
           <DropdownMenuItem onClick={() => onAddLayer('logo')}>
             <Tag className="h-4 w-4 mr-2" />
             Logo Layer
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddLayer('overlay')}>
+            <Layers className="h-4 w-4 mr-2" />
+            Graphic Overlay Layer
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

@@ -178,6 +178,23 @@ def composite_final_asset(
 
             sys.stderr.write("    ✅ Pasted logo\n")
 
+        elif layer_type == 'overlay':
+            source_url = layer.get('source_url', '')
+            if not source_url:
+                sys.stderr.write("    ⏭️  Overlay layer has no source_url, skipping\n")
+                continue
+
+            overlay_image = download_image(source_url)
+            overlay_image = overlay_image.resize((lw, lh), Image.Resampling.LANCZOS)
+
+            # Ensure alpha channel is present for transparency compositing
+            if overlay_image.mode != 'RGBA':
+                overlay_image = overlay_image.convert('RGBA')
+
+            # Paste using alpha channel as mask so transparency is preserved
+            final_image.paste(overlay_image, (x, y), overlay_image)
+            sys.stderr.write(f"    ✅ Pasted graphic overlay\n")
+
     # Save final composite
     final_image.save(output_path, 'PNG', quality=95)
     sys.stderr.write(f"\n✅ Final asset saved to: {output_path}\n")

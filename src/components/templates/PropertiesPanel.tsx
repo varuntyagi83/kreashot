@@ -1,10 +1,17 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { TemplateLayer } from '@/lib/types/template'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
+
+interface BrandOverlay {
+  id: string
+  name: string
+  storage_url: string
+}
 
 interface PropertiesPanelProps {
   layer: TemplateLayer | null
@@ -12,6 +19,19 @@ interface PropertiesPanelProps {
 }
 
 export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) {
+  const [overlays, setOverlays] = useState<BrandOverlay[]>([])
+
+  useEffect(() => {
+    if (layer?.type === 'overlay') {
+      fetch('/api/brand-assets')
+        .then((r) => r.json())
+        .then((data) => {
+          setOverlays((data.assets || []).filter((a: any) => a.asset_type === 'overlay'))
+        })
+        .catch(() => {})
+    }
+  }, [layer?.type])
+
   if (!layer) {
     return (
       <div className="w-64 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex items-center justify-center">
@@ -294,6 +314,49 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
               />
             </div>
           </>
+        )}
+
+        {/* Overlay-specific properties */}
+        {layer.type === 'overlay' && (
+          <div className="space-y-2">
+            <Label className="text-xs">Graphic Overlay Image</Label>
+            {overlays.length > 0 ? (
+              <Select
+                value={layer.source_url || '__none__'}
+                onValueChange={(val) =>
+                  onLayerUpdate({ source_url: val === '__none__' ? '' : val })
+                }
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Select overlay PNG" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {overlays.map((o) => (
+                    <SelectItem key={o.id} value={o.storage_url}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-amber-600">
+                No graphic overlays uploaded yet. Go to Brand Assets → Upload → Graphic Overlay.
+              </p>
+            )}
+            {layer.source_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={layer.source_url}
+                alt="Overlay preview"
+                className="w-full rounded border bg-checkerboard"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              Upload transparent PNGs (circles, grids, frames) in Brand Assets.
+              This layer is composited between the background and text layers.
+            </p>
+          </div>
         )}
       </div>
     </div>
