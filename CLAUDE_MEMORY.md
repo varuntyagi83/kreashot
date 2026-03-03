@@ -129,3 +129,24 @@ Meta Ads Manager upload
 ### Template Builder Layout (TemplateWorkspace.tsx)
 - Grid: `col-span-2` (Layers) + `col-span-7` (Canvas) + `col-span-3` (Properties) = 12
 - Properties was col-span-2 which clipped all fields; widened to col-span-3 (~25%)
+- Internal FormatSelector removed — format is now driven by the page-level selector (prop synced via useEffect)
+- Background layer default position: x:0, y:0 (was x:25, y:25)
+- Product images use `globalCompositeOperation='multiply'` to blend white backgrounds
+- Layer reorder fixed: operates on z_index values (ascending sort swap), not unsorted array positions
+- Panel selection → canvas sync: after drawLayers(), calls `canvas.setActiveObject()` on selected layer
+
+### Theme (Dark/Light/System)
+- `next-themes ^0.4.6` — already in package.json
+- `ThemeProvider` wrapper: `src/components/layout/ThemeProvider.tsx`
+- Wired in `src/app/layout.tsx` with `attribute="class" defaultTheme="system" enableSystem`
+- Toggle in `TopBar.tsx`: Sun/Moon/Monitor icon → dropdown with Light, Dark, System options + checkmark on active
+
+### Overlay Seeder
+- `POST /api/brand-assets/seed-overlays` — generates 8 overlay PNGs (SVG→sharp) and saves to Supabase `brand-assets` bucket with `asset_type='overlay'`. Idempotent.
+- Button on Brand Assets page: "Seed Overlays"
+- Overlays: Dashed Circle Arrow, Thin Circle Ring, Double Concentric Rings, Corner Brackets, Dot Grid, Diagonal Lines, Minimal Frame, Cross Lines
+
+### Background Gen — Flat/Solid Color Path
+- `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`
+- When matched: uses a stripped prompt (no DSLR, no lighting, no shadows) + flat-color-swatch system instruction
+- Use keywords like "solid flat sage green #8a9e8e" or "flat uniform #8a9e8e" to get a clean solid fill
