@@ -151,28 +151,11 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="guidelines">
-            Guidelines
-            {category.counts.guidelines > 0 && (
-              <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                {category.counts.guidelines}
-              </span>
-            )}
-          </TabsTrigger>
           <TabsTrigger value="backgrounds">
             Backgrounds
             {category.counts.backgrounds > 0 && (
               <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
                 {category.counts.backgrounds}
-              </span>
-            )}
-          </TabsTrigger>
-          <TabsTrigger value="templates">Templates</TabsTrigger>
-          <TabsTrigger value="copy">
-            Copy
-            {category.counts.copy_docs > 0 && (
-              <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
-                {category.counts.copy_docs}
               </span>
             )}
           </TabsTrigger>
@@ -184,6 +167,15 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
               </span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="copy">
+            Copy
+            {category.counts.copy_docs > 0 && (
+              <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
+                {category.counts.copy_docs}
+              </span>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="templates">Templates</TabsTrigger>
           <TabsTrigger value="final-assets">
             Final Assets
             {category.counts.final_assets > 0 && (
@@ -193,6 +185,14 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
             )}
           </TabsTrigger>
           <TabsTrigger value="ad-export">Ad Export</TabsTrigger>
+          <TabsTrigger value="guidelines">
+            Guidelines
+            {category.counts.guidelines > 0 && (
+              <span className="ml-2 text-xs bg-primary text-primary-foreground rounded-full px-2 py-0.5">
+                {category.counts.guidelines}
+              </span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="assets" className="space-y-4">

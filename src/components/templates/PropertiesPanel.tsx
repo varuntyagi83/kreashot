@@ -5,32 +5,68 @@ import { TemplateLayer } from '@/lib/types/template'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Slider } from '@/components/ui/slider'
 
-interface BrandOverlay {
+interface AssetOption {
   id: string
   name: string
-  storage_url: string
+  url: string
 }
 
 interface PropertiesPanelProps {
   layer: TemplateLayer | null
+  categoryId: string
   onLayerUpdate: (updates: Partial<TemplateLayer>) => void
 }
 
-export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) {
-  const [overlays, setOverlays] = useState<BrandOverlay[]>([])
+export function PropertiesPanel({ layer, categoryId, onLayerUpdate }: PropertiesPanelProps) {
+  const [overlays, setOverlays] = useState<AssetOption[]>([])
+  const [angledShots, setAngledShots] = useState<AssetOption[]>([])
+  const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
 
   useEffect(() => {
     if (layer?.type === 'overlay') {
       fetch('/api/brand-assets')
         .then((r) => r.json())
         .then((data) => {
-          setOverlays((data.assets || []).filter((a: any) => a.asset_type === 'overlay'))
+          setOverlays(
+            (data.assets || [])
+              .filter((a: any) => a.asset_type === 'overlay')
+              .map((a: any) => ({ id: a.id, name: a.name, url: a.storage_url }))
+          )
         })
         .catch(() => {})
     }
-  }, [layer?.type])
+
+    if (layer?.type === 'product') {
+      fetch(`/api/categories/${categoryId}/angled-shots`)
+        .then((r) => r.json())
+        .then((data) => {
+          setAngledShots(
+            (data.angledShots || []).map((s: any) => ({
+              id: s.id,
+              name: s.name || `Shot ${s.id.slice(0, 6)}`,
+              url: s.public_url || s.storage_url,
+            }))
+          )
+        })
+        .catch(() => {})
+    }
+
+    if (layer?.type === 'background') {
+      fetch(`/api/categories/${categoryId}/backgrounds`)
+        .then((r) => r.json())
+        .then((data) => {
+          setBackgrounds(
+            (data.backgrounds || []).map((b: any) => ({
+              id: b.id,
+              name: b.name || b.prompt?.substring(0, 40) || `Background ${b.id.slice(0, 6)}`,
+              url: b.storage_url,
+            }))
+          )
+        })
+        .catch(() => {})
+    }
+  }, [layer?.type, categoryId])
 
   if (!layer) {
     return (
@@ -112,10 +148,7 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
           <Label className="text-xs font-semibold">Size</Label>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <Label
-                htmlFor="layer-width"
-                className="text-xs text-muted-foreground"
-              >
+              <Label htmlFor="layer-width" className="text-xs text-muted-foreground">
                 Width (%)
               </Label>
               <Input
@@ -129,10 +162,7 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
               />
             </div>
             <div>
-              <Label
-                htmlFor="layer-height"
-                className="text-xs text-muted-foreground"
-              >
+              <Label htmlFor="layer-height" className="text-xs text-muted-foreground">
                 Height (%)
               </Label>
               <Input
@@ -167,6 +197,22 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
         {/* Text-specific properties */}
         {layer.type === 'text' && (
           <>
+            <div className="space-y-2">
+              <Label htmlFor="sample-text" className="text-xs">
+                Sample Text (canvas preview)
+              </Label>
+              <Input
+                id="sample-text"
+                value={layer.sample_text || ''}
+                onChange={(e) => onLayerUpdate({ sample_text: e.target.value })}
+                placeholder="e.g. Pure. Simple. Effective."
+                className="h-8 text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Shown in canvas only. Actual copy is injected at final asset generation.
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="font-size" className="text-xs">
                 Font Size (px)
@@ -256,23 +302,100 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
 
         {/* Product-specific properties */}
         {layer.type === 'product' && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="product-align" className="text-xs">
+                Alignment
+              </Label>
+              <Select
+                value={layer.alignment || 'center'}
+                onValueChange={(value: any) => onLayerUpdate({ alignment: value })}
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="left">Left</SelectItem>
+                  <SelectItem value="center">Center</SelectItem>
+                  <SelectItem value="right">Right</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs">Preview Image (canvas only)</Label>
+              {angledShots.length > 0 ? (
+                <Select
+                  value={layer.preview_url || '__none__'}
+                  onValueChange={(val) =>
+                    onLayerUpdate({ preview_url: val === '__none__' ? '' : val })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select angled shot to preview" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {angledShots.map((s) => (
+                      <SelectItem key={s.id} value={s.url}>
+                        {s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-amber-600">
+                  No angled shots yet. Generate them in the Angled Shots tab first.
+                </p>
+              )}
+              {layer.preview_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={layer.preview_url}
+                  alt="Product preview"
+                  className="w-full rounded border object-contain bg-muted"
+                />
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Background-specific properties */}
+        {layer.type === 'background' && (
           <div className="space-y-2">
-            <Label htmlFor="product-align" className="text-xs">
-              Alignment
-            </Label>
-            <Select
-              value={layer.alignment || 'center'}
-              onValueChange={(value: any) => onLayerUpdate({ alignment: value })}
-            >
-              <SelectTrigger className="h-8 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="left">Left</SelectItem>
-                <SelectItem value="center">Center</SelectItem>
-                <SelectItem value="right">Right</SelectItem>
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Preview Image (canvas only)</Label>
+            {backgrounds.length > 0 ? (
+              <Select
+                value={layer.preview_url || '__none__'}
+                onValueChange={(val) =>
+                  onLayerUpdate({ preview_url: val === '__none__' ? '' : val })
+                }
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Select background to preview" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {backgrounds.map((b) => (
+                    <SelectItem key={b.id} value={b.url}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-amber-600">
+                No backgrounds yet. Generate them in the Backgrounds tab first.
+              </p>
+            )}
+            {layer.preview_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={layer.preview_url}
+                alt="Background preview"
+                className="w-full rounded border"
+              />
+            )}
           </div>
         )}
 
@@ -333,7 +456,7 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
                   {overlays.map((o) => (
-                    <SelectItem key={o.id} value={o.storage_url}>
+                    <SelectItem key={o.id} value={o.url}>
                       {o.name}
                     </SelectItem>
                   ))}

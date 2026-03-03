@@ -32,6 +32,18 @@ interface CustomFabricObject extends fabric.FabricObject {
   }
 }
 
+const LAYER_COLORS: Record<string, string> = {
+  background: '#3b82f6',  // blue
+  product: '#8b5cf6',     // purple
+  text: '#f59e0b',        // orange
+  logo: '#10b981',        // green
+  overlay: '#ec4899',     // pink
+}
+
+function getLayerColor(type: TemplateLayer['type']): string {
+  return LAYER_COLORS[type] ?? '#6b7280'
+}
+
 export function TemplateBuilderCanvas({
   format,
   width,
@@ -56,15 +68,13 @@ export function TemplateBuilderCanvas({
     const containerWidth = container.clientWidth
     const containerHeight = container.clientHeight
 
-    // Calculate scale to fit canvas in container
     const scaleX = containerWidth / width
     const scaleY = containerHeight / height
-    const scale = Math.min(scaleX, scaleY, 1) * 0.95 // 95% to add minimal padding
+    const scale = Math.min(scaleX, scaleY, 1) * 0.95
 
     const canvasWidth = width * scale
     const canvasHeight = height * scale
 
-    // Initialize Fabric canvas
     const canvas = new fabric.Canvas(canvasRef.current, {
       width: canvasWidth,
       height: canvasHeight,
@@ -74,7 +84,6 @@ export function TemplateBuilderCanvas({
 
     fabricCanvasRef.current = canvas
 
-    // Cleanup
     return () => {
       canvas.dispose()
       fabricCanvasRef.current = null
@@ -89,49 +98,30 @@ export function TemplateBuilderCanvas({
     const canvasWidth = canvas.getWidth()
     const canvasHeight = canvas.getHeight()
 
-    // Remove existing grid lines
     const objects = canvas.getObjects()
     objects.forEach((obj) => {
-      const customObj = obj as CustomFabricObject
-      if (customObj.customData?.isGrid) {
-        canvas.remove(obj)
-      }
+      if ((obj as CustomFabricObject).customData?.isGrid) canvas.remove(obj)
     })
 
-    // Draw vertical grid lines
     for (let i = 0; i <= width / gridSize; i++) {
       const line = new fabric.Line(
         [i * gridSize * (canvasWidth / width), 0, i * gridSize * (canvasWidth / width), canvasHeight],
-        {
-          stroke: '#9ca3af',
-          strokeWidth: 1.5,
-          selectable: false,
-          evented: false,
-          opacity: 0.8,
-        }
+        { stroke: '#9ca3af', strokeWidth: 1.5, selectable: false, evented: false, opacity: 0.8 }
       ) as CustomFabricObject
       line.customData = { isGrid: true }
       canvas.add(line)
     }
 
-    // Draw horizontal grid lines
     for (let i = 0; i <= height / gridSize; i++) {
       const line = new fabric.Line(
         [0, i * gridSize * (canvasHeight / height), canvasWidth, i * gridSize * (canvasHeight / height)],
-        {
-          stroke: '#9ca3af',
-          strokeWidth: 1.5,
-          selectable: false,
-          evented: false,
-          opacity: 0.8,
-        }
+        { stroke: '#9ca3af', strokeWidth: 1.5, selectable: false, evented: false, opacity: 0.8 }
       ) as CustomFabricObject
       line.customData = { isGrid: true }
       canvas.add(line)
     }
 
-    // Move grid lines to back
-    const gridLines = objects.filter((obj) => (obj as CustomFabricObject).customData?.isGrid)
+    const gridLines = canvas.getObjects().filter((obj) => (obj as CustomFabricObject).customData?.isGrid)
     gridLines.forEach((line) => canvas.sendObjectToBack(line))
     canvas.renderAll()
   }, [gridEnabled, gridSize, width, height])
@@ -143,16 +133,10 @@ export function TemplateBuilderCanvas({
 
     const canvasWidth = canvas.getWidth()
 
-    // Remove existing safe zones
-    const objects = canvas.getObjects()
-    objects.forEach((obj) => {
-      const customObj = obj as CustomFabricObject
-      if (customObj.customData?.isSafeZone) {
-        canvas.remove(obj)
-      }
+    canvas.getObjects().forEach((obj) => {
+      if ((obj as CustomFabricObject).customData?.isSafeZone) canvas.remove(obj)
     })
 
-    // Draw safe zones
     safeZones.forEach((zone) => {
       const rect = new fabric.Rect({
         left: (zone.x / 100) * canvasWidth,
@@ -171,87 +155,132 @@ export function TemplateBuilderCanvas({
     canvas.renderAll()
   }, [safeZones, width, height])
 
-  // Draw layers
+  // Draw layers — async to support image loading for product/background/overlay layers
   useEffect(() => {
     const canvas = fabricCanvasRef.current
     if (!canvas) return
 
     const canvasWidth = canvas.getWidth()
 
-    // Remove existing layers
-    const objects = canvas.getObjects()
-    objects.forEach((obj) => {
-      const customObj = obj as CustomFabricObject
-      if (customObj.customData?.isLayer) {
-        canvas.remove(obj)
-      }
+    // Remove existing layer objects synchronously
+    canvas.getObjects().forEach((obj) => {
+      if ((obj as CustomFabricObject).customData?.isLayer) canvas.remove(obj)
     })
 
-    // Helper to get layer color
-    const getLayerColor = (type: TemplateLayer['type']): string => {
-      switch (type) {
-        case 'background':
-          return '#3b82f6' // blue
-        case 'product':
-          return '#8b5cf6' // purple
-        case 'text':
-          return '#f59e0b' // orange
-        case 'logo':
-          return '#10b981' // green
-        default:
-          return '#6b7280'
+    let cancelled = false
+    const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
+
+    const commonControls = {
+      hasControls: true,
+      hasBorders: true,
+      cornerSize: 16,
+      cornerColor: '#2563eb',
+      cornerStrokeColor: '#ffffff',
+      borderColor: '#2563eb',
+      cornerStyle: 'circle' as const,
+      transparentCorners: false,
+      borderScaleFactor: 2,
+      padding: 5,
+    }
+
+    const drawLayers = async () => {
+      for (const layer of sortedLayers) {
+        if (cancelled) break
+
+        const isSelected = layer.id === selectedLayerId
+        const lx = (layer.x / 100) * canvasWidth
+        const ly = (layer.y / 100) * canvasWidth * (height / width)
+        const lw = (layer.width / 100) * canvasWidth
+        const lh = (layer.height / 100) * canvasWidth * (height / width)
+        const layerColor = getLayerColor(layer.type)
+
+        // overlay uses source_url (part of template); product/background use preview_url (preview only)
+        const imageUrl = layer.type === 'overlay' ? layer.source_url : layer.preview_url
+
+        if (imageUrl) {
+          try {
+            const img = await fabric.Image.fromURL(imageUrl, { crossOrigin: 'anonymous' })
+            if (cancelled) break
+
+            img.set({
+              left: lx,
+              top: ly,
+              scaleX: lw / (img.width || 1),
+              scaleY: lh / (img.height || 1),
+              selectable: !layer.locked,
+              stroke: isSelected ? '#000000' : layerColor,
+              strokeWidth: isSelected ? 2 : 1,
+              ...commonControls,
+            })
+            ;(img as CustomFabricObject).customData = { isLayer: true, layerId: layer.id }
+            canvas.add(img)
+            canvas.renderAll()
+            continue
+          } catch {
+            // fall through to placeholder rect if image fails to load
+          }
+        }
+
+        if (layer.type === 'text') {
+          // Render styled text preview using actual font settings
+          const displayText = layer.sample_text || layer.name || 'TEXT'
+          const scaleFactor = canvasWidth / width
+          const displayFontSize = Math.max((layer.font_size || 24) * scaleFactor, 8)
+
+          const textbox = new fabric.Textbox(displayText, {
+            left: lx,
+            top: ly,
+            width: lw,
+            fontSize: displayFontSize,
+            fill: layer.color || '#000000',
+            fontFamily: layer.font_family || 'Arial',
+            textAlign: (layer.text_align as fabric.TextAlign) || 'left',
+            backgroundColor: 'rgba(251, 191, 36, 0.15)',
+            selectable: !layer.locked,
+            stroke: isSelected ? '#000000' : layerColor,
+            strokeWidth: isSelected ? 1 : 0,
+            ...commonControls,
+          }) as CustomFabricObject
+          textbox.customData = { isLayer: true, layerId: layer.id }
+          canvas.add(textbox)
+        } else {
+          // Colored placeholder rect + name label
+          const rect = new fabric.Rect({
+            left: lx,
+            top: ly,
+            width: lw,
+            height: lh,
+            fill: layerColor,
+            opacity: 0.5,
+            stroke: isSelected ? '#000000' : layerColor,
+            strokeWidth: isSelected ? 2 : 1,
+            strokeDashArray: [10, 5],
+            selectable: !layer.locked,
+            ...commonControls,
+          }) as CustomFabricObject
+          rect.customData = { isLayer: true, layerId: layer.id }
+
+          const label = new fabric.FabricText(layer.name || layer.type.toUpperCase(), {
+            left: lx + 5,
+            top: ly + 5,
+            fontSize: 12,
+            fill: '#000',
+            fontWeight: 'bold',
+            selectable: false,
+            evented: false,
+          }) as CustomFabricObject
+          label.customData = { isLayer: true, layerId: layer.id, isLabel: true }
+
+          canvas.add(rect)
+          canvas.add(label)
+        }
+
+        canvas.renderAll()
       }
     }
 
-    // Draw layers
-    const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
-    sortedLayers.forEach((layer) => {
-      const layerColor = getLayerColor(layer.type)
-      const isSelected = layer.id === selectedLayerId
-
-      const rect = new fabric.Rect({
-        left: (layer.x / 100) * canvasWidth,
-        top: (layer.y / 100) * canvasWidth * (height / width),
-        width: (layer.width / 100) * canvasWidth,
-        height: (layer.height / 100) * canvasWidth * (height / width),
-        fill: layerColor,
-        opacity: 0.5,
-        stroke: isSelected ? '#000' : layerColor,
-        strokeWidth: isSelected ? 2 : 1,
-        strokeDashArray: [10, 5],
-        selectable: !layer.locked,
-        hasControls: true,
-        hasBorders: true,
-        // Larger, more visible corner controls for easier resizing with trackpad
-        cornerSize: 16,
-        cornerColor: '#2563eb',
-        cornerStrokeColor: '#ffffff',
-        borderColor: '#2563eb',
-        cornerStyle: 'circle',
-        transparentCorners: false,
-        borderScaleFactor: 2,
-        padding: 5,
-      }) as CustomFabricObject
-
-      rect.customData = { isLayer: true, layerId: layer.id }
-
-      // Add layer name label
-      const label = new fabric.FabricText(layer.name || layer.type.toUpperCase(), {
-        left: (layer.x / 100) * canvasWidth + 5,
-        top: (layer.y / 100) * canvasWidth * (height / width) + 5,
-        fontSize: 12,
-        fill: '#000',
-        fontWeight: 'bold',
-        selectable: false,
-        evented: false,
-      }) as CustomFabricObject
-      label.customData = { isLayer: true, layerId: layer.id, isLabel: true }
-
-      canvas.add(rect)
-      canvas.add(label)
-    })
-
-    canvas.renderAll()
+    drawLayers()
+    return () => { cancelled = true }
   }, [layers, selectedLayerId, width, height, onLayerSelect, onLayerUpdate])
 
   // Handle canvas events
@@ -261,7 +290,6 @@ export function TemplateBuilderCanvas({
 
     const canvasWidth = canvas.getWidth()
 
-    // Handle selection
     const handleSelectionCreated = (e: any) => {
       const activeObject = e.selected?.[0] as CustomFabricObject | undefined
       if (activeObject?.customData?.isLayer && activeObject.customData.layerId) {
@@ -280,7 +308,6 @@ export function TemplateBuilderCanvas({
       onLayerSelect(null)
     }
 
-    // Handle object modification (drag/resize/rotate)
     const handleObjectModified = (e: any) => {
       const target = e.target as CustomFabricObject
       if (target.customData?.isLayer && target.customData.layerId) {
@@ -294,7 +321,6 @@ export function TemplateBuilderCanvas({
           height: ((target.height || 0) * scaleY / canvasWidth / (height / width)) * 100,
         })
 
-        // Reset scale
         target.set({ scaleX: 1, scaleY: 1 })
         canvas.renderAll()
       }

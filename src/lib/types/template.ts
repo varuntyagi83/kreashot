@@ -34,6 +34,10 @@ export interface TemplateLayer {
 
   // Overlay-specific properties
   source_url?: string
+
+  // Canvas preview properties (not used by PIL renderer — for template builder visual only)
+  preview_url?: string  // product/background: URL of image to preview in canvas
+  sample_text?: string  // text: sample tagline to preview in canvas
 }
 
 export interface SafeZone {

@@ -436,6 +436,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
             <div className="col-span-2">
               <PropertiesPanel
                 layer={selectedLayer}
+                categoryId={categoryId}
                 onLayerUpdate={handleSelectedLayerUpdate}
               />
             </div>
