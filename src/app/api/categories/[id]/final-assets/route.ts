@@ -59,6 +59,7 @@ export async function POST(
       format = '1:1',
       compositeId,
       copyDocId,
+      templateId,
       logoUrl,
     } = body
 
@@ -70,28 +71,58 @@ export async function POST(
     }
     const { width, height } = FORMAT_DIMENSIONS[format] ?? FORMAT_DIMENSIONS['1:1']
 
+    const DEFAULT_LAYERS = [
+      { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
+      { id: 'text', type: 'text', name: 'headline', x: 10, y: 80, width: 80, height: 15, z_index: 2, font_size: 48, color: '#000000', text_align: 'center' },
+    ]
+
     console.log('🎨 Generating final asset for category:', categoryId, `(${format} ${width}x${height})`)
 
-    // 1. Fetch template
-    const { data: templateRow, error: templateError } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('category_id', categoryId)
-      .single()
+    // 1. Fetch template — use specific templateId if provided, otherwise fall back to category-level lookup
+    let templateRow: any = null
+    if (templateId) {
+      const { data } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('id', templateId)
+        .eq('category_id', categoryId)
+        .single()
+      templateRow = data
+      if (!templateRow) console.warn('⚠️  Specified templateId not found, falling back to category template')
+    }
 
-    const template = templateRow ?? {
-      id: null,
+    if (!templateRow) {
+      const { data } = await supabase
+        .from('templates')
+        .select('*')
+        .eq('category_id', categoryId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      templateRow = data
+    }
+
+    // Parse template_data (may be stored as a JSON string in some rows)
+    let parsedTemplateData = templateRow?.template_data
+    if (typeof parsedTemplateData === 'string') {
+      try { parsedTemplateData = JSON.parse(parsedTemplateData) } catch { parsedTemplateData = null }
+    }
+
+    // If template has no layers (e.g. safe_zones-only templates), inject default layers
+    const layers = parsedTemplateData?.layers?.length > 0 ? parsedTemplateData.layers : DEFAULT_LAYERS
+
+    const template = {
+      id: templateRow?.id ?? null,
       template_data: {
-        layers: [
-          { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
-          { id: 'text', type: 'text', name: 'headline', x: 10, y: 80, width: 80, height: 15, z_index: 2, font_size: 48, color: '#000000', text_align: 'center' },
-        ],
-        safe_zones: [],
+        ...parsedTemplateData,
+        layers,
       },
     }
 
-    if (templateError || !templateRow) {
+    if (!templateRow) {
       console.warn('⚠️  No template found, using default layout')
+    } else if (!parsedTemplateData?.layers?.length) {
+      console.warn('⚠️  Template has no layers, injecting default layout')
     }
 
     // 2. Fetch composite (background + product)

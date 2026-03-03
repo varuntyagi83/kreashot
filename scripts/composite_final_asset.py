@@ -7,6 +7,7 @@ Combines template, background, product, copy, and logo into final ad creative
 import sys
 import json
 import os
+import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import urllib.request
@@ -110,36 +111,59 @@ def composite_final_asset(
             sys.stderr.write("    ⏭️  Product already in composite background\n")
 
         elif layer_type == 'text':
-            # Draw text layer
-            text_content = copy_text.get(layer.get('name', 'headline'), copy_text.get('generated_text', ''))
+            # Resolve text: try layer name (e.g. 'headline'), then copy_type, then generated_text
+            layer_name = (layer.get('name') or '').lower()
+            text_content = (
+                copy_text.get(layer_name)
+                or copy_text.get(layer_name.capitalize())
+                or (copy_text.get('copy_type') == layer_name and copy_text.get('generated_text'))
+                or copy_text.get('generated_text', '')
+            )
             font_size = layer.get('font_size', 24)
             color = layer.get('color', '#000000')
             text_align = layer.get('text_align', 'center')
+            line_spacing = int(font_size * 0.3)
 
             font = load_font(font_size)
 
-            # Calculate text position based on alignment
-            bbox = draw.textbbox((0, 0), text_content, font=font)
-            text_width = bbox[2] - bbox[0]
-            text_height = bbox[3] - bbox[1]
+            # Wrap text to fit within layer width
+            # Estimate chars per line: avg glyph width ≈ font_size * 0.55
+            avg_char_width = max(1, font_size * 0.55)
+            max_chars = max(10, int(lw / avg_char_width))
+            lines = textwrap.wrap(text_content, width=max_chars) or [text_content]
+            wrapped_text = '\n'.join(lines)
 
+            # Measure total wrapped text block height
+            bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, spacing=line_spacing)
+            block_width = bbox[2] - bbox[0]
+            block_height = bbox[3] - bbox[1]
+
+            # Horizontal alignment
             if text_align == 'center':
-                text_x = x + (lw - text_width) // 2
+                text_x = x + (lw - block_width) // 2
             elif text_align == 'right':
-                text_x = x + lw - text_width
+                text_x = x + lw - block_width
             else:  # left
                 text_x = x
 
-            text_y = y + (lh - text_height) // 2
+            # Vertically center within the layer
+            text_y = y + max(0, (lh - block_height) // 2)
 
             # Draw background rectangle if specified
             bg_color = layer.get('background_color')
             if bg_color:
                 draw.rectangle([x, y, x + lw, y + lh], fill=bg_color)
 
-            # Draw text
-            draw.text((text_x, text_y), text_content, fill=color, font=font)
-            sys.stderr.write(f"    ✅ Drew text: \"{text_content[:30]}...\"\n")
+            # Draw wrapped text
+            draw.multiline_text(
+                (text_x, text_y),
+                wrapped_text,
+                fill=color,
+                font=font,
+                spacing=line_spacing,
+                align=text_align,
+            )
+            sys.stderr.write(f"    ✅ Drew text ({len(lines)} lines): \"{text_content[:40]}...\"\n")
 
         elif layer_type == 'logo' and logo_url:
             # Paste logo
