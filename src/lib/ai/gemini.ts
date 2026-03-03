@@ -258,7 +258,24 @@ export async function generateBackgrounds(
       // Use pre-computed color description if available (saved at upload time in brand_guidelines.color_description)
       const colorDesc = brandColorDescription || ''
 
-      const prompt = `${colorDesc ? `COLOR DIRECTIVE (HIGHEST PRIORITY — read this FIRST):
+      // Detect flat/solid color requests — these must bypass all photorealism/shadow directives
+      const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(userPrompt)
+
+      const prompt = isFlatColor
+        ? `Generate a completely flat, uniform solid color background image.
+
+Exact color specification: ${userPrompt}
+
+STRICT REQUIREMENTS — NO EXCEPTIONS:
+- Completely flat, 100% uniform fill — every pixel the same color
+- NO shadows of any kind — no cast shadows, no self-shadows, no ambient occlusion
+- NO gradients — no light-to-dark transitions anywhere
+- NO textures — no grain, no fabric weave, no surface imperfections, no bump
+- NO lighting effects — no highlights, no specular, no diffused light, no vignetting
+- NO depth of field, no bokeh, no lens effects
+- NO objects, no surfaces, no scenes — pure flat color fill only
+- Aspect ratio: ${aspectRatio} (strict)`
+        : `${colorDesc ? `COLOR DIRECTIVE (HIGHEST PRIORITY — read this FIRST):
 ${colorDesc}
 The dominant surface color (wall, backdrop) MUST be this exact color — a confident, clearly visible mid-tone. Not washed out, not pale, not faded, not gray. The hue must be unmistakable and saturated enough to be immediately recognizable.
 ` : ''}Create a hyper-realistic ${aspectRatio} product photography background — a real photograph, not a render.
@@ -315,7 +332,12 @@ ${styleReferenceImages && styleReferenceImages.length > 0 ? '- Use the provided 
         const requestBody = {
           systemInstruction: {
             parts: [{
-              text: `You are a world-class commercial product photographer operating in a professional studio.
+              text: isFlatColor
+                ? `You are a graphic designer generating flat solid color swatches for use as product ad backgrounds.
+Your only task is to produce a perfectly uniform, flat fill of the exact requested color.
+There must be zero shadows, zero gradients, zero textures, zero lighting effects — just a pure, solid, single-color rectangle.
+Do not add any photographic or painterly qualities. The output is a flat color chip, nothing more.`
+                : `You are a world-class commercial product photographer operating in a professional studio.
 
 YOUR CRAFT:
 - You shoot with high-end full-frame cameras (Canon EOS R5, Sony A7R V) and premium lenses
