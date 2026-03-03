@@ -404,7 +404,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
           />
 
           <div className="grid grid-cols-12 gap-4">
-            {/* Left Panel: Layers */}
+            {/* Left Panel: Layers — col-span-2 (~16%) */}
             <div className="col-span-2">
               <LayerPanel
                 layers={layers}
@@ -416,8 +416,8 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
               />
             </div>
 
-            {/* Center: Canvas */}
-            <div className="col-span-8 min-h-[700px]">
+            {/* Center: Canvas — col-span-7 (~58%) */}
+            <div className="col-span-7 min-h-[700px]">
               <TemplateBuilderCanvas
                 format={selectedFormat}
                 width={canvasWidth}
@@ -432,8 +432,8 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
               />
             </div>
 
-            {/* Right Panel: Properties */}
-            <div className="col-span-2">
+            {/* Right Panel: Properties — col-span-3 (~25%) */}
+            <div className="col-span-3">
               <PropertiesPanel
                 layer={selectedLayer}
                 categoryId={categoryId}
