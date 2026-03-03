@@ -17,11 +17,12 @@ interface AssetOption {
 interface PropertiesPanelProps {
   layer: TemplateLayer | null
   categoryId: string
+  format: string
   onLayerUpdate: (updates: Partial<TemplateLayer>) => void
   onLayerDelete: (layerId: string) => void
 }
 
-export function PropertiesPanel({ layer, categoryId, onLayerUpdate, onLayerDelete }: PropertiesPanelProps) {
+export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLayerDelete }: PropertiesPanelProps) {
   const [overlays, setOverlays] = useState<AssetOption[]>([])
   const [angledShots, setAngledShots] = useState<AssetOption[]>([])
   const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
@@ -41,7 +42,7 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate, onLayerDelet
     }
 
     if (layer?.type === 'product') {
-      fetch(`/api/categories/${categoryId}/angled-shots`)
+      fetch(`/api/categories/${categoryId}/angled-shots?format=${encodeURIComponent(format)}`)
         .then((r) => r.json())
         .then((data) => {
           setAngledShots(
@@ -56,7 +57,7 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate, onLayerDelet
     }
 
     if (layer?.type === 'background') {
-      fetch(`/api/categories/${categoryId}/backgrounds`)
+      fetch(`/api/categories/${categoryId}/backgrounds?format=${encodeURIComponent(format)}`)
         .then((r) => r.json())
         .then((data) => {
           setBackgrounds(
@@ -69,7 +70,7 @@ export function PropertiesPanel({ layer, categoryId, onLayerUpdate, onLayerDelet
         })
         .catch(() => {})
     }
-  }, [layer?.type, categoryId])
+  }, [layer?.type, categoryId, format])
 
   if (!layer) {
     return (

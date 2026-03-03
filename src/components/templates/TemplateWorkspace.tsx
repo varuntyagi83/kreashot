@@ -437,6 +437,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
               <PropertiesPanel
                 layer={selectedLayer}
                 categoryId={categoryId}
+                format={selectedFormat}
                 onLayerUpdate={handleSelectedLayerUpdate}
                 onLayerDelete={handleDeleteLayer}
               />
