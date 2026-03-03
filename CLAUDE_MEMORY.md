@@ -27,6 +27,10 @@
 - `generateCopyVariationsGemini` and `generateCopyKitGemini` exist in `src/lib/ai/gemini.ts`
 - Can be swapped in via `src/app/api/categories/[id]/copy-docs/generate/route.ts` if OpenAI quota runs out
 
+## Key Reference Files (always read when starting work)
+- `Issues.md` — 61 open bugs with file locations, severity, and fix-safety notes. Check before touching any file.
+- `progress.md` — full implementation log: what's built, what's pending, intended order.
+
 ## Planned Feature: "Bring Your Own Copy" (CSV ingestion)
 **Context:** Requested by Moritz (CDO, Sunday Natural) after Jutta (CMO) delivered finished ad creatives with pre-written hooks/captions. Moritz wants AdForge to accept external copy as an alternative to AI-generated copy, and overlay it onto composite images the same way.
 
