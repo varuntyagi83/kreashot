@@ -111,7 +111,7 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
   }, [layers, safeZones])
 
   // Add layer
-  const handleAddLayer = (type: TemplateLayer['type'] | 'overlay') => {
+  const handleAddLayer = (type: TemplateLayer['type']) => {
     const newLayer: TemplateLayer = {
       id: `layer-${Date.now()}`,
       type,

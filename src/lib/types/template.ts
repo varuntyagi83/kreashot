@@ -2,7 +2,7 @@
  * Template types for visual canvas-based template builder
  */
 
-export type LayerType = 'background' | 'product' | 'text' | 'logo'
+export type LayerType = 'background' | 'product' | 'text' | 'logo' | 'overlay'
 
 export type SafeZoneType = 'safe' | 'restricted'
 
@@ -31,6 +31,9 @@ export interface TemplateLayer {
 
   // Product-specific properties
   alignment?: 'center' | 'left' | 'right'
+
+  // Overlay-specific properties
+  source_url?: string
 }
 
 export interface SafeZone {

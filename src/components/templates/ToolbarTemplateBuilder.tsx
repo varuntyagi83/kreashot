@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 
 interface ToolbarTemplateBuilderProps {
-  onAddLayer: (type: 'background' | 'product' | 'text' | 'logo' | 'overlay') => void
+  onAddLayer: (type: import('@/lib/types/template').LayerType) => void
   onAddSafeZone: (type: 'safe' | 'restricted') => void
   onSave: () => void
   onToggleGrid: () => void
