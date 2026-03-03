@@ -118,8 +118,14 @@ Meta Ads Manager upload
 - Rendering order: background (z:0) → composite/product (z:1) → overlay PNG (z:2) → text (z:3) → logo (z:4)
 
 ### PropertiesPanel Layer Pickers (added 2026-03-03)
-- **Product layer**: fetches angled shots from `/api/categories/[id]/angled-shots` → `angledShots` state → picker sets `preview_url`
-- **Background layer**: fetches from `/api/categories/[id]/backgrounds` → picker sets `preview_url`
-- **Overlay layer**: fetches from `/api/brand-assets` filtered to `asset_type='overlay'` → picker sets `source_url`
+- Receives `categoryId` and `format` props from TemplateWorkspace
+- **Product layer**: fetches `/api/categories/[id]/angled-shots?format=...` — filtered to current template format → picker sets `preview_url`
+- **Background layer**: fetches `/api/categories/[id]/backgrounds?format=...` — filtered to current template format → picker sets `preview_url`
+- **Overlay layer**: fetches `/api/brand-assets` filtered to `asset_type='overlay'` → picker sets `source_url`
 - **Text layer**: "Sample Text" input → sets `sample_text` for canvas preview
 - Layer delete: visible "Delete Layer" button at bottom of PropertiesPanel (not hover-only)
+- Both APIs already supported `?format=` filtering; PropertiesPanel re-fetches on format change
+
+### Template Builder Layout (TemplateWorkspace.tsx)
+- Grid: `col-span-2` (Layers) + `col-span-7` (Canvas) + `col-span-3` (Properties) = 12
+- Properties was col-span-2 which clipped all fields; widened to col-span-3 (~25%)
