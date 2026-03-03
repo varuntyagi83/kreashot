@@ -161,19 +161,23 @@ export async function POST() {
         } = supabase.storage.from('brand-assets').getPublicUrl(filePath)
 
         // Insert DB record
-        const { error: dbError } = await supabase.from('brand_assets').insert({
-          user_id: user.id,
-          name: overlay.name,
-          asset_type: 'overlay',
-          storage_path: filePath,
-          storage_url: publicUrl,
-          metadata: {
-            file_name: fileName,
-            file_size: svgBuffer.length,
-            file_type: 'image/svg+xml',
-            seeded: true,
-          },
-        })
+        const { data: brandAsset, error: dbError } = await supabase
+          .from('brand_assets')
+          .insert({
+            user_id: user.id,
+            name: overlay.name,
+            asset_type: 'overlay',
+            storage_path: filePath,
+            storage_url: publicUrl,
+            metadata: {
+              file_name: fileName,
+              file_size: svgBuffer.length,
+              file_type: 'image/svg+xml',
+              seeded: true,
+            },
+          })
+          .select('id')
+          .single()
 
         if (dbError) {
           await supabase.storage.from('brand-assets').remove([filePath])
@@ -187,6 +191,7 @@ export async function POST() {
           category_id: null,
           reference_id: `@global/overlay/${slug}`,
           asset_type: 'brand_asset',
+          asset_table_id: brandAsset.id,
           storage_url: publicUrl,
           display_name: overlay.name,
           searchable_text: `${overlay.name} overlay ${slug}`,
