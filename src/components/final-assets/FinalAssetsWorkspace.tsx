@@ -380,21 +380,21 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 <SelectContent>
                   <SelectItem value="__none__">None</SelectItem>
                   {copyDocs
-                    .filter((doc) => doc.copy_type === 'tagline' || doc.copy_type === 'headline')
-                    .map((doc, index) => (
+                    .filter((doc) => doc.copy_type === 'tagline')
+                    .map((doc) => (
                       <SelectItem key={doc.id} value={doc.id}>
-                        [{doc.copy_type}] {doc.generated_text.substring(0, 40)}...
+                        {doc.generated_text.substring(0, 50)}...
                       </SelectItem>
                     ))}
-                  {copyDocs.filter(d => d.copy_type === 'tagline' || d.copy_type === 'headline').length === 0 && (
+                  {copyDocs.filter(d => d.copy_type === 'tagline').length === 0 && (
                     <SelectItem value="none-available" disabled>
-                      No tagline/headline copy yet — generate in Copy tab
+                      No tagline copy yet — generate one in Copy tab
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Only tagline/headline copy is baked onto the image. Hook, CTA, and body copy go in Ad Export (Phase 7).
+                Only tagline copy is baked onto the image. Headline, hook, CTA, and body go in Ad Export.
               </p>
             </div>
 

@@ -73,7 +73,7 @@ export async function POST(
 
     const DEFAULT_LAYERS = [
       { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
-      { id: 'text', type: 'text', name: 'headline', x: 10, y: 80, width: 80, height: 15, z_index: 2, font_size: 48, color: '#000000', text_align: 'center' },
+      { id: 'text', type: 'text', name: 'tagline', x: 10, y: 80, width: 80, height: 15, z_index: 2, font_size: 48, color: '#000000', text_align: 'center' },
     ]
 
     console.log('🎨 Generating final asset for category:', categoryId, `(${format} ${width}x${height})`)

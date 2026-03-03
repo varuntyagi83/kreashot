@@ -41,9 +41,15 @@ export function PropertiesPanel({ layer, onLayerUpdate }: PropertiesPanelProps) 
             id="layer-name"
             value={layer.name || ''}
             onChange={(e) => onLayerUpdate({ name: e.target.value })}
-            placeholder={layer.type}
+            placeholder={layer.type === 'text' ? 'tagline' : layer.type}
             className="h-8 text-sm"
           />
+          {layer.type === 'text' && (
+            <p className="text-xs text-muted-foreground">
+              Use <code className="bg-muted px-1 rounded">tagline</code> to match on-image copy.
+              Headline, hook, and CTA belong in Meta copy fields (Ad Export), not on the image.
+            </p>
+          )}
         </div>
 
         {/* Position */}
