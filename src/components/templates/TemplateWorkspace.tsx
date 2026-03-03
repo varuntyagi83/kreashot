@@ -437,6 +437,8 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
             guidelineImageUrl={selectedGuideline?.storage_url}
             safeZones={safeZones}
             layers={layers}
+            width={canvasWidth}
+            height={canvasHeight}
           />
         </TabsContent>
 

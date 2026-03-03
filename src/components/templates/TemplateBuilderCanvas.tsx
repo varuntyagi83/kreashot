@@ -213,6 +213,8 @@ export function TemplateBuilderCanvas({
               selectable: !layer.locked,
               stroke: isSelected ? '#2563eb' : undefined,
               strokeWidth: isSelected ? 2 : 0,
+              // Multiply blend: white background of product angled shots blends into the background layer
+              globalCompositeOperation: layer.type === 'product' ? 'multiply' : 'source-over',
               ...commonControls,
             })
             ;(img as CustomFabricObject).customData = { isLayer: true, layerId: layer.id }

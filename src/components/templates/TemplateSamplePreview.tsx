@@ -9,183 +9,175 @@ interface TemplateSamplePreviewProps {
   guidelineImageUrl?: string
   safeZones: SafeZone[]
   layers: TemplateLayer[]
+  width?: number
+  height?: number
+}
+
+function loadImage(url: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image()
+    // No crossOrigin — Google Drive CDN (lh3.googleusercontent.com) rejects requests with Origin header
+    img.onload = () => resolve(img)
+    img.onerror = reject
+    img.src = url
+  })
+}
+
+const LAYER_COLORS: Record<string, string> = {
+  background: '#3b82f6',
+  product: '#8b5cf6',
+  text: '#f59e0b',
+  logo: '#10b981',
+  overlay: '#ec4899',
 }
 
 export function TemplateSamplePreview({
   guidelineImageUrl,
   safeZones,
   layers,
+  width = 1080,
+  height = 1080,
 }: TemplateSamplePreviewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [guidelineImage, setGuidelineImage] = useState<HTMLImageElement | null>(null)
   const [validationResults, setValidationResults] = useState<
     Record<string, { valid: boolean; issues: string[] }>
   >({})
 
-  // Load guideline image
-  useEffect(() => {
-    if (guidelineImageUrl) {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.onload = () => setGuidelineImage(img)
-      img.src = guidelineImageUrl
-    } else {
-      setGuidelineImage(null)
-    }
-  }, [guidelineImageUrl])
-
   // Validate layers against safe zones
   useEffect(() => {
     const results: Record<string, { valid: boolean; issues: string[] }> = {}
-
     layers.forEach((layer) => {
       const issues: string[] = []
-
-      // Check overlap with restricted zones
       safeZones.forEach((zone) => {
-        if (zone.type === 'restricted') {
-          if (isOverlapping(layer, zone)) {
-            issues.push(`Overlaps with restricted zone "${zone.name}"`)
-          }
+        if (zone.type === 'restricted' && isOverlapping(layer, zone)) {
+          issues.push(`Overlaps with restricted zone "${zone.name}"`)
         }
       })
-
-      // Check if within safe zones (if any safe zones exist)
       const safes = safeZones.filter((z) => z.type === 'safe')
-      if (safes.length > 0) {
-        const isWithinAnySafe = safes.some((zone) => isFullyWithin(layer, zone))
-        if (!isWithinAnySafe) {
-          issues.push('Not within any safe zone')
-        }
+      if (safes.length > 0 && !safes.some((z) => isFullyWithin(layer, z))) {
+        issues.push('Not within any safe zone')
       }
-
-      results[layer.id] = {
-        valid: issues.length === 0,
-        issues,
-      }
+      results[layer.id] = { valid: issues.length === 0, issues }
     })
-
     setValidationResults(results)
   }, [layers, safeZones])
 
-  // Draw preview on canvas
+  // Draw preview: render actual layer images + text, then safe zones on top
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
-
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    let cancelled = false
 
-    // White background
-    ctx.fillStyle = '#ffffff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    const drawPreview = async () => {
+      canvas.width = width
+      canvas.height = height
 
-    // Draw guideline image if available
-    if (guidelineImage) {
-      ctx.globalAlpha = 0.3
-      ctx.drawImage(guidelineImage, 0, 0, canvas.width, canvas.height)
-      ctx.globalAlpha = 1.0
+      // Light grey base
+      ctx.fillStyle = '#f3f4f6'
+      ctx.fillRect(0, 0, width, height)
+
+      const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
+
+      for (const layer of sortedLayers) {
+        if (cancelled) break
+
+        const x = (layer.x / 100) * width
+        const y = (layer.y / 100) * height
+        const w = (layer.width / 100) * width
+        const h = (layer.height / 100) * height
+
+        const imageUrl = layer.type === 'overlay' ? layer.source_url : layer.preview_url
+
+        if (imageUrl) {
+          try {
+            const img = await loadImage(imageUrl)
+            if (cancelled) break
+            ctx.save()
+            // Product shots from Gemini have white backgrounds — multiply blends white away
+            if (layer.type === 'product') {
+              ctx.globalCompositeOperation = 'multiply'
+            }
+            ctx.drawImage(img, x, y, w, h)
+            ctx.restore()
+            continue
+          } catch {
+            // fall through to placeholder
+          }
+        }
+
+        if (layer.type === 'text') {
+          ctx.save()
+          const scaleFactor = width / 1080
+          const fontSize = Math.max((layer.font_size || 24) * scaleFactor, 10)
+          ctx.font = `bold ${fontSize}px ${layer.font_family || 'Arial'}`
+          ctx.fillStyle = layer.color || '#000000'
+          ctx.textAlign = (layer.text_align as CanvasTextAlign) || 'left'
+          // Semi-transparent background behind text for legibility
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.18)'
+          ctx.fillRect(x, y, w, h)
+          ctx.fillStyle = layer.color || '#111111'
+          const textX =
+            layer.text_align === 'center'
+              ? x + w / 2
+              : layer.text_align === 'right'
+              ? x + w
+              : x + 6
+          ctx.fillText(layer.sample_text || layer.name || 'Tagline Text', textX, y + fontSize + 4, w)
+          ctx.restore()
+          continue
+        }
+
+        // Placeholder for layers without preview image (logo, etc.)
+        const color = LAYER_COLORS[layer.type] ?? '#6b7280'
+        ctx.fillStyle = color + '30'
+        ctx.fillRect(x, y, w, h)
+        ctx.strokeStyle = color
+        ctx.setLineDash([8, 4])
+        ctx.lineWidth = 2
+        ctx.strokeRect(x, y, w, h)
+        ctx.setLineDash([])
+        ctx.fillStyle = color
+        ctx.font = `bold ${Math.max(14 * (width / 800), 10)}px Arial`
+        ctx.fillText(layer.name || layer.type.toUpperCase(), x + 8, y + 24)
+      }
+
+      if (cancelled) return
+
+      // Draw safe zones on top (as overlays)
+      safeZones.forEach((zone) => {
+        const zx = (zone.x / 100) * width
+        const zy = (zone.y / 100) * height
+        const zw = (zone.width / 100) * width
+        const zh = (zone.height / 100) * height
+        ctx.fillStyle = zone.color + '25'
+        ctx.fillRect(zx, zy, zw, zh)
+        ctx.strokeStyle = zone.color
+        ctx.lineWidth = 2
+        ctx.strokeRect(zx, zy, zw, zh)
+        ctx.fillStyle = zone.color
+        ctx.font = `bold ${Math.max(13 * (width / 800), 10)}px Arial`
+        ctx.fillText(zone.name, zx + 6, zy + 20)
+      })
     }
 
-    // Draw safe zones (semi-transparent overlays)
-    safeZones.forEach((zone) => {
-      const x = (zone.x / 100) * canvas.width
-      const y = (zone.y / 100) * canvas.height
-      const w = (zone.width / 100) * canvas.width
-      const h = (zone.height / 100) * canvas.height
-
-      // Fill with transparency
-      ctx.fillStyle = zone.color + '40' // Add alpha channel
-      ctx.fillRect(x, y, w, h)
-
-      // Border
-      ctx.strokeStyle = zone.color
-      ctx.lineWidth = 2
-      ctx.strokeRect(x, y, w, h)
-
-      // Zone label
-      ctx.fillStyle = zone.color
-      ctx.font = 'bold 14px Arial'
-      ctx.fillText(zone.name, x + 5, y + 20)
-    })
-
-    // Draw layer placeholders (dotted rectangles)
-    const sortedLayers = [...layers].sort((a, b) => a.z_index - b.z_index)
-    sortedLayers.forEach((layer) => {
-      const x = (layer.x / 100) * canvas.width
-      const y = (layer.y / 100) * canvas.height
-      const w = (layer.width / 100) * canvas.width
-      const h = (layer.height / 100) * canvas.height
-
-      const color = getLayerColor(layer.type)
-      const isValid = validationResults[layer.id]?.valid ?? true
-
-      // Dotted border
-      ctx.setLineDash([8, 4])
-      ctx.strokeStyle = isValid ? color : '#ef4444' // Red if invalid
-      ctx.lineWidth = 3
-      ctx.strokeRect(x, y, w, h)
-      ctx.setLineDash([]) // Reset
-
-      // Semi-transparent fill
-      ctx.fillStyle = color + '20'
-      ctx.fillRect(x, y, w, h)
-
-      // Layer label
-      ctx.fillStyle = color
-      ctx.font = 'bold 18px Arial'
-      const label = layer.name || layer.type.toUpperCase()
-      ctx.fillText(label, x + 8, y + 28)
-
-      // Validation indicator (✓ or ✗)
-      ctx.font = 'bold 24px Arial'
-      ctx.fillStyle = isValid ? '#10b981' : '#ef4444'
-      const indicator = isValid ? '✓' : '✗'
-      const indicatorX = x + w - 35
-      const indicatorY = y + 30
-      ctx.fillText(indicator, indicatorX, indicatorY)
-
-      // Layer info
-      ctx.font = '12px Arial'
-      ctx.fillStyle = '#6b7280'
-      const info = `${layer.width.toFixed(0)}×${layer.height.toFixed(0)}% • Z:${layer.z_index}`
-      ctx.fillText(info, x + 8, y + h - 8)
-    })
-  }, [guidelineImage, safeZones, layers, validationResults])
-
-  // Get layer color by type
-  const getLayerColor = (type: TemplateLayer['type']) => {
-    switch (type) {
-      case 'background':
-        return '#3b82f6' // blue
-      case 'product':
-        return '#8b5cf6' // purple
-      case 'text':
-        return '#f59e0b' // orange
-      case 'logo':
-        return '#10b981' // green
-      default:
-        return '#6b7280'
+    drawPreview()
+    return () => {
+      cancelled = true
     }
-  }
+  }, [layers, safeZones, width, height])
 
-  // Check if two rectangles overlap
   const isOverlapping = (layer: TemplateLayer, zone: SafeZone): boolean => {
-    const l1 = { x: layer.x, y: layer.y, w: layer.width, h: layer.height }
-    const l2 = { x: zone.x, y: zone.y, w: zone.width, h: zone.height }
-
     return !(
-      l1.x + l1.w <= l2.x ||
-      l2.x + l2.w <= l1.x ||
-      l1.y + l1.h <= l2.y ||
-      l2.y + l2.h <= l1.y
+      layer.x + layer.width <= zone.x ||
+      zone.x + zone.width <= layer.x ||
+      layer.y + layer.height <= zone.y ||
+      zone.y + zone.height <= layer.y
     )
   }
 
-  // Check if layer is fully within safe zone
   const isFullyWithin = (layer: TemplateLayer, zone: SafeZone): boolean => {
     return (
       layer.x >= zone.x &&
@@ -195,8 +187,6 @@ export function TemplateSamplePreview({
     )
   }
 
-  // Count valid/invalid layers
-  const validCount = Object.values(validationResults).filter((r) => r.valid).length
   const invalidCount = Object.values(validationResults).filter((r) => !r.valid).length
   const allValid = layers.length > 0 && invalidCount === 0
 
@@ -207,7 +197,7 @@ export function TemplateSamplePreview({
           <div>
             <h3 className="font-semibold text-sm">Sample Template Preview</h3>
             <p className="text-xs text-muted-foreground">
-              Validates your template configuration
+              Renders your template with the selected preview images
             </p>
           </div>
           {layers.length > 0 && (
@@ -229,12 +219,7 @@ export function TemplateSamplePreview({
 
         {/* Canvas Preview */}
         <div className="border rounded-lg overflow-hidden bg-gray-50">
-          <canvas
-            ref={canvasRef}
-            width={1080}
-            height={1080}
-            className="w-full h-auto"
-          />
+          <canvas ref={canvasRef} width={width} height={height} className="w-full h-auto" />
         </div>
 
         {/* Validation Details */}
@@ -245,7 +230,6 @@ export function TemplateSamplePreview({
               {layers.map((layer) => {
                 const result = validationResults[layer.id]
                 if (!result || result.valid) return null
-
                 return (
                   <div
                     key={layer.id}
@@ -266,40 +250,9 @@ export function TemplateSamplePreview({
           </div>
         )}
 
-        {/* Legend */}
-        <div className="pt-4 border-t">
-          <div className="text-xs font-medium mb-2">Legend:</div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-dashed border-blue-500" />
-              <span>Background</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-dashed border-purple-500" />
-              <span>Product</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-dashed border-orange-500" />
-              <span>Text</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 border-2 border-dashed border-green-500" />
-              <span>Logo</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 opacity-25" />
-              <span>Safe Zone</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-red-500 opacity-25" />
-              <span>Restricted</span>
-            </div>
-          </div>
-        </div>
-
         {layers.length === 0 && safeZones.length === 0 && (
           <div className="text-center py-8 text-sm text-muted-foreground">
-            Add layers and safe zones to see the preview
+            Add layers in the Template Builder tab to see the preview here
           </div>
         )}
       </div>
