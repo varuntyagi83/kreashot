@@ -46,6 +46,8 @@ RUN ln -sf /usr/bin/python3 /usr/local/bin/python3
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Copy native addon for @resvg/resvg-js (not bundled, loaded at runtime)
+COPY --from=builder /app/node_modules/@resvg ./node_modules/@resvg
 
 # Copy the Python compositing script
 COPY --from=builder /app/scripts/composite_final_asset.py ./scripts/composite_final_asset.py
