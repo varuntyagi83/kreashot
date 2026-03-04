@@ -4,7 +4,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Save, Loader2, ImagePlus, Trash2, Sparkles } from 'lucide-react'
+import { Save, Loader2, ImagePlus, Trash2, Sparkles, LayoutGrid } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { CollageCanvas } from './CollageCanvas'
 import { CollageLayerPanel } from './CollageLayerPanel'
 import { CollagePropertiesPanel } from './CollagePropertiesPanel'
@@ -20,6 +26,107 @@ const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
   '16:9': { width: 1920, height: 1080 },
   '9:16': { width: 1080, height: 1920 },
   '4:5': { width: 1080, height: 1350 },
+}
+
+// Gap (%) between cells so images don't touch edge-to-edge
+const CELL_GAP = 1
+
+interface PresetCell {
+  type: 'image' | 'text'
+  x: number; y: number; width: number; height: number
+  // text-only fields
+  text_content?: string; font_size?: number; color?: string; text_align?: 'left' | 'center' | 'right'
+  background_color?: string
+}
+
+interface GridPreset {
+  label: string
+  description: string
+  bg: string
+  cells: PresetCell[]
+}
+
+const GRID_PRESETS: Record<string, GridPreset> = {
+  '2col': {
+    label: '2 Columns',
+    description: 'Two images side by side',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 50, height: 100 },
+      { type: 'image', x: 50, y: 0, width: 50, height: 100 },
+    ],
+  },
+  '2row': {
+    label: '2 Rows',
+    description: 'Two images stacked',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 100, height: 50 },
+      { type: 'image', x: 0, y: 50, width: 100, height: 50 },
+    ],
+  },
+  '3col': {
+    label: '3 Columns',
+    description: 'Three equal columns',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 33.33, height: 100 },
+      { type: 'image', x: 33.33, y: 0, width: 33.34, height: 100 },
+      { type: 'image', x: 66.67, y: 0, width: 33.33, height: 100 },
+    ],
+  },
+  '4grid': {
+    label: '2x2 Grid',
+    description: 'Four equal cells',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 50, height: 50 },
+      { type: 'image', x: 50, y: 0, width: 50, height: 50 },
+      { type: 'image', x: 0, y: 50, width: 50, height: 50 },
+      { type: 'image', x: 50, y: 50, width: 50, height: 50 },
+    ],
+  },
+  '1hero-2sub': {
+    label: 'Hero + 2 Below',
+    description: 'Large top image, two smaller below',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 100, height: 60 },
+      { type: 'image', x: 0, y: 60, width: 50, height: 40 },
+      { type: 'image', x: 50, y: 60, width: 50, height: 40 },
+    ],
+  },
+  '2hero-1side': {
+    label: 'Hero + 2 Side',
+    description: 'Large left image, two stacked right',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 60, height: 100 },
+      { type: 'image', x: 60, y: 0, width: 40, height: 50 },
+      { type: 'image', x: 60, y: 50, width: 40, height: 50 },
+    ],
+  },
+  '1hero-3side': {
+    label: 'Hero + 3 Side',
+    description: 'Large left image, three stacked right',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 60, height: 100 },
+      { type: 'image', x: 60, y: 0, width: 40, height: 33.33 },
+      { type: 'image', x: 60, y: 33.33, width: 40, height: 33.34 },
+      { type: 'image', x: 60, y: 66.67, width: 40, height: 33.33 },
+    ],
+  },
+}
+
+function applyGap(cell: PresetCell, gap: number): PresetCell {
+  return {
+    ...cell,
+    x: cell.x + gap / 2,
+    y: cell.y + gap / 2,
+    width: cell.width - gap,
+    height: cell.height - gap,
+  }
 }
 
 export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspaceProps) {
@@ -231,6 +338,54 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
     setHasChanges(false)
   }
 
+  // Apply a grid layout preset
+  const handleApplyPreset = (presetKey: string) => {
+    const preset = GRID_PRESETS[presetKey]
+    if (!preset) return
+
+    const ts = Date.now()
+    let imgCount = 0
+    const newLayers: CollageLayer[] = preset.cells.map((cell, i) => {
+      const gapped = applyGap(cell, CELL_GAP)
+      if (cell.type === 'text') {
+        return {
+          id: `text_${ts}_${i}`,
+          type: 'text' as const,
+          name: `Text ${i + 1}`,
+          x: gapped.x,
+          y: gapped.y,
+          width: gapped.width,
+          height: gapped.height,
+          z_index: i + 10, // text above images
+          text_content: cell.text_content || 'Text',
+          font_size: cell.font_size || 36,
+          color: cell.color || '#000000',
+          text_align: cell.text_align || 'center',
+          background_color: cell.background_color,
+        }
+      }
+      imgCount++
+      return {
+        id: `image_${ts}_${i}`,
+        type: 'image' as const,
+        name: `Image ${imgCount}`,
+        x: gapped.x,
+        y: gapped.y,
+        width: gapped.width,
+        height: gapped.height,
+        z_index: i,
+        object_fit: 'cover' as const,
+      }
+    })
+
+    setCurrentCollageId(null)
+    setLayers(newLayers)
+    setBackgroundColor(preset.bg)
+    setCollageName('Untitled Collage')
+    setSelectedLayerId(null)
+    setHasChanges(true)
+  }
+
   const selectedLayer = layers.find((l) => l.id === selectedLayerId) || null
 
   return (
@@ -248,6 +403,25 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
           <ImagePlus className="h-4 w-4 mr-1" />
           New
         </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Layout
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            {Object.entries(GRID_PRESETS).map(([key, preset]) => (
+              <DropdownMenuItem key={key} onClick={() => handleApplyPreset(key)}>
+                <div>
+                  <div className="font-medium text-sm">{preset.label}</div>
+                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Button
           size="sm"
