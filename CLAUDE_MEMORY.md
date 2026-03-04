@@ -166,6 +166,17 @@ Meta Ads Manager upload
 - Pattern: `const sameTypeCount = layers.filter(l => l.type === type).length + 1`
 - Prevents all overlays stacking invisibly at x:0,y:0 and appearing as identical "overlay" entries in layers panel
 
+### Multi-Image Collage Ads (added 2026-03-04)
+- Separate **Collage tab** — does NOT touch existing template/final-asset pipeline
+- DB table: `collages` (migration: `supabase/migrations/20260304_create_collages_table.sql`)
+- Types: `src/lib/types/collage.ts` — `CollageLayer` (types: `image`, `text`, `overlay`, `background`)
+- Components: all under `src/components/collage/` (CollageWorkspace, CollageCanvas, CollageLayerPanel, CollagePropertiesPanel)
+- API: `/api/categories/[id]/collages` (CRUD), `.../collages/generate` (PIL render + GDrive upload)
+- PIL: `image` layer type in `composite_final_asset.py` — cover/contain object_fit, `background_color` layer type for solid fills
+- Image source picker: 3 tabs — Pipeline (angled shots + backgrounds + composites), Brand Assets, URL input
+- `collage_data` JSON: `{ layers: [...], background_color: "#hex" }` — stored in `collages.collage_data` JSONB column
+- Generate route calls the same `composite_final_asset.py` script (no composite_url needed — all images from layer source_urls)
+
 ### Background Gen — Flat/Solid Color Path
 - `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`
 - When matched: uses a stripped prompt (no DSLR, no lighting, no shadows) + flat-color-swatch system instruction

@@ -1,6 +1,6 @@
 # AdForge - Implementation Progress
 
-**Last Updated:** 2026-02-27
+**Last Updated:** 2026-03-04
 
 ---
 
@@ -15,6 +15,19 @@
 ---
 
 ## ✅ Completed
+
+### Multi-Image Collage Ads (2026-03-04):
+- [x] **Collage Tab** — separate tab in category page for building multi-image collage ads
+- [x] **Types:** `src/lib/types/collage.ts` — `CollageLayer`, `CollageData`, `Collage` types
+- [x] **DB migration:** `supabase/migrations/20260304_create_collages_table.sql` — `collages` table with RLS
+- [x] **API routes:** CRUD at `/api/categories/[id]/collages`, generate at `.../collages/generate`
+- [x] **PIL extension:** `image` layer type (cover/contain) + `background_color` layer in `composite_final_asset.py`
+- [x] **CollageWorkspace.tsx** — main builder with save/load/generate/gallery
+- [x] **CollageCanvas.tsx** — Fabric.js canvas with image/text/overlay layer rendering
+- [x] **CollageLayerPanel.tsx** — layer list with add dropdown, reorder, delete
+- [x] **CollagePropertiesPanel.tsx** — tabbed image source picker (Pipeline/Brand/URL), text/overlay editing
+- [x] **Category page wired** — Collage tab between Ad Export and Guidelines
+- **NOTE:** Run migration SQL in Supabase dashboard before using
 
 ### Brand Voice Extractor (2026-02-23):
 - [x] **AI-Powered Brand Voice Extraction** — 3 input methods, deep profile generation

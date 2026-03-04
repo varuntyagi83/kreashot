@@ -15,6 +15,7 @@ import { CopyWorkspace } from '@/components/copy/CopyWorkspace'
 import { TemplateWorkspace } from '@/components/templates/TemplateWorkspace'
 import { FinalAssetsWorkspace } from '@/components/final-assets/FinalAssetsWorkspace'
 import { AdExportWorkspace } from '@/components/ad-export/AdExportWorkspace'
+import { CollageWorkspace } from '@/components/collage/CollageWorkspace'
 import { FormatSelector } from '@/components/format-selector'
 import { GuidelineUploadForm } from '@/components/templates/GuidelineUploadForm'
 import { GuidelinesList } from '@/components/templates/GuidelinesList'
@@ -185,6 +186,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
             )}
           </TabsTrigger>
           <TabsTrigger value="ad-export">Ad Export</TabsTrigger>
+          <TabsTrigger value="collage">Collage</TabsTrigger>
           <TabsTrigger value="guidelines">
             Guidelines
             {category.counts.guidelines > 0 && (
@@ -236,6 +238,10 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
 
         <TabsContent value="ad-export" className="space-y-4">
           <AdExportWorkspace categoryId={category.id} format={selectedFormat} />
+        </TabsContent>
+
+        <TabsContent value="collage" className="space-y-4">
+          <CollageWorkspace categoryId={category.id} format={selectedFormat} />
         </TabsContent>
 
       </Tabs>

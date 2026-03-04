@@ -214,6 +214,41 @@ def composite_final_asset(
             final_image.paste(overlay_image, (x, y), overlay_image)
             sys.stderr.write(f"    ✅ Pasted graphic overlay\n")
 
+        elif layer_type == 'image':
+            source_url = layer.get('source_url', '')
+            if not source_url:
+                sys.stderr.write("    ⏭️  Image layer has no source_url, skipping\n")
+                continue
+
+            img = download_image(source_url)
+            obj_fit = layer.get('object_fit', 'cover')
+
+            if obj_fit == 'cover':
+                # Resize to fill the cell then center-crop to exact dimensions
+                scale = max(lw / img.width, lh / img.height)
+                img = img.resize(
+                    (int(img.width * scale), int(img.height * scale)),
+                    Image.Resampling.LANCZOS,
+                )
+                left = (img.width - lw) // 2
+                top = (img.height - lh) // 2
+                img = img.crop((left, top, left + lw, top + lh))
+            else:  # contain
+                img.thumbnail((lw, lh), Image.Resampling.LANCZOS)
+
+            if img.mode == 'RGBA':
+                final_image.paste(img, (x, y), img)
+            else:
+                final_image.paste(img, (x, y))
+
+            sys.stderr.write(f"    ✅ Pasted image ({obj_fit})\n")
+
+        elif layer_type == 'background_color':
+            # Solid color fill (used by collage when no background image layer exists)
+            bg_color = layer.get('background_color', '#FFFFFF')
+            draw.rectangle([0, 0, canvas_width, canvas_height], fill=bg_color)
+            sys.stderr.write(f"    ✅ Filled background color {bg_color}\n")
+
     # Save final composite
     final_image.save(output_path, 'PNG', quality=95)
     sys.stderr.write(f"\n✅ Final asset saved to: {output_path}\n")
