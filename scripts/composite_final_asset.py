@@ -7,6 +7,7 @@ Combines template, background, product, copy, and logo into final ad creative
 import sys
 import json
 import os
+import base64
 import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
@@ -14,7 +15,14 @@ import urllib.request
 
 
 def download_image(url):
-    """Download image from URL and return PIL Image"""
+    """Download image from URL and return PIL Image.
+    Handles both HTTP(S) URLs and data: URIs (base64-encoded inline images)."""
+    if url.startswith('data:'):
+        # Parse data URI: data:[<mediatype>][;base64],<data>
+        header, data = url.split(',', 1)
+        image_bytes = base64.b64decode(data)
+        return Image.open(BytesIO(image_bytes))
+
     with urllib.request.urlopen(url, timeout=30) as response:
         return Image.open(BytesIO(response.read()))
 
@@ -111,12 +119,17 @@ def composite_final_asset(
             sys.stderr.write("    ⏭️  Product already in composite background\n")
 
         elif layer_type == 'text':
-            # Resolve text: try layer name (e.g. 'headline'), then copy_type, then generated_text
-            layer_name = (layer.get('name') or '').lower()
+            # Resolve text: case-insensitive lookup against copy_text keys,
+            # then fall back to copy_type match and generated_text.
+            layer_name = layer.get('name') or ''
+
+            # Build a case-insensitive lookup map: lowercase key → original value
+            ci_map = {k.lower(): v for k, v in copy_text.items()}
+
             text_content = (
-                copy_text.get(layer_name)
-                or copy_text.get(layer_name.capitalize())
-                or (copy_text.get('copy_type') == layer_name and copy_text.get('generated_text'))
+                copy_text.get(layer_name)                      # exact match first (e.g. "Left Text")
+                or ci_map.get(layer_name.lower())              # case-insensitive (e.g. "left text")
+                or (copy_text.get('copy_type', '').lower() == layer_name.lower() and copy_text.get('generated_text'))
                 or copy_text.get('generated_text', '')
             )
             font_size = layer.get('font_size', 24)

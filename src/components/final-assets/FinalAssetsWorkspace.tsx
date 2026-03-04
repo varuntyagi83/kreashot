@@ -32,6 +32,7 @@ interface TemplateLayer {
   sample_text?: string
   font_size?: number
   color?: string
+  source_url?: string
 }
 
 interface Template {
@@ -568,7 +569,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
                       {/* Layer Placeholders */}
                       {selectedTemplate?.template_data?.layers?.map((layer) => {
-                        if (layer.type === 'text' && selectedCopyDoc) {
+                        if (layer.type === 'text') {
+                          const key = layer.name || layer.id
+                          const textContent = layerTexts[key] || selectedCopyDoc?.generated_text || ''
+                          if (!textContent) return null
                           return (
                             <div
                               key={layer.id}
@@ -581,8 +585,29 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                               }}
                             >
                               <p className="text-sm font-bold text-center line-clamp-2 bg-white/90 px-2 py-1 rounded">
-                                {selectedCopyDoc.generated_text.substring(0, 100)}...
+                                {textContent.substring(0, 100)}
                               </p>
+                            </div>
+                          )
+                        }
+                        if (layer.type === 'overlay' && layer.source_url) {
+                          return (
+                            <div
+                              key={layer.id}
+                              className="absolute pointer-events-none"
+                              style={{
+                                left: `${layer.x || 0}%`,
+                                top: `${layer.y || 0}%`,
+                                width: `${layer.width || 100}%`,
+                                height: `${layer.height || 100}%`,
+                              }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={layer.source_url}
+                                alt="Overlay"
+                                className="w-full h-full object-fill opacity-70"
+                              />
                             </div>
                           )
                         }
