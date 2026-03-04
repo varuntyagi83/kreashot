@@ -151,6 +151,7 @@ Meta Ads Manager upload
 - 10 overlays total: Dashed Circle Arrow, Thin Circle Ring, Double Concentric Rings, Corner Brackets, Dot Grid, Diagonal Lines, Minimal Frame, Vertical Line (1080×1920), Horizontal Line, Cross Lines
 - Reference brand ads use: circular overlays (ads 1, 3) and vertical line (ads 2, 4)
 - `asset_references.asset_table_id` is NOT NULL — seeder uses `.select('id').single()` to get brand_asset.id and passes it
+- **Turbopack build fix**: `@resvg/resvg-js` is a native Node addon — Turbopack cannot bundle it. Added to `serverExternalPackages` in `next.config.ts` (loads via `require()` at runtime). Added `COPY --from=builder /app/node_modules/@resvg ./node_modules/@resvg` to Dockerfile runner stage so the binary is present at runtime.
 
 ### Per-Layer Text Inputs (Final Asset Builder — added 2026-03-03)
 - `FinalAssetsWorkspace.tsx` reads selected template's text layers and renders one `Input` per named layer
