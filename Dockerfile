@@ -32,10 +32,12 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install Python + Pillow + fonts for the compositing script at runtime
+# Install Python + Pillow + fonts + CA certs for the compositing script at runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pillow \
+    python3-certifi \
+    ca-certificates \
     fonts-dejavu-core \
     && rm -rf /var/lib/apt/lists/*
 

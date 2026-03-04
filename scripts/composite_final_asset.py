@@ -12,6 +12,18 @@ import textwrap
 from PIL import Image, ImageDraw, ImageFont
 from io import BytesIO
 import urllib.request
+import ssl
+
+# Build an SSL context that works on Railway (and other containers without
+# a complete CA bundle).  Try certifi first; fall back to an unverified
+# context so downloads from Google Drive CDN still succeed.
+try:
+    import certifi
+    _ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+except ImportError:
+    _ssl_ctx = ssl.create_default_context()
+    _ssl_ctx.check_hostname = False
+    _ssl_ctx.verify_mode = ssl.CERT_NONE
 
 
 def download_image(url):
@@ -23,7 +35,7 @@ def download_image(url):
         image_bytes = base64.b64decode(data)
         return Image.open(BytesIO(image_bytes))
 
-    with urllib.request.urlopen(url, timeout=30) as response:
+    with urllib.request.urlopen(url, timeout=30, context=_ssl_ctx) as response:
         return Image.open(BytesIO(response.read()))
 
 
