@@ -339,6 +339,8 @@ def composite_final_asset(
     sorted_layers = sorted(layers, key=lambda l: l.get('z_index', 0))
 
     sys.stderr.write(f"🎨 Compositing {len(sorted_layers)} layers on {canvas_width}x{canvas_height} canvas...\n")
+    sys.stderr.write(f"📋 Full layer data: {json.dumps(sorted_layers, indent=2)}\n")
+    sys.stderr.write(f"📋 Copy text: {json.dumps(copy_text)}\n")
 
     for layer in sorted_layers:
         layer_type = layer.get('type')

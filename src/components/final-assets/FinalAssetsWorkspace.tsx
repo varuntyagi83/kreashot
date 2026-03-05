@@ -903,22 +903,41 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           </div>
                         )
                       })()}
-                      {isFreeform && freeformTexts.filter(t => t.text.trim()).map((tl) => (
-                        <div
-                          key={tl.id}
-                          className="absolute flex items-center"
-                          style={{
-                            left: `${tl.x}%`,
-                            top: `${tl.y}%`,
-                            width: `${tl.width}%`,
-                            justifyContent: tl.align === 'center' ? 'center' : tl.align === 'right' ? 'flex-end' : 'flex-start',
-                          }}
-                        >
-                          <p className="text-xs font-bold leading-tight" style={{ color: tl.color, textShadow: '0 1px 4px rgba(0,0,0,0.5)', textAlign: tl.align }}>
-                            {tl.text}
-                          </p>
-                        </div>
-                      ))}
+                      {isFreeform && freeformTexts.filter(t => t.text.trim()).map((tl) => {
+                        // Scale font size relative to preview container
+                        // Preview is ~400px wide, canvas is 1080px, so scale ≈ 0.37
+                        const canvasWidth = { '1:1': 1080, '16:9': 1920, '9:16': 1080, '4:5': 1080 }[format] ?? 1080
+                        const previewScale = 400 / canvasWidth
+                        const scaledFontSize = Math.max(8, Math.round(tl.fontSize * previewScale))
+                        const CSS_FONT_MAP: Record<string, string> = {
+                          'serif-bold': 'Georgia, "Times New Roman", serif',
+                          'serif-regular': 'Georgia, "Times New Roman", serif',
+                        }
+                        const cssFontFamily = CSS_FONT_MAP[tl.fontFamily] || tl.fontFamily || 'Arial, sans-serif'
+                        return (
+                          <div
+                            key={tl.id}
+                            className="absolute"
+                            style={{
+                              left: `${tl.x}%`,
+                              top: `${tl.y}%`,
+                              width: `${tl.width}%`,
+                              textAlign: tl.align,
+                            }}
+                          >
+                            <p style={{
+                              color: tl.color,
+                              fontSize: `${scaledFontSize}px`,
+                              fontFamily: cssFontFamily,
+                              lineHeight: 1.1,
+                              margin: 0,
+                              textAlign: tl.align,
+                            }}>
+                              {tl.text}
+                            </p>
+                          </div>
+                        )
+                      })}
 
                       {/* Safe Zones Overlay */}
                       {selectedTemplate?.template_data?.safe_zones?.map((zone) => (
