@@ -126,15 +126,20 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
       type === 'composite' ? `Composite ${sameTypeCount}` :
       ''
 
+    // Background and composite layers go to the back (z_index 0),
+    // pushing all existing layers up. Other layers stack on top.
+    const isBackLayer = type === 'background' || type === 'composite'
+    const z_index = isBackLayer ? 0 : layers.length + 1
+
     const newLayer: TemplateLayer = {
       id: `layer-${Date.now()}`,
       type,
       name: autoName,
-      x: type === 'background' ? 0 : 25,
-      y: type === 'background' ? 0 : 25,
-      width: type === 'background' ? 100 : 50,
-      height: type === 'background' ? 100 : 50,
-      z_index: layers.length,
+      x: isBackLayer ? 0 : 25,
+      y: isBackLayer ? 0 : 25,
+      width: isBackLayer ? 100 : 50,
+      height: isBackLayer ? 100 : 50,
+      z_index,
       locked: false,
     }
 
@@ -163,7 +168,13 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
       newLayer.height = 100
     }
 
-    setLayers([...layers, newLayer])
+    if (isBackLayer) {
+      // Push existing layers up so the new back layer sits behind everything
+      const bumped = layers.map(l => ({ ...l, z_index: l.z_index + 1 }))
+      setLayers([...bumped, newLayer])
+    } else {
+      setLayers([...layers, newLayer])
+    }
     setSelectedLayerId(newLayer.id)
     setSelectedSafeZoneId(null)
     toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} layer added`)
