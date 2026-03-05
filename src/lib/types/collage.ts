@@ -18,6 +18,7 @@ export interface CollageLayer {
   // Image-specific properties
   source_url?: string // URL of the image (Brand Asset, pipeline asset, or external)
   object_fit?: 'cover' | 'contain' // how the image fills the cell
+  remove_bg?: boolean // remove white background (for product images superimposed on grid)
 
   // Text-specific properties
   text_content?: string

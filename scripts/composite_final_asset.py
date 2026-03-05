@@ -26,6 +26,24 @@ except ImportError:
     _ssl_ctx.verify_mode = ssl.CERT_NONE
 
 
+def remove_white_background(img, threshold=240):
+    """Remove white/near-white background from an image.
+
+    Converts white-ish pixels (R,G,B all >= threshold) to transparent.
+    Returns an RGBA image.
+    """
+    img = img.convert('RGBA')
+    data = img.getdata()
+    new_data = []
+    for r, g, b, a in data:
+        if r >= threshold and g >= threshold and b >= threshold:
+            new_data.append((r, g, b, 0))  # fully transparent
+        else:
+            new_data.append((r, g, b, a))
+    img.putdata(new_data)
+    return img
+
+
 def download_image(url):
     """Download image from URL and return PIL Image.
     Handles both HTTP(S) URLs and data: URIs (base64-encoded inline images)."""
@@ -247,6 +265,11 @@ def composite_final_asset(
                 img = img.crop((left, top, left + lw, top + lh))
             else:  # contain
                 img.thumbnail((lw, lh), Image.Resampling.LANCZOS)
+
+            # Remove white background if flagged (for hero product on grid)
+            if layer.get('remove_bg'):
+                img = remove_white_background(img)
+                sys.stderr.write("    🔲 Removed white background\n")
 
             if img.mode == 'RGBA':
                 final_image.paste(img, (x, y), img)

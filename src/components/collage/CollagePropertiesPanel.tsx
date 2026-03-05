@@ -241,6 +241,19 @@ export function CollagePropertiesPanel({
             </Select>
           </div>
 
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="remove-bg"
+              checked={selectedLayer.remove_bg || false}
+              onChange={(e) => onLayerUpdate({ remove_bg: e.target.checked })}
+              className="h-4 w-4 rounded border cursor-pointer"
+            />
+            <Label htmlFor="remove-bg" className="text-xs cursor-pointer">
+              Remove white background
+            </Label>
+          </div>
+
           {/* Image source URL display */}
           {selectedLayer.source_url && (
             <div className="space-y-1">
