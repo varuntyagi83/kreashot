@@ -268,11 +268,13 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
                       ))}
                     </>
                   )}
-                  <SelectItem value="Arial">Arial</SelectItem>
-                  <SelectItem value="Helvetica">Helvetica</SelectItem>
-                  <SelectItem value="Times New Roman">Times New Roman</SelectItem>
-                  <SelectItem value="Georgia">Georgia</SelectItem>
-                  <SelectItem value="Verdana">Verdana</SelectItem>
+                  <SelectItem value="serif-bold">Bold Serif</SelectItem>
+                  <SelectItem value="serif-regular">Serif</SelectItem>
+                  <SelectItem value="Arial">Arial (Sans)</SelectItem>
+                  <SelectItem value="Helvetica">Helvetica (Sans)</SelectItem>
+                  <SelectItem value="Georgia">Georgia (Serif)</SelectItem>
+                  <SelectItem value="Times New Roman">Times New Roman (Serif)</SelectItem>
+                  <SelectItem value="Verdana">Verdana (Sans)</SelectItem>
                 </SelectContent>
               </Select>
               {fonts.length === 0 && (

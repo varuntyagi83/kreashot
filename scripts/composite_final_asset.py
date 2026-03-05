@@ -139,9 +139,88 @@ def download_font(url):
     return local_path
 
 
-def load_font(font_size, font_url=None):
-    """Load a font. If font_url is provided, download and use that custom font.
-    Otherwise try multiple cross-platform system paths before falling back."""
+# Font family name → list of candidate paths (first match wins)
+FONT_FAMILY_MAP = {
+    'serif-bold': [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
+        "/Library/Fonts/Georgia Bold.ttf",
+        "/Library/Fonts/Times New Roman Bold.ttf",
+        "C:\\Windows\\Fonts\\georgiab.ttf",
+        "C:\\Windows\\Fonts\\timesbd.ttf",
+    ],
+    'serif-regular': [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
+        "/System/Library/Fonts/Supplemental/Georgia.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+        "/Library/Fonts/Georgia.ttf",
+        "/Library/Fonts/Times New Roman.ttf",
+        "C:\\Windows\\Fonts\\georgia.ttf",
+        "C:\\Windows\\Fonts\\times.ttf",
+    ],
+    'Georgia': [
+        "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Georgia.ttf",
+        "/Library/Fonts/Georgia Bold.ttf",
+        "/Library/Fonts/Georgia.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
+        "C:\\Windows\\Fonts\\georgiab.ttf",
+        "C:\\Windows\\Fonts\\georgia.ttf",
+    ],
+    'Times New Roman': [
+        "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
+        "/Library/Fonts/Times New Roman Bold.ttf",
+        "/Library/Fonts/Times New Roman.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "C:\\Windows\\Fonts\\timesbd.ttf",
+        "C:\\Windows\\Fonts\\times.ttf",
+    ],
+    'Helvetica': [
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ],
+    'Arial': [
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "C:\\Windows\\Fonts\\arial.ttf",
+    ],
+    'Verdana': [
+        "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
+        "/System/Library/Fonts/Supplemental/Verdana.ttf",
+        "/Library/Fonts/Verdana Bold.ttf",
+        "/Library/Fonts/Verdana.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "C:\\Windows\\Fonts\\verdanab.ttf",
+        "C:\\Windows\\Fonts\\verdana.ttf",
+    ],
+}
+
+# Default fallback (sans-serif bold)
+_DEFAULT_CANDIDATES = [
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+    "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
+    "/System/Library/Fonts/Helvetica.ttc",
+    "/Library/Fonts/Arial.ttf",
+    "C:\\Windows\\Fonts\\arial.ttf",
+]
+
+
+def load_font(font_size, font_url=None, font_family=None):
+    """Load a font. Priority: font_url (custom download) > font_family (named) > default."""
     if font_url:
         try:
             local_path = download_font(font_url)
@@ -149,21 +228,23 @@ def load_font(font_size, font_url=None):
         except Exception as e:
             sys.stderr.write(f"WARNING: Failed to load custom font from {font_url}: {e}\n")
 
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-        "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-        "/System/Library/Fonts/Helvetica.ttc",
-        "/Library/Fonts/Arial.ttf",
-        "C:\\Windows\\Fonts\\arial.ttf",
-    ]
+    candidates = FONT_FAMILY_MAP.get(font_family, _DEFAULT_CANDIDATES) if font_family else _DEFAULT_CANDIDATES
     for path in candidates:
         if os.path.exists(path):
             try:
                 return ImageFont.truetype(path, font_size)
             except Exception:
                 continue
+
+    # If named family had no matches, try default candidates as fallback
+    if font_family and candidates is not _DEFAULT_CANDIDATES:
+        for path in _DEFAULT_CANDIDATES:
+            if os.path.exists(path):
+                try:
+                    return ImageFont.truetype(path, font_size)
+                except Exception:
+                    continue
+
     sys.stderr.write("WARNING: No system font found, using PIL default bitmap font\n")
     return ImageFont.load_default()
 
@@ -253,7 +334,7 @@ def composite_final_asset(
             text_align = layer.get('text_align', 'center')
             line_spacing = int(font_size * 0.3)
 
-            font = load_font(font_size, font_url=layer.get('font_url'))
+            font = load_font(font_size, font_url=layer.get('font_url'), font_family=layer.get('font_family'))
 
             # Wrap text to fit within layer width
             # Estimate chars per line: avg glyph width ≈ font_size * 0.55
