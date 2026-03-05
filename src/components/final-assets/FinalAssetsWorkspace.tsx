@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { Loader2, Download, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
@@ -102,6 +103,16 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
   // Per-layer text inputs (keyed by layer name)
   const [layerTexts, setLayerTexts] = useState<Record<string, string>>({})
+
+  // Freeform mode controls (when no template selected)
+  const [logoPosition, setLogoPosition] = useState('top-center')
+  const [logoSize, setLogoSize] = useState(12)
+  const [textPosition, setTextPosition] = useState('upper-third')
+  const [textFontSize, setTextFontSize] = useState(42)
+  const [textColor, setTextColor] = useState('#FFFFFF')
+  const [freeformTagline, setFreeformTagline] = useState('')
+
+  const isFreeform = !selectedTemplateId
 
   // When selected template changes, initialise layerTexts from its text layers
   useEffect(() => {
@@ -269,18 +280,59 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     setGenerating(true)
 
     try {
+      // Build request body
+      const requestBody: any = {
+        name: assetName,
+        format,
+        compositeId: selectedCompositeId,
+        ...(logo && { logoUrl: logo.storage_url }),
+      }
+
+      if (isFreeform) {
+        // Build layers array from freeform controls
+        const layers: any[] = [
+          { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
+        ]
+
+        // Logo layer
+        if (logo) {
+          const margin = 3
+          let lx = margin, ly = margin
+          if (logoPosition === 'top-center')    { lx = (100 - logoSize) / 2; ly = margin }
+          if (logoPosition === 'top-right')     { lx = 100 - logoSize - margin; ly = margin }
+          if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
+          if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
+          if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
+          layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: logoSize, height: logoSize, z_index: 3 })
+        }
+
+        // Text layer
+        if (freeformTagline.trim()) {
+          const textH = 12
+          let ty = 5
+          if (textPosition === 'upper-third') ty = 22
+          if (textPosition === 'center')      ty = (100 - textH) / 2
+          if (textPosition === 'lower-third') ty = 65
+          if (textPosition === 'bottom')      ty = 85
+          layers.push({
+            id: 'tagline', type: 'text', name: 'tagline',
+            x: 5, y: ty, width: 90, height: textH, z_index: 2,
+            font_size: textFontSize, color: textColor, text_align: 'center',
+          })
+          requestBody.layerTexts = { tagline: freeformTagline }
+        }
+
+        requestBody.customLayers = layers
+      } else {
+        if (selectedTemplateId) requestBody.templateId = selectedTemplateId
+        if (selectedCopyDocId) requestBody.copyDocId = selectedCopyDocId
+        if (Object.keys(layerTexts).length > 0) requestBody.layerTexts = layerTexts
+      }
+
       const response = await fetch(`/api/categories/${categoryId}/final-assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: assetName,
-          format,
-          compositeId: selectedCompositeId,
-          ...(selectedCopyDocId && { copyDocId: selectedCopyDocId }),
-          ...(selectedTemplateId && { templateId: selectedTemplateId }),
-          ...(logo && { logoUrl: logo.storage_url }),
-          ...(Object.keys(layerTexts).length > 0 && { layerTexts }),
-        })
+        body: JSON.stringify(requestBody)
       })
 
       const data = await response.json()
@@ -341,28 +393,26 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="template">Template (Optional)</Label>
+              <Label htmlFor="template">Layout Mode</Label>
               <Select
-                value={selectedTemplateId}
-                onValueChange={setSelectedTemplateId}
+                value={selectedTemplateId || '__freeform__'}
+                onValueChange={(val) => setSelectedTemplateId(val === '__freeform__' ? '' : val)}
                 disabled={generating}
               >
                 <SelectTrigger id="template">
-                  <SelectValue placeholder={templates.length === 0 ? "No templates - will use default" : "Select template"} />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__freeform__">Freeform (manual positioning)</SelectItem>
                   {templates.map((template) => (
                     <SelectItem key={template.id} value={template.id}>
                       {template.name} ({template.format})
                     </SelectItem>
                   ))}
-                  {templates.length === 0 && (
-                    <SelectItem value="none" disabled>No templates available</SelectItem>
-                  )}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Leave empty to use default layout
+                {isFreeform ? 'Position logo and text manually below' : 'Uses template layer positions'}
               </p>
             </div>
 
@@ -433,8 +483,90 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
               </p>
             </div>
 
+            {/* Freeform controls — shown when no template selected */}
+            {isFreeform && (
+              <div className="space-y-4 border rounded-lg p-3 bg-muted/20">
+                <Label className="text-sm font-medium">Freeform Layout</Label>
+
+                {/* Logo positioning */}
+                {selectedLogoId && (
+                  <div className="space-y-3">
+                    <Label className="text-xs text-muted-foreground">Logo Position</Label>
+                    <Select value={logoPosition} onValueChange={setLogoPosition} disabled={generating}>
+                      <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="top-left">Top Left</SelectItem>
+                        <SelectItem value="top-center">Top Center</SelectItem>
+                        <SelectItem value="top-right">Top Right</SelectItem>
+                        <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                        <SelectItem value="bottom-center">Bottom Center</SelectItem>
+                        <SelectItem value="bottom-right">Bottom Right</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Logo Size: {logoSize}%</Label>
+                      <Slider
+                        value={[logoSize]}
+                        onValueChange={([v]) => setLogoSize(v)}
+                        min={5} max={30} step={1}
+                        disabled={generating}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Text / tagline */}
+                <div className="space-y-3">
+                  <Label className="text-xs text-muted-foreground">Tagline Text</Label>
+                  <Input
+                    value={freeformTagline}
+                    onChange={(e) => setFreeformTagline(e.target.value)}
+                    placeholder="e.g. Dein Energielevel ist kein Zufall"
+                    disabled={generating}
+                    className="h-8 text-sm"
+                  />
+                  {freeformTagline && (
+                    <>
+                      <Label className="text-xs text-muted-foreground">Text Position</Label>
+                      <Select value={textPosition} onValueChange={setTextPosition} disabled={generating}>
+                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="top">Top</SelectItem>
+                          <SelectItem value="upper-third">Upper Third</SelectItem>
+                          <SelectItem value="center">Center</SelectItem>
+                          <SelectItem value="lower-third">Lower Third</SelectItem>
+                          <SelectItem value="bottom">Bottom</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Font Size: {textFontSize}px</Label>
+                          <Slider
+                            value={[textFontSize]}
+                            onValueChange={([v]) => setTextFontSize(v)}
+                            min={16} max={96} step={2}
+                            disabled={generating}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Text Color</Label>
+                          <Input
+                            type="color"
+                            value={textColor}
+                            onChange={(e) => setTextColor(e.target.value)}
+                            className="h-8"
+                            disabled={generating}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Per-layer text inputs — shown when template has text layers */}
-            {Object.keys(layerTexts).length > 0 && (
+            {!isFreeform && Object.keys(layerTexts).length > 0 && (
               <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
                 <Label className="text-sm font-medium">Text Layers</Label>
                 <p className="text-xs text-muted-foreground -mt-1">
@@ -533,13 +665,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
               <div className="space-y-2">
                 <Label>Preview</Label>
 
-                {/* Template Preview */}
-                {selectedTemplate && (
-                  <div className="border rounded-lg p-3 bg-muted/20">
-                    <p className="text-xs font-medium mb-1">Template</p>
-                    <p className="text-sm text-muted-foreground">{selectedTemplate.name}</p>
-                  </div>
-                )}
+                {/* Layout Mode Info */}
+                <div className="border rounded-lg p-3 bg-muted/20">
+                  <p className="text-xs font-medium mb-1">{isFreeform ? 'Freeform Layout' : 'Template'}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isFreeform ? 'Manual positioning — no template' : selectedTemplate?.name}
+                  </p>
+                </div>
 
                 {/* Final Ad Preview */}
                 {selectedComposite ? (
@@ -561,6 +693,38 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         fill
                         className="object-contain"
                       />
+
+                      {/* Freeform position preview */}
+                      {isFreeform && selectedLogo && (() => {
+                        const margin = 3
+                        let lx = margin, ly = margin
+                        if (logoPosition === 'top-center')    { lx = (100 - logoSize) / 2; ly = margin }
+                        if (logoPosition === 'top-right')     { lx = 100 - logoSize - margin; ly = margin }
+                        if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
+                        if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
+                        if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
+                        return (
+                          <div className="absolute" style={{ left: `${lx}%`, top: `${ly}%`, width: `${logoSize}%`, height: `${logoSize}%` }}>
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={selectedLogo.storage_url} alt="Logo" className="w-full h-full object-contain" />
+                          </div>
+                        )
+                      })()}
+                      {isFreeform && freeformTagline && (() => {
+                        const textH = 12
+                        let ty = 5
+                        if (textPosition === 'upper-third') ty = 22
+                        if (textPosition === 'center')      ty = (100 - textH) / 2
+                        if (textPosition === 'lower-third') ty = 65
+                        if (textPosition === 'bottom')      ty = 85
+                        return (
+                          <div className="absolute flex items-center justify-center" style={{ left: '5%', top: `${ty}%`, width: '90%', height: `${textH}%` }}>
+                            <p className="text-xs font-bold text-center leading-tight" style={{ color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
+                              {freeformTagline}
+                            </p>
+                          </div>
+                        )
+                      })()}
 
                       {/* Safe Zones Overlay */}
                       {selectedTemplate?.template_data?.safe_zones?.map((zone) => (

@@ -65,6 +65,7 @@ export async function POST(
       templateId,
       logoUrl,
       layerTexts,
+      customLayers,
     } = body
 
     const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
@@ -82,51 +83,59 @@ export async function POST(
 
     console.log('🎨 Generating final asset for category:', categoryId, `(${format} ${width}x${height})`)
 
-    // 1. Fetch template — use specific templateId if provided, otherwise fall back to category-level lookup
-    let templateRow: any = null
-    if (templateId) {
-      const { data } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('id', templateId)
-        .eq('category_id', categoryId)
-        .single()
-      templateRow = data
-      if (!templateRow) console.warn('⚠️  Specified templateId not found, falling back to category template')
-    }
+    // 1. Resolve layers: customLayers (freeform) > templateId > category template > DEFAULT_LAYERS
+    let template: { id: string | null; template_data: { layers: any[] } }
 
-    if (!templateRow) {
-      const { data } = await supabase
-        .from('templates')
-        .select('*')
-        .eq('category_id', categoryId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      templateRow = data
-    }
+    if (customLayers && Array.isArray(customLayers) && customLayers.length > 0) {
+      // Freeform mode — use layers built by the frontend
+      console.log('🎨 Using freeform custom layers')
+      template = { id: null, template_data: { layers: customLayers } }
+    } else {
+      let templateRow: any = null
+      if (templateId) {
+        const { data } = await supabase
+          .from('templates')
+          .select('*')
+          .eq('id', templateId)
+          .eq('category_id', categoryId)
+          .single()
+        templateRow = data
+        if (!templateRow) console.warn('⚠️  Specified templateId not found, falling back to category template')
+      }
 
-    // Parse template_data (may be stored as a JSON string in some rows)
-    let parsedTemplateData = templateRow?.template_data
-    if (typeof parsedTemplateData === 'string') {
-      try { parsedTemplateData = JSON.parse(parsedTemplateData) } catch { parsedTemplateData = null }
-    }
+      if (!templateRow) {
+        const { data } = await supabase
+          .from('templates')
+          .select('*')
+          .eq('category_id', categoryId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single()
+        templateRow = data
+      }
 
-    // If template has no layers (e.g. safe_zones-only templates), inject default layers
-    const layers = parsedTemplateData?.layers?.length > 0 ? parsedTemplateData.layers : DEFAULT_LAYERS
+      // Parse template_data (may be stored as a JSON string in some rows)
+      let parsedTemplateData = templateRow?.template_data
+      if (typeof parsedTemplateData === 'string') {
+        try { parsedTemplateData = JSON.parse(parsedTemplateData) } catch { parsedTemplateData = null }
+      }
 
-    const template = {
-      id: templateRow?.id ?? null,
-      template_data: {
-        ...parsedTemplateData,
-        layers,
-      },
-    }
+      // If template has no layers (e.g. safe_zones-only templates), inject default layers
+      const layers = parsedTemplateData?.layers?.length > 0 ? parsedTemplateData.layers : DEFAULT_LAYERS
 
-    if (!templateRow) {
-      console.warn('⚠️  No template found, using default layout')
-    } else if (!parsedTemplateData?.layers?.length) {
-      console.warn('⚠️  Template has no layers, injecting default layout')
+      template = {
+        id: templateRow?.id ?? null,
+        template_data: {
+          ...parsedTemplateData,
+          layers,
+        },
+      }
+
+      if (!templateRow) {
+        console.warn('⚠️  No template found, using default layout')
+      } else if (!parsedTemplateData?.layers?.length) {
+        console.warn('⚠️  Template has no layers, injecting default layout')
+      }
     }
 
     // 2. Fetch composite (background + product)
