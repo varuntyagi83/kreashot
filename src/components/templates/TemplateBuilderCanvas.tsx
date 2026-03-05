@@ -251,7 +251,7 @@ export function TemplateBuilderCanvas({
             const b = parseInt(hex.substring(4, 6), 16)
             return (r * 0.299 + g * 0.587 + b * 0.114) > 186
           })()
-          const textBg = isLightColor ? 'rgba(0, 0, 0, 0.4)' : 'rgba(251, 191, 36, 0.15)'
+          const textBg = isLightColor ? 'rgba(0, 0, 0, 0.4)' : 'transparent'
 
           const textbox = new fabric.Textbox(displayText, {
             left: lx,
