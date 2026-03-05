@@ -232,15 +232,36 @@ export function TemplateBuilderCanvas({
           const scaleFactor = canvasWidth / width
           const displayFontSize = Math.max((layer.font_size || 24) * scaleFactor, 8)
 
+          // Map custom font family names to CSS font families
+          const CSS_FONT_MAP: Record<string, string> = {
+            'serif-bold': 'Georgia, "Times New Roman", serif',
+            'serif-regular': 'Georgia, "Times New Roman", serif',
+          }
+          const cssFontFamily = CSS_FONT_MAP[layer.font_family || ''] || layer.font_family || 'Arial'
+          const fontWeight = (layer.font_family === 'serif-bold') ? 'bold' : 'normal'
+
+          // Pick a contrasting background so light-colored text (e.g. white) stays visible
+          const textColor = layer.color || '#000000'
+          const isLightColor = (() => {
+            const hex = textColor.replace('#', '')
+            if (hex.length < 6) return false
+            const r = parseInt(hex.substring(0, 2), 16)
+            const g = parseInt(hex.substring(2, 4), 16)
+            const b = parseInt(hex.substring(4, 6), 16)
+            return (r * 0.299 + g * 0.587 + b * 0.114) > 186
+          })()
+          const textBg = isLightColor ? 'rgba(0, 0, 0, 0.4)' : 'rgba(251, 191, 36, 0.15)'
+
           const textbox = new fabric.Textbox(displayText, {
             left: lx,
             top: ly,
             width: lw,
             fontSize: displayFontSize,
-            fill: layer.color || '#000000',
-            fontFamily: layer.font_family || 'Arial',
+            fill: textColor,
+            fontFamily: cssFontFamily,
+            fontWeight,
             textAlign: (layer.text_align as 'left' | 'center' | 'right') || 'left',
-            backgroundColor: 'rgba(251, 191, 36, 0.15)',
+            backgroundColor: textBg,
             selectable: !layer.locked,
             stroke: isSelected ? '#000000' : layerColor,
             strokeWidth: isSelected ? 1 : 0,
