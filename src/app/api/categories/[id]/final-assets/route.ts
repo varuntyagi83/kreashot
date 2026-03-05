@@ -1,4 +1,5 @@
 // Extend route timeout for Python compositor + GDrive upload
+// Supports composite or direct angled-shot base images
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
