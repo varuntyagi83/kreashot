@@ -117,6 +117,18 @@ const GRID_PRESETS: Record<string, GridPreset> = {
       { type: 'image', x: 60, y: 66.67, width: 40, height: 33.33 },
     ],
   },
+  'hero-top-4grid': {
+    label: 'Hero + 2x2 Grid',
+    description: 'Hero image on top, 2x2 grid below',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', x: 0, y: 0, width: 100, height: 50 },
+      { type: 'image', x: 0, y: 50, width: 50, height: 25 },
+      { type: 'image', x: 50, y: 50, width: 50, height: 25 },
+      { type: 'image', x: 0, y: 75, width: 50, height: 25 },
+      { type: 'image', x: 50, y: 75, width: 50, height: 25 },
+    ],
+  },
 }
 
 function applyGap(cell: PresetCell, gap: number): PresetCell {
