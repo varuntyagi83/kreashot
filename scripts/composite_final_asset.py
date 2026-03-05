@@ -142,7 +142,25 @@ def download_font(url):
     sys.stderr.write(f"  Downloading custom font: {url[:80]}...\n")
     req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx) as response:
+        content_type = response.headers.get('Content-Type', '')
         font_bytes = response.read()
+
+    # Google Drive may return HTML confirmation page instead of the actual file
+    if b'<!DOCTYPE' in font_bytes[:200] or b'<html' in font_bytes[:200]:
+        sys.stderr.write(f"  WARNING: Got HTML instead of font file ({len(font_bytes)} bytes, type={content_type})\n")
+        # Try alternative GDrive URL format
+        if 'drive.google.com' in url:
+            import re
+            file_id_match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
+            if file_id_match:
+                alt_url = f"https://drive.usercontent.google.com/download?id={file_id_match.group(1)}&export=download"
+                sys.stderr.write(f"  Retrying with alt URL: {alt_url[:80]}...\n")
+                req2 = urllib.request.Request(alt_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req2, timeout=30, context=_ssl_ctx) as resp2:
+                    font_bytes = resp2.read()
+                if b'<!DOCTYPE' in font_bytes[:200] or b'<html' in font_bytes[:200]:
+                    raise ValueError(f"Google Drive returned HTML for font download (both URLs failed)")
+
     with open(local_path, 'wb') as f:
         f.write(font_bytes)
 
@@ -352,6 +370,10 @@ def composite_final_asset(
             color = layer.get('color', '#000000')
             text_align = layer.get('text_align', 'center')
             line_spacing = int(font_size * 0.3)
+
+            sys.stderr.write(f"    TEXT LAYER DEBUG: name={layer_name!r}, font_size={font_size}, "
+                             f"font_family={layer.get('font_family')!r}, font_url={layer.get('font_url')!r}, "
+                             f"color={color!r}, text={text_content[:50]!r}\n")
 
             font = load_font(font_size, font_url=layer.get('font_url'), font_family=layer.get('font_family'))
 

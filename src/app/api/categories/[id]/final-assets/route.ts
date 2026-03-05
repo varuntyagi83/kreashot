@@ -198,6 +198,8 @@ export async function POST(
 
     // 5. Call Python compositing script
     console.log('🐍 Calling Python compositing script...')
+    console.log('📋 Layers:', JSON.stringify(template.template_data.layers, null, 2))
+    console.log('📋 Copy text:', JSON.stringify(copyText, null, 2))
 
     const inputData = {
       template_data: template.template_data,
@@ -233,6 +235,7 @@ export async function POST(
           console.error('❌ Python script failed:', stderr)
           reject(new Error(`Python script failed: ${stderr}`))
         } else {
+          if (stderr) console.log('🐍 Python debug:', stderr)
           console.log('✅ Python script output:', stdout)
           // Parse last line as JSON result
           const lines = stdout.trim().split('\n')
