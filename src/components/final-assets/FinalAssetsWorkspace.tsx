@@ -534,7 +534,15 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {selectedComposite ? (
                   <div className="border rounded-lg p-3 space-y-2">
                     <p className="text-xs font-medium">Final Ad Preview</p>
-                    <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
+                    <div
+                      className="relative rounded-lg overflow-hidden bg-gray-100"
+                      style={{
+                        aspectRatio: format === '16:9' ? '16/9'
+                          : format === '9:16' ? '9/16'
+                          : format === '4:5' ? '4/5'
+                          : '1/1',
+                      }}
+                    >
                       {/* Background Composite */}
                       <Image
                         src={selectedComposite.storage_url}
@@ -716,7 +724,15 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             {finalAssets.map((asset) => (
               <Card key={asset.id}>
                 <CardContent className="p-4">
-                  <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 mb-3">
+                  <div
+                    className="relative rounded-lg overflow-hidden bg-gray-100 mb-3"
+                    style={{
+                      aspectRatio: asset.format === '16:9' ? '16/9'
+                        : asset.format === '9:16' ? '9/16'
+                        : asset.format === '4:5' ? '4/5'
+                        : '1/1',
+                    }}
+                  >
                     <Image
                       src={asset.storage_url}
                       alt={asset.name}
