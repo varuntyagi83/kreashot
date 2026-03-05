@@ -176,6 +176,8 @@ Meta Ads Manager upload
 - Image source picker: 3 tabs — Pipeline (angled shots + backgrounds + composites), Brand Assets, URL input
 - `collage_data` JSON: `{ layers: [...], background_color: "#hex" }` — stored in `collages.collage_data` JSONB column
 - Generate route calls the same `composite_final_asset.py` script (no composite_url needed — all images from layer source_urls)
+- **Grid Layout Presets** (added 2026-03-05): 8 presets in `CollageWorkspace.tsx` — `2col`, `2row`, `3col`, `4grid`, `1hero-2sub`, `2hero-1side`, `1hero-3side`, `hero-over-4grid`. Each defines cells with x/y/width/height percentages. `applyGap()` adds 1% spacing. "Layout" dropdown in top action bar. `hero-over-4grid` = 2x2 background grid + hero image superimposed on top (higher z_index).
+- **SSL fix for Railway**: `composite_final_asset.py` uses `certifi` SSL context; Dockerfile installs `python3-certifi` + `ca-certificates`
 
 ### Background Gen — Flat/Solid Color Path
 - `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`

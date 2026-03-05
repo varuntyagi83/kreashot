@@ -1,6 +1,6 @@
 # AdForge - Implementation Progress
 
-**Last Updated:** 2026-03-04
+**Last Updated:** 2026-03-05
 
 ---
 
@@ -27,7 +27,9 @@
 - [x] **CollageLayerPanel.tsx** — layer list with add dropdown, reorder, delete
 - [x] **CollagePropertiesPanel.tsx** — tabbed image source picker (Pipeline/Brand/URL), text/overlay editing
 - [x] **Category page wired** — Collage tab between Ad Export and Guidelines
-- **NOTE:** Run migration SQL in Supabase dashboard before using
+- **NOTE:** Migration already applied via psql — table verified with RLS policies
+- [x] **SSL fix:** `certifi` SSL context in PIL script + `python3-certifi`/`ca-certificates` in Dockerfile
+- [x] **Grid Layout Presets (2026-03-05):** 8 presets (`2col`, `2row`, `3col`, `4grid`, `1hero-2sub`, `2hero-1side`, `1hero-3side`, `hero-over-4grid`) with 1% cell gap. "Layout" dropdown in CollageWorkspace top bar. `hero-over-4grid` = 2x2 grid with hero superimposed on top.
 
 ### Brand Voice Extractor (2026-02-23):
 - [x] **AI-Powered Brand Voice Extraction** — 3 input methods, deep profile generation

@@ -9,6 +9,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { CollageCanvas } from './CollageCanvas'
@@ -33,6 +35,7 @@ const CELL_GAP = 1
 
 interface PresetCell {
   type: 'image' | 'text'
+  name?: string // custom layer name (e.g. "Hero Product", "Background 1")
   x: number; y: number; width: number; height: number
   // text-only fields
   text_content?: string; font_size?: number; color?: string; text_align?: 'left' | 'center' | 'right'
@@ -42,14 +45,17 @@ interface PresetCell {
 interface GridPreset {
   label: string
   description: string
+  category: 'grid' | 'overlay' | 'banner'
   bg: string
   cells: PresetCell[]
 }
 
 const GRID_PRESETS: Record<string, GridPreset> = {
+  // ── Basic Grids ──────────────────────────────────────────
   '2col': {
     label: '2 Columns',
     description: 'Two images side by side',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 50, height: 100 },
@@ -59,6 +65,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '2row': {
     label: '2 Rows',
     description: 'Two images stacked',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 100, height: 50 },
@@ -68,6 +75,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '3col': {
     label: '3 Columns',
     description: 'Three equal columns',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 33.33, height: 100 },
@@ -78,6 +86,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '4grid': {
     label: '2x2 Grid',
     description: 'Four equal cells',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 50, height: 50 },
@@ -89,6 +98,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '1hero-2sub': {
     label: 'Hero + 2 Below',
     description: 'Large top image, two smaller below',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 100, height: 60 },
@@ -99,6 +109,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '2hero-1side': {
     label: 'Hero + 2 Side',
     description: 'Large left image, two stacked right',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 60, height: 100 },
@@ -109,6 +120,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
   '1hero-3side': {
     label: 'Hero + 3 Side',
     description: 'Large left image, three stacked right',
+    category: 'grid',
     bg: '#FFFFFF',
     cells: [
       { type: 'image', x: 0, y: 0, width: 60, height: 100 },
@@ -117,16 +129,105 @@ const GRID_PRESETS: Record<string, GridPreset> = {
       { type: 'image', x: 60, y: 66.67, width: 40, height: 33.33 },
     ],
   },
-  'hero-over-4grid': {
-    label: 'Hero over 2x2 Grid',
-    description: '2x2 grid with hero image superimposed on top',
+
+  // ── Superimposed (image/text over grid) ──────────────────
+  '4grid-product-center': {
+    label: '4-Grid + Product Center',
+    description: '2x2 lifestyle grid, product superimposed in center',
+    category: 'overlay',
     bg: '#FFFFFF',
     cells: [
-      { type: 'image', x: 0, y: 0, width: 50, height: 50 },
-      { type: 'image', x: 50, y: 0, width: 50, height: 50 },
-      { type: 'image', x: 0, y: 50, width: 50, height: 50 },
-      { type: 'image', x: 50, y: 50, width: 50, height: 50 },
-      { type: 'image', x: 20, y: 15, width: 60, height: 70 },
+      { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 3', x: 0, y: 50, width: 50, height: 50 },
+      { type: 'image', name: 'Background 4', x: 50, y: 50, width: 50, height: 50 },
+      { type: 'image', name: 'Hero Product', x: 25, y: 20, width: 50, height: 60 },
+    ],
+  },
+  '4grid-text-overlay': {
+    label: '4-Grid + Text Overlay',
+    description: '2x2 grid with headline text overlaid',
+    category: 'overlay',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 3', x: 0, y: 50, width: 50, height: 50 },
+      { type: 'image', name: 'Background 4', x: 50, y: 50, width: 50, height: 50 },
+      { type: 'text', name: 'Headline', x: 3, y: 3, width: 45, height: 25, text_content: 'YOUR HEADLINE.', font_size: 42, color: '#FFFFFF', text_align: 'left' },
+    ],
+  },
+  '4grid-text-product': {
+    label: '4-Grid + Text + Product',
+    description: '2x2 grid with text and product superimposed',
+    category: 'overlay',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 50 },
+      { type: 'image', name: 'Background 3', x: 0, y: 50, width: 50, height: 50 },
+      { type: 'image', name: 'Background 4', x: 50, y: 50, width: 50, height: 50 },
+      { type: 'image', name: 'Hero Product', x: 25, y: 22, width: 50, height: 58 },
+      { type: 'text', name: 'Headline', x: 3, y: 3, width: 45, height: 22, text_content: 'YOUR HEADLINE.', font_size: 38, color: '#FFFFFF', text_align: 'left' },
+    ],
+  },
+  '2col-product-center': {
+    label: '2-Col + Product Center',
+    description: 'Two columns with product superimposed in center',
+    category: 'overlay',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 100 },
+      { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 100 },
+      { type: 'image', name: 'Hero Product', x: 20, y: 15, width: 60, height: 70 },
+    ],
+  },
+  '2col-text-overlay': {
+    label: '2-Col + Text Overlay',
+    description: 'Two columns with headline overlaid',
+    category: 'overlay',
+    bg: '#FFFFFF',
+    cells: [
+      { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 100 },
+      { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 100 },
+      { type: 'text', name: 'Headline', x: 5, y: 5, width: 50, height: 20, text_content: 'YOUR HEADLINE.', font_size: 42, color: '#FFFFFF', text_align: 'left' },
+    ],
+  },
+
+  // ── Banner (solid color header + images below) ───────────
+  'banner-2img': {
+    label: 'Text Banner + 2 Images',
+    description: 'Solid color header with text, two images below',
+    category: 'banner',
+    bg: '#9E8E82',
+    cells: [
+      { type: 'image', name: 'Image Left', x: 0, y: 45, width: 50, height: 55 },
+      { type: 'image', name: 'Image Right', x: 50, y: 45, width: 50, height: 55 },
+      { type: 'text', name: 'Headline', x: 10, y: 8, width: 80, height: 32, text_content: 'YOUR HEADLINE HERE.', font_size: 42, color: '#FFFFFF', text_align: 'center' },
+    ],
+  },
+  'banner-3img': {
+    label: 'Text Banner + 3 Images',
+    description: 'Solid color header with text, three images below',
+    category: 'banner',
+    bg: '#9E8E82',
+    cells: [
+      { type: 'image', name: 'Image Left', x: 0, y: 45, width: 33.33, height: 55 },
+      { type: 'image', name: 'Image Center', x: 33.33, y: 45, width: 33.34, height: 55 },
+      { type: 'image', name: 'Image Right', x: 66.67, y: 45, width: 33.33, height: 55 },
+      { type: 'text', name: 'Headline', x: 10, y: 8, width: 80, height: 32, text_content: 'YOUR HEADLINE HERE.', font_size: 42, color: '#FFFFFF', text_align: 'center' },
+    ],
+  },
+  'banner-product-2img': {
+    label: 'Banner + Product + 2 Images',
+    description: 'Text header, product superimposed over two images',
+    category: 'banner',
+    bg: '#9E8E82',
+    cells: [
+      { type: 'image', name: 'Image Left', x: 0, y: 45, width: 50, height: 55 },
+      { type: 'image', name: 'Image Right', x: 50, y: 45, width: 50, height: 55 },
+      { type: 'image', name: 'Hero Product', x: 10, y: 30, width: 35, height: 45 },
+      { type: 'text', name: 'Headline', x: 10, y: 5, width: 80, height: 28, text_content: 'YOUR HEADLINE HERE.', font_size: 40, color: '#FFFFFF', text_align: 'center' },
     ],
   },
 }
@@ -357,13 +458,15 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
 
     const ts = Date.now()
     let imgCount = 0
+    let textCount = 0
     const newLayers: CollageLayer[] = preset.cells.map((cell, i) => {
       const gapped = applyGap(cell, CELL_GAP)
       if (cell.type === 'text') {
+        textCount++
         return {
           id: `text_${ts}_${i}`,
           type: 'text' as const,
-          name: `Text ${i + 1}`,
+          name: cell.name || `Text ${textCount}`,
           x: gapped.x,
           y: gapped.y,
           width: gapped.width,
@@ -380,7 +483,7 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
       return {
         id: `image_${ts}_${i}`,
         type: 'image' as const,
-        name: `Image ${imgCount}`,
+        name: cell.name || `Image ${imgCount}`,
         x: gapped.x,
         y: gapped.y,
         width: gapped.width,
@@ -423,8 +526,29 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
               Layout
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56">
-            {Object.entries(GRID_PRESETS).map(([key, preset]) => (
+          <DropdownMenuContent align="start" className="w-64 max-h-[500px] overflow-y-auto">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Basic Grids</DropdownMenuLabel>
+            {Object.entries(GRID_PRESETS).filter(([, p]) => p.category === 'grid').map(([key, preset]) => (
+              <DropdownMenuItem key={key} onClick={() => handleApplyPreset(key)}>
+                <div>
+                  <div className="font-medium text-sm">{preset.label}</div>
+                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Superimposed (Image/Text over Grid)</DropdownMenuLabel>
+            {Object.entries(GRID_PRESETS).filter(([, p]) => p.category === 'overlay').map(([key, preset]) => (
+              <DropdownMenuItem key={key} onClick={() => handleApplyPreset(key)}>
+                <div>
+                  <div className="font-medium text-sm">{preset.label}</div>
+                  <div className="text-xs text-muted-foreground">{preset.description}</div>
+                </div>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-xs text-muted-foreground">Banner (Solid Color + Images)</DropdownMenuLabel>
+            {Object.entries(GRID_PRESETS).filter(([, p]) => p.category === 'banner').map(([key, preset]) => (
               <DropdownMenuItem key={key} onClick={() => handleApplyPreset(key)}>
                 <div>
                   <div className="font-medium text-sm">{preset.label}</div>
