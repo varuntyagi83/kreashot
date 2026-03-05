@@ -251,12 +251,26 @@ _DEFAULT_CANDIDATES = [
 ]
 
 
-def load_font(font_size, font_url=None, font_family=None):
-    """Load a font. Priority: font_url (custom download) > font_family (named) > default."""
+def load_font(font_size, font_url=None, font_family=None, font_path=None):
+    """Load a font. Priority: font_path (local) > font_url (download) > font_family (named) > default."""
+    font_size = int(font_size)  # ensure integer
+
+    # 1. Local file path (pre-downloaded by Node.js)
+    if font_path and os.path.exists(font_path):
+        try:
+            f = ImageFont.truetype(font_path, font_size)
+            sys.stderr.write(f"  -> Loaded local font: {font_path} at size {font_size}\n")
+            return f
+        except Exception as e:
+            sys.stderr.write(f"WARNING: Failed to load local font {font_path}: {e}\n")
+
+    # 2. Download from URL
     if font_url:
         try:
             local_path = download_font(font_url)
-            return ImageFont.truetype(local_path, font_size)
+            f = ImageFont.truetype(local_path, font_size)
+            sys.stderr.write(f"  -> Loaded downloaded font: {local_path} at size {font_size}\n")
+            return f
         except Exception as e:
             sys.stderr.write(f"WARNING: Failed to load custom font from {font_url}: {e}\n")
 
@@ -375,7 +389,7 @@ def composite_final_asset(
                              f"font_family={layer.get('font_family')!r}, font_url={layer.get('font_url')!r}, "
                              f"color={color!r}, text={text_content[:50]!r}\n")
 
-            font = load_font(font_size, font_url=layer.get('font_url'), font_family=layer.get('font_family'))
+            font = load_font(font_size, font_url=layer.get('font_url'), font_family=layer.get('font_family'), font_path=layer.get('font_path'))
 
             # Wrap text to fit within layer width
             # Estimate chars per line: avg glyph width ≈ font_size * 0.55
@@ -397,8 +411,14 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Vertically center within the layer
+            # Vertically center within the layer, but clamp to canvas bounds
             text_y = y + max(0, (lh - block_height) // 2)
+            # Ensure text doesn't go below canvas
+            if text_y + block_height > canvas_height:
+                text_y = max(0, canvas_height - block_height - 4)
+
+            sys.stderr.write(f"    Rendering text at ({text_x}, {text_y}), block {block_width}x{block_height}, "
+                             f"font_size={font_size}\n")
 
             # Draw background rectangle if specified
             bg_color = layer.get('background_color')
@@ -409,23 +429,7 @@ def composite_final_asset(
             text_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
             text_draw = ImageDraw.Draw(text_layer)
 
-            # Subtle drop shadow for depth and readability
-            shadow_offset = max(1, font_size // 30)
-            shadow_color = '#000000' if not _is_dark_color(color) else '#FFFFFF'
-            shadow_alpha = 80  # subtle
-            text_draw.multiline_text(
-                (text_x + shadow_offset, text_y + shadow_offset),
-                wrapped_text,
-                fill=shadow_color + f'{shadow_alpha:02x}',
-                font=font,
-                spacing=line_spacing,
-                align=text_align,
-            )
-            # Blur the shadow for softness
-            text_layer = text_layer.filter(ImageFilter.GaussianBlur(radius=max(1, font_size // 20)))
-
-            # Draw crisp text on top of blurred shadow
-            text_draw = ImageDraw.Draw(text_layer)
+            # Draw text directly (clean, no forced shadow)
             text_draw.multiline_text(
                 (text_x, text_y),
                 wrapped_text,

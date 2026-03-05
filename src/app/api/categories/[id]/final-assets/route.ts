@@ -196,7 +196,32 @@ export async function POST(
 
     const categorySlug = category?.slug || 'unknown'
 
-    // 5. Call Python compositing script
+    // 5. Pre-download any brand fonts so Python gets local file paths (not URLs)
+    const fontCleanup: string[] = []
+    for (const layer of template.template_data.layers || []) {
+      if (layer.type === 'text' && layer.font_url) {
+        try {
+          console.log(`🔤 Pre-downloading font: ${layer.font_url.substring(0, 80)}...`)
+          const fontRes = await fetch(layer.font_url)
+          if (fontRes.ok) {
+            const fontBuffer = Buffer.from(await fontRes.arrayBuffer())
+            const ext = layer.font_url.includes('.otf') ? '.otf' : '.ttf'
+            const fontPath = `/tmp/font_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
+            const { writeFile } = await import('fs/promises')
+            await writeFile(fontPath, fontBuffer)
+            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes)`)
+            layer.font_path = fontPath  // Python will use this local path
+            fontCleanup.push(fontPath)
+          } else {
+            console.warn(`⚠️ Font download failed: ${fontRes.status} ${fontRes.statusText}`)
+          }
+        } catch (e: any) {
+          console.warn(`⚠️ Font download error: ${e.message}`)
+        }
+      }
+    }
+
+    // 6. Call Python compositing script
     console.log('🐍 Calling Python compositing script...')
     console.log('📋 Layers:', JSON.stringify(template.template_data.layers, null, 2))
     console.log('📋 Copy text:', JSON.stringify(copyText, null, 2))
@@ -300,8 +325,11 @@ export async function POST(
       throw insertError
     }
 
-    // 8. Cleanup temp file
+    // 8. Cleanup temp files (output + pre-downloaded fonts)
     await unlink(result).catch(() => {})
+    for (const fp of fontCleanup) {
+      await unlink(fp).catch(() => {})
+    }
 
     console.log('✅ Final asset generated successfully!')
 

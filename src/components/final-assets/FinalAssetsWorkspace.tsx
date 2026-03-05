@@ -386,9 +386,11 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         freeformTexts.forEach((t, idx) => {
           if (!t.text.trim()) return
           const layerName = `text_${idx}`
+          // Calculate height to fit remaining canvas space (don't overflow)
+          const layerHeight = Math.min(20, 100 - t.y)
           layers.push({
             id: t.id, type: 'text', name: layerName,
-            x: t.x, y: t.y, width: t.width, height: 12, z_index: 2 + idx,
+            x: t.x, y: t.y, width: t.width, height: layerHeight, z_index: 2 + idx,
             font_size: t.fontSize,
             font_family: t.fontFamily,
             ...(t.fontUrl && { font_url: t.fontUrl }),
