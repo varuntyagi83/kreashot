@@ -264,6 +264,9 @@ export async function generateBackgrounds(
       // Detect flat/solid color requests — these must bypass all photorealism/shadow directives
       const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(userPrompt)
 
+      // Detect when the user explicitly requests people, faces, or models in the scene
+      const requestsPeople = /\b(female|male|woman|man|girl|boy|person|people|model|face|portrait|human|child|kid|baby|lady|gentleman|couple|group)\b/i.test(userPrompt)
+
       const prompt = isFlatColor
         ? `Generate a completely flat, uniform solid color background image.
 
@@ -301,12 +304,16 @@ ABSOLUTE EXCLUSIONS (negative prompt):
 - NO artificial/plastic look, uncanny smoothness, or synthetic textures
 - NO oversaturated colors, HDR tonemapping artifacts, or neon glow
 - NO text, typography, watermarks, logos, or UI elements
-- NO products, people, or objects unless the user explicitly requested them
+${requestsPeople ? '- NO products or objects unless the user explicitly requested them' : '- NO products, people, or objects unless the user explicitly requested them'}
 
 COMPOSITION RULES:
-- Background ONLY — clean surface/scene ready for a product to be composited later
+${requestsPeople
+  ? `- Follow the user's description EXACTLY — the user has explicitly requested a person/face in this image, so you MUST include them as described
+- The person/face is the PRIMARY subject of this image — do not omit, obscure, or replace them
+- Do not add unrequested elements (tables, products, props) that the user did not ask for`
+  : `- Background ONLY — clean surface/scene ready for a product to be composited later
 - Follow the user's description exactly — do not add unrequested elements
-- Leave clear space in the center/foreground for product placement
+- Leave clear space in the center/foreground for product placement`}
 - Professional e-commerce quality: the image must be indistinguishable from a real studio photograph
 - Aspect ratio: ${aspectRatio} (strict)
 ${colorDesc ? '- Wall/backdrop color is the SINGLE MOST IMPORTANT element — it must match the COLOR DIRECTIVE above' : ''}
@@ -347,6 +354,7 @@ YOUR CRAFT:
 - Every image you produce is indistinguishable from a real RAW photograph
 - You understand physically accurate lighting: how light wraps around surfaces, how shadows fall naturally, how materials reflect and absorb light
 - You never produce anything that looks illustrated, rendered, or digitally generated
+${requestsPeople ? `- When the user requests a person, model, or face in the scene, you MUST include them exactly as described — they are the subject, not an optional element` : ''}
 
 QUALITY STANDARD:
 - Output must pass as a real photograph to a professional art director

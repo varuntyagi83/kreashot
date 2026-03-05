@@ -29,9 +29,11 @@ import {
   Pencil,
   Copy,
   Loader2,
+  Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMATS } from '@/lib/formats'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface Background {
   id: string
@@ -75,6 +77,15 @@ export function BackgroundGallery({
   const [regenBackground, setRegenBackground] = useState<Background | null>(null)
   const [regenFormats, setRegenFormats] = useState<string[]>([])
   const [isRegenerating, setIsRegenerating] = useState(false)
+
+  // Upload state
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploadPreview, setUploadPreview] = useState<string | null>(null)
+  const [uploadName, setUploadName] = useState('')
+  const [uploadFormat, setUploadFormat] = useState('1:1')
+  const [isUploading, setIsUploading] = useState(false)
+  const [dragActive, setDragActive] = useState(false)
 
   const fetchBackgrounds = async () => {
     try {
@@ -233,6 +244,87 @@ export function BackgroundGallery({
     }
   }
 
+  // Upload handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelected(e.dataTransfer.files[0])
+    }
+  }
+
+  const handleFileSelected = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      return
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('Image must be under 20MB')
+      return
+    }
+    setUploadFile(file)
+    if (!uploadName) {
+      setUploadName(file.name.replace(/\.[^.]+$/, ''))
+    }
+    // Generate preview
+    const reader = new FileReader()
+    reader.onload = (e) => setUploadPreview(e.target?.result as string)
+    reader.readAsDataURL(file)
+  }
+
+  const resetUploadDialog = () => {
+    setUploadFile(null)
+    setUploadPreview(null)
+    setUploadName('')
+    setUploadFormat('1:1')
+    setUploadDialogOpen(false)
+  }
+
+  const handleUploadConfirm = async () => {
+    if (!uploadFile || !uploadName.trim() || !uploadPreview) return
+
+    setIsUploading(true)
+    try {
+      const response = await fetch(`/api/categories/${categoryId}/backgrounds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: uploadName.trim(),
+          description: 'Uploaded background',
+          imageData: uploadPreview,
+          mimeType: uploadFile.type,
+          format: uploadFormat,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to upload background')
+      }
+
+      toast.success(`Background "${uploadName.trim()}" uploaded successfully!`)
+      resetUploadDialog()
+      fetchBackgrounds()
+    } catch (error: any) {
+      console.error('Error uploading background:', error)
+      toast.error(error.message || 'Failed to upload background')
+    } finally {
+      setIsUploading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -245,18 +337,143 @@ export function BackgroundGallery({
 
   if (backgrounds.length === 0) {
     return (
-      <div className="text-center py-12 border border-dashed rounded-lg">
-        <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-        <h3 className="text-lg font-semibold mb-2">No backgrounds yet</h3>
-        <p className="text-muted-foreground mb-4">
-          Generate your first background above to get started
-        </p>
-      </div>
+      <>
+        <div className="text-center py-12 border border-dashed rounded-lg">
+          <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No backgrounds yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Generate your first background above or upload one
+          </p>
+          <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-2" />
+            Upload Background
+          </Button>
+        </div>
+        {renderUploadDialog()}
+      </>
+    )
+  }
+
+  // Extracted render function for the upload dialog (used in empty state and main view)
+  function renderUploadDialog() {
+    return (
+      <Dialog open={uploadDialogOpen} onOpenChange={(open) => { if (!open) resetUploadDialog(); else setUploadDialogOpen(true) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Background</DialogTitle>
+            <DialogDescription>
+              Upload a background image to your library. It will be stored in Google Drive.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Drop zone / file picker */}
+            {!uploadPreview ? (
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-muted-foreground/50'
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('bg-upload-input')?.click()}
+              >
+                <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-sm text-muted-foreground">
+                  Drag & drop an image here, or click to browse
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  JPEG, PNG, WebP up to 20MB
+                </p>
+                <input
+                  id="bg-upload-input"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files?.[0]) handleFileSelected(e.target.files[0])
+                  }}
+                />
+              </div>
+            ) : (
+              <div className="relative aspect-video rounded-lg overflow-hidden bg-muted">
+                <img src={uploadPreview} alt="Preview" className="w-full h-full object-cover" />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                  onClick={() => { setUploadFile(null); setUploadPreview(null) }}
+                >
+                  Change
+                </Button>
+              </div>
+            )}
+
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="upload-bg-name">Name</Label>
+              <Input
+                id="upload-bg-name"
+                value={uploadName}
+                onChange={(e) => setUploadName(e.target.value)}
+                placeholder="e.g., Green Botanical Scene"
+                maxLength={100}
+              />
+            </div>
+
+            {/* Format */}
+            <div className="space-y-2">
+              <Label>Format</Label>
+              <Select value={uploadFormat} onValueChange={setUploadFormat}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.values(FORMATS).map((f) => (
+                    <SelectItem key={f.format} value={f.format}>
+                      <span className="font-mono font-semibold">{f.format}</span>
+                      <span className="text-xs text-muted-foreground ml-2">{f.description}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={resetUploadDialog} disabled={isUploading}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUploadConfirm}
+              disabled={!uploadFile || !uploadName.trim() || isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                'Upload'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     )
   }
 
   return (
     <>
+      {/* Upload button above grid */}
+      <div className="flex justify-end mb-4">
+        <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(true)}>
+          <Upload className="h-4 w-4 mr-2" />
+          Upload Background
+        </Button>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {backgrounds.map((background) => (
           <Card key={background.id} className="group overflow-hidden">
@@ -387,6 +604,9 @@ export function BackgroundGallery({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload Background Dialog */}
+      {renderUploadDialog()}
 
       {/* Generate Other Formats Dialog */}
       <Dialog open={regenDialogOpen} onOpenChange={setRegenDialogOpen}>

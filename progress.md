@@ -443,10 +443,51 @@
 
 ---
 
+### Background Upload + People Detection + Orphan Cleanup (2026-03-05):
+- [x] **People/face detection in background generation** — prompt now detects when user requests people, faces, or models
+  - Added `requestsPeople` regex for keywords: female, male, woman, man, face, portrait, model, etc.
+  - When detected: removes "Background ONLY" and "no people" exclusions; makes person the PRIMARY subject
+  - When not detected: keeps existing background-only behavior unchanged
+  - Fixes issue where Gemini ignored "face of a female" instructions due to contradictory "no people, background only" rules
+  - File: `src/lib/ai/gemini.ts` lines 267-350
+
+- [x] **Background image upload** — users can now upload custom background images (not just AI-generate them)
+  - Upload button in BackgroundGallery (both empty state and above the grid)
+  - Dialog with drag-and-drop zone + click-to-browse file picker
+  - Image preview with "Change" button, name input (auto-populated from filename), format selector (1:1, 16:9, 9:16, 4:5)
+  - Validates file type (JPEG/PNG/WebP) and size (max 20MB)
+  - Converts file to base64, calls existing POST `/api/categories/[id]/backgrounds` endpoint
+  - Full pipeline: file -> base64 -> GDrive upload -> Supabase metadata -> UI refresh
+  - File: `src/components/backgrounds/BackgroundGallery.tsx`
+
+- [x] **Orphan cleanup on failed DB insert** — if Supabase insert fails after GDrive upload, the orphaned GDrive file is now actively deleted
+  - Previously just logged and left as orphan
+  - File: `src/app/api/categories/[id]/backgrounds/route.ts` lines 235-249
+
+- [x] **Bug fix: `prompt_used` NOT NULL constraint** — uploaded backgrounds have no prompt, but the DB column is NOT NULL
+  - Fixed default fallback: `promptUsed || 'Uploaded background'` in POST endpoint
+  - Discovered during E2E testing — insert was failing silently
+  - File: `src/app/api/categories/[id]/backgrounds/route.ts` line 222
+
+- [x] **E2E test script** — end-to-end test for background upload + delete flow
+  - Tests: GDrive upload → Supabase insert → Verify both → Delete → Verify deletion queue → Cleanup
+  - All 6 steps passing
+  - File: `scripts/test-background-e2e.mjs`
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `src/lib/ai/gemini.ts` | People detection regex, conditional exclusions/composition rules, system instruction update |
+| `src/components/backgrounds/BackgroundGallery.tsx` | Upload button, dialog (drag-drop, preview, name, format), upload handlers |
+| `src/app/api/categories/[id]/backgrounds/route.ts` | Import `deleteFile`, orphan GDrive cleanup on DB failure, `prompt_used` NOT NULL fix |
+| `scripts/test-background-e2e.mjs` | NEW — E2E test: GDrive upload → Supabase → verify → delete → cleanup |
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:
-*Refining sage green generation — latest result "much better but still can be improved"*
+*Background generation quality improvements + upload feature*
 
 ---
 
