@@ -26,11 +26,12 @@ except ImportError:
     _ssl_ctx.verify_mode = ssl.CERT_NONE
 
 
-def remove_white_background(img, threshold=240):
+def remove_white_background(img, threshold=230):
     """Remove white/near-white background from an image.
 
-    Converts white-ish pixels (R,G,B all >= threshold) to transparent.
-    Returns an RGBA image.
+    Converts white-ish pixels (R,G,B all >= threshold) to transparent,
+    then auto-crops to content bounds (trims transparent padding).
+    Returns an RGBA image containing just the product.
     """
     img = img.convert('RGBA')
     data = img.getdata()
@@ -41,6 +42,12 @@ def remove_white_background(img, threshold=240):
         else:
             new_data.append((r, g, b, a))
     img.putdata(new_data)
+
+    # Auto-crop: trim transparent padding to content bounds
+    bbox = img.getbbox()  # returns (left, top, right, bottom) of non-transparent area
+    if bbox:
+        img = img.crop(bbox)
+
     return img
 
 
