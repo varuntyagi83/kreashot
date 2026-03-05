@@ -356,11 +356,19 @@ def composite_final_asset(
         sys.stderr.write(f"  Layer {layer.get('id')}: {layer_type} at ({x}, {y}) size {lw}x{lh}\n")
 
         if layer_type == 'background':
-            # Paste background/composite
+            # Paste background/composite — resize-to-cover and center-crop to preserve aspect ratio
             bg_image = download_image(composite_url)
-            bg_image = bg_image.resize((canvas_width, canvas_height), Image.Resampling.LANCZOS)
+            src_w, src_h = bg_image.size
+            scale = max(canvas_width / src_w, canvas_height / src_h)
+            new_w = int(src_w * scale)
+            new_h = int(src_h * scale)
+            bg_image = bg_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+            # Center-crop to canvas dimensions
+            crop_x = (new_w - canvas_width) // 2
+            crop_y = (new_h - canvas_height) // 2
+            bg_image = bg_image.crop((crop_x, crop_y, crop_x + canvas_width, crop_y + canvas_height))
             final_image.paste(bg_image, (0, 0))
-            sys.stderr.write("    ✅ Pasted background\n")
+            sys.stderr.write(f"    ✅ Pasted background (src {src_w}x{src_h} → cover {new_w}x{new_h} → crop to {canvas_width}x{canvas_height})\n")
 
         elif layer_type == 'product':
             # Product is already in composite, skip
