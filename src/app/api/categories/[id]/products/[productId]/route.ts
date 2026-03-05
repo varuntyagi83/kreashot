@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 
 // Generate slug from name
 function generateSlug(name: string): string {
@@ -122,6 +123,56 @@ export async function PUT(
   }
 }
 
+/**
+ * Pre-queue GDrive files owned by a product before cascade delete.
+ * Safety net — DB triggers also queue on cascade, but this handles edge cases.
+ */
+async function preQueueProductGDriveFiles(productId: string, userId: string): Promise<number> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !serviceKey) return 0
+
+  const admin = createClient(supabaseUrl, serviceKey)
+  let queued = 0
+
+  // Tables with gdrive_file_id that reference product_id
+  const tables = [
+    { table: 'product_images', type: 'product_image', fk: 'product_id' },
+    { table: 'angled_shots', type: 'angled_shot', fk: 'product_id' },
+  ]
+
+  for (const { table, type, fk } of tables) {
+    const { data: rows } = await admin
+      .from(table)
+      .select('id, storage_provider, storage_path, gdrive_file_id, storage_url')
+      .eq(fk, productId)
+      .eq('storage_provider', 'gdrive')
+      .not('gdrive_file_id', 'is', null)
+
+    if (!rows || rows.length === 0) continue
+
+    const entries = rows.map((row: any) => ({
+      resource_type: type,
+      resource_id: row.id,
+      storage_provider: 'gdrive',
+      storage_path: row.storage_path,
+      gdrive_file_id: row.gdrive_file_id,
+      storage_url: row.storage_url,
+      user_id: userId,
+      metadata: { product_id: productId, pre_queued: true },
+    }))
+
+    const { error } = await admin.from('deletion_queue').insert(entries)
+    if (!error) {
+      queued += entries.length
+    } else {
+      console.error(`Failed to pre-queue ${table} deletions:`, error.message)
+    }
+  }
+
+  return queued
+}
+
 // DELETE /api/categories/[id]/products/[productId] - Delete product
 export async function DELETE(
   request: NextRequest,
@@ -151,6 +202,12 @@ export async function DELETE(
 
     if (fetchError || !product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+
+    // Pre-queue GDrive files before cascade delete (safety net)
+    const queuedCount = await preQueueProductGDriveFiles(productId, user.id)
+    if (queuedCount > 0) {
+      console.log(`Pre-queued ${queuedCount} GDrive files for deletion (product: ${productId})`)
     }
 
     // Delete product (cascade will handle related records)
