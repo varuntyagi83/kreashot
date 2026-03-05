@@ -56,8 +56,11 @@ interface Template {
 
 interface Composite {
   id: string
+  name: string
   storage_url: string
   created_at: string
+  angled_shot?: { angle_name?: string; angle_description?: string }
+  background?: { name?: string }
 }
 
 interface CopyDoc {
@@ -374,11 +377,19 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                   <SelectValue placeholder="Select composite image" />
                 </SelectTrigger>
                 <SelectContent>
-                  {composites.map((composite, index) => (
-                    <SelectItem key={composite.id} value={composite.id}>
-                      Composite {composites.length - index} • {new Date(composite.created_at).toLocaleDateString()}
-                    </SelectItem>
-                  ))}
+                  {composites.map((composite) => {
+                    const label = composite.name
+                      || [
+                           composite.angled_shot?.angle_name,
+                           composite.background?.name,
+                         ].filter(Boolean).join(' + ')
+                      || `Composite ${composite.id.slice(0, 6)}`
+                    return (
+                      <SelectItem key={composite.id} value={composite.id}>
+                        {label} • {new Date(composite.created_at).toLocaleDateString()}
+                      </SelectItem>
+                    )
+                  })}
                   {composites.length === 0 && (
                     <SelectItem value="none" disabled>No composites available</SelectItem>
                   )}
@@ -581,10 +592,19 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           const key = layer.name || layer.id
                           const textContent = layerTexts[key] || selectedCopyDoc?.generated_text || ''
                           if (!textContent) return null
+                          const textColor = layer.color || '#000000'
+                          const isLight = (() => {
+                            const hex = textColor.replace('#', '')
+                            if (hex.length < 6) return false
+                            const r = parseInt(hex.substring(0, 2), 16)
+                            const g = parseInt(hex.substring(2, 4), 16)
+                            const b = parseInt(hex.substring(4, 6), 16)
+                            return (r * 0.299 + g * 0.587 + b * 0.114) > 186
+                          })()
                           return (
                             <div
                               key={layer.id}
-                              className="absolute border-2 border-blue-500 border-dashed flex items-center justify-center p-2"
+                              className="absolute border-2 border-blue-500 border-dashed flex items-center justify-center p-1 overflow-hidden"
                               style={{
                                 left: `${layer.x || 0}%`,
                                 top: `${layer.y || 0}%`,
@@ -592,9 +612,37 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                                 height: `${layer.height || 20}%`,
                               }}
                             >
-                              <p className="text-sm font-bold text-center line-clamp-2 bg-white/90 px-2 py-1 rounded">
-                                {textContent.substring(0, 100)}
+                              <p
+                                className="text-xs font-bold text-center leading-tight"
+                                style={{
+                                  color: textColor,
+                                  textShadow: isLight ? '0 1px 3px rgba(0,0,0,0.6)' : 'none',
+                                  wordBreak: 'break-word',
+                                }}
+                              >
+                                {textContent}
                               </p>
+                            </div>
+                          )
+                        }
+                        if (layer.type === 'composite' && layer.source_url) {
+                          return (
+                            <div
+                              key={layer.id}
+                              className="absolute overflow-hidden"
+                              style={{
+                                left: `${layer.x || 0}%`,
+                                top: `${layer.y || 0}%`,
+                                width: `${layer.width || 100}%`,
+                                height: `${layer.height || 100}%`,
+                              }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={layer.source_url}
+                                alt="Composite"
+                                className="w-full h-full object-cover"
+                              />
                             </div>
                           )
                         }

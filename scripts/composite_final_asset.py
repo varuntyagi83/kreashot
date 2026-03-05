@@ -9,7 +9,7 @@ import json
 import os
 import base64
 import textwrap
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageFilter
 from io import BytesIO
 import urllib.request
 import ssl
@@ -107,6 +107,17 @@ def download_image(url):
 
 
 _font_cache = {}
+
+
+def _is_dark_color(hex_color):
+    """Check if a hex color is dark (for choosing contrasting shadow)."""
+    hex_color = hex_color.lstrip('#')
+    if len(hex_color) < 6:
+        return True
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    return (r * 0.299 + g * 0.587 + b * 0.114) < 128
 
 
 def download_font(url):
@@ -364,8 +375,28 @@ def composite_final_asset(
             if bg_color:
                 draw.rectangle([x, y, x + lw, y + lh], fill=bg_color)
 
-            # Draw wrapped text
-            draw.multiline_text(
+            # Render text onto a transparent layer for smooth compositing
+            text_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+            text_draw = ImageDraw.Draw(text_layer)
+
+            # Subtle drop shadow for depth and readability
+            shadow_offset = max(1, font_size // 30)
+            shadow_color = '#000000' if not _is_dark_color(color) else '#FFFFFF'
+            shadow_alpha = 80  # subtle
+            text_draw.multiline_text(
+                (text_x + shadow_offset, text_y + shadow_offset),
+                wrapped_text,
+                fill=shadow_color + f'{shadow_alpha:02x}',
+                font=font,
+                spacing=line_spacing,
+                align=text_align,
+            )
+            # Blur the shadow for softness
+            text_layer = text_layer.filter(ImageFilter.GaussianBlur(radius=max(1, font_size // 20)))
+
+            # Draw crisp text on top of blurred shadow
+            text_draw = ImageDraw.Draw(text_layer)
+            text_draw.multiline_text(
                 (text_x, text_y),
                 wrapped_text,
                 fill=color,
@@ -373,20 +404,34 @@ def composite_final_asset(
                 spacing=line_spacing,
                 align=text_align,
             )
+
+            # Composite text layer onto final image
+            final_image = Image.alpha_composite(final_image.convert('RGBA'), text_layer).convert('RGB')
+            draw = ImageDraw.Draw(final_image)
+
             sys.stderr.write(f"    ✅ Drew text ({len(lines)} lines): \"{text_content[:40]}...\"\n")
 
         elif layer_type == 'logo' and logo_url:
-            # Paste logo
+            # Paste logo with edge feathering for smooth blending
             logo_image = download_image(logo_url)
+            logo_image = logo_image.convert('RGBA')
             logo_image = logo_image.resize((lw, lh), Image.Resampling.LANCZOS)
 
-            # Handle transparency
-            if logo_image.mode == 'RGBA':
-                final_image.paste(logo_image, (x, y), logo_image)
-            else:
-                final_image.paste(logo_image, (x, y))
+            # Feather edges: create a soft alpha mask that fades out at the boundary
+            # This prevents hard "sticker" edges on the logo
+            feather_radius = max(2, min(lw, lh) // 40)
+            alpha = logo_image.split()[3]
+            # Slight blur on the alpha channel for anti-aliased edges
+            alpha = alpha.filter(ImageFilter.GaussianBlur(radius=feather_radius * 0.5))
+            logo_image.putalpha(alpha)
 
-            sys.stderr.write("    ✅ Pasted logo\n")
+            # Composite onto a transparent layer at the right position
+            logo_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+            logo_layer.paste(logo_image, (x, y), logo_image)
+            final_image = Image.alpha_composite(final_image.convert('RGBA'), logo_layer).convert('RGB')
+            draw = ImageDraw.Draw(final_image)
+
+            sys.stderr.write("    ✅ Pasted logo (feathered edges)\n")
 
         elif layer_type == 'overlay':
             source_url = layer.get('source_url', '')
@@ -407,9 +452,24 @@ def composite_final_asset(
             if overlay_image.mode != 'RGBA':
                 overlay_image = overlay_image.convert('RGBA')
 
-            # Paste using alpha channel as mask so transparency is preserved
-            final_image.paste(overlay_image, (x, y), overlay_image)
+            # Composite using alpha_composite for proper blending
+            overlay_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+            overlay_layer.paste(overlay_image, (x, y), overlay_image)
+            final_image = Image.alpha_composite(final_image.convert('RGBA'), overlay_layer).convert('RGB')
+            draw = ImageDraw.Draw(final_image)
             sys.stderr.write(f"    ✅ Pasted graphic overlay\n")
+
+        elif layer_type == 'composite':
+            # Composite layer — a pre-composed product+background image
+            source_url = layer.get('source_url', '') or composite_url
+            comp_img = download_image(source_url)
+            # Cover the layer area (like background but positioned within bounds)
+            comp_img = comp_img.resize((lw, lh), Image.Resampling.LANCZOS)
+            if comp_img.mode == 'RGBA':
+                final_image.paste(comp_img, (x, y), comp_img)
+            else:
+                final_image.paste(comp_img, (x, y))
+            sys.stderr.write(f"    ✅ Pasted composite layer\n")
 
         elif layer_type == 'image':
             source_url = layer.get('source_url', '')

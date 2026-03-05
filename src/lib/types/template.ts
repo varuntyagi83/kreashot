@@ -2,7 +2,7 @@
  * Template types for visual canvas-based template builder
  */
 
-export type LayerType = 'background' | 'product' | 'text' | 'logo' | 'overlay'
+export type LayerType = 'background' | 'product' | 'text' | 'logo' | 'overlay' | 'composite'
 
 export type SafeZoneType = 'safe' | 'restricted'
 

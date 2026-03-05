@@ -38,6 +38,7 @@ const LAYER_COLORS: Record<string, string> = {
   text: '#f59e0b',        // orange
   logo: '#10b981',        // green
   overlay: '#ec4899',     // pink
+  composite: '#06b6d4',   // cyan
 }
 
 function getLayerColor(type: TemplateLayer['type']): string {
@@ -194,8 +195,8 @@ export function TemplateBuilderCanvas({
         const lh = (layer.height / 100) * canvasWidth * (height / width)
         const layerColor = getLayerColor(layer.type)
 
-        // overlay uses source_url (part of template); product/background use preview_url (preview only)
-        const imageUrl = layer.type === 'overlay' ? layer.source_url : layer.preview_url
+        // overlay/composite use source_url (part of template); product/background use preview_url (preview only)
+        const imageUrl = (layer.type === 'overlay' || layer.type === 'composite') ? layer.source_url : layer.preview_url
 
         if (imageUrl) {
           try {

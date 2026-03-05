@@ -120,9 +120,10 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
     // Auto-number layers of the same type so they're distinguishable in the panel
     const sameTypeCount = layers.filter(l => l.type === type).length + 1
     const autoName =
-      type === 'overlay' ? `Overlay ${sameTypeCount}` :
-      type === 'text'    ? `Text ${sameTypeCount}` :
-      type === 'product' ? `Product ${sameTypeCount}` :
+      type === 'overlay'   ? `Overlay ${sameTypeCount}` :
+      type === 'text'      ? `Text ${sameTypeCount}` :
+      type === 'product'   ? `Product ${sameTypeCount}` :
+      type === 'composite' ? `Composite ${sameTypeCount}` :
       ''
 
     const newLayer: TemplateLayer = {
@@ -149,6 +150,12 @@ export function TemplateWorkspace({ categoryId, format = '1:1' }: TemplateWorksp
       newLayer.width = 15
       newLayer.height = 15
     } else if (type === 'overlay') {
+      newLayer.source_url = ''
+      newLayer.x = 0
+      newLayer.y = 0
+      newLayer.width = 100
+      newLayer.height = 100
+    } else if (type === 'composite') {
       newLayer.source_url = ''
       newLayer.x = 0
       newLayer.y = 0

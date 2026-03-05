@@ -27,6 +27,7 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
   const [fonts, setFonts] = useState<AssetOption[]>([])
   const [angledShots, setAngledShots] = useState<AssetOption[]>([])
   const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
+  const [composites, setComposites] = useState<AssetOption[]>([])
 
   useEffect(() => {
     if (layer?.type === 'overlay' || layer?.type === 'text') {
@@ -73,6 +74,22 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
               name: b.name || b.prompt?.substring(0, 40) || `Background ${b.id.slice(0, 6)}`,
               url: b.storage_url,
             }))
+          )
+        })
+        .catch(() => {})
+    }
+
+    if (layer?.type === 'composite') {
+      fetch(`/api/categories/${categoryId}/composites?format=${encodeURIComponent(format)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          setComposites(
+            (data.composites || []).map((c: any) => {
+              const label = c.name
+                || [c.angled_shot?.angle_name, c.background?.name].filter(Boolean).join(' + ')
+                || `Composite ${c.id.slice(0, 6)}`
+              return { id: c.id, name: label, url: c.storage_url }
+            })
           )
         })
         .catch(() => {})
@@ -472,6 +489,49 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
               />
             </div>
           </>
+        )}
+
+        {/* Composite-specific properties */}
+        {layer.type === 'composite' && (
+          <div className="space-y-2">
+            <Label className="text-xs">Composite Image</Label>
+            {composites.length > 0 ? (
+              <Select
+                value={layer.source_url || '__none__'}
+                onValueChange={(val) =>
+                  onLayerUpdate({ source_url: val === '__none__' ? '' : val })
+                }
+              >
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue placeholder="Select composite" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None (use selected at generation)</SelectItem>
+                  {composites.map((c) => (
+                    <SelectItem key={c.id} value={c.url}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <p className="text-xs text-amber-600">
+                No composites yet. Generate them in the Composites tab first.
+              </p>
+            )}
+            {layer.source_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={layer.source_url}
+                alt="Composite preview"
+                className="w-full rounded border object-contain bg-muted"
+              />
+            )}
+            <p className="text-xs text-muted-foreground">
+              A composite is a pre-combined product + background image.
+              Leave as &quot;None&quot; to use whichever composite is selected during final asset generation.
+            </p>
+          </div>
         )}
 
         {/* Overlay-specific properties */}

@@ -11,7 +11,8 @@ import {
   Save,
   ImageDown,
   Plus,
-  Layers
+  Layers,
+  Combine
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -73,6 +74,10 @@ export function ToolbarTemplateBuilder({
           <DropdownMenuItem onClick={() => onAddLayer('overlay')}>
             <Layers className="h-4 w-4 mr-2" />
             Graphic Overlay Layer
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onAddLayer('composite')}>
+            <Combine className="h-4 w-4 mr-2" />
+            Composite Layer
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
