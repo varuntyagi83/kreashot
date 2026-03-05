@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { v4 as uuidv4 } from 'uuid'
+import { uploadFile } from '@/lib/storage'
 
 function generateSlug(name: string): string {
   return name
@@ -74,27 +74,20 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${uuidv4()}.${fileExt}`
-    const filePath = `${user.id}/${fileName}`
+    // Convert file to buffer for GDrive upload
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = Buffer.from(arrayBuffer)
 
-    // Upload to Supabase Storage
-    const { error: uploadError } = await supabase.storage
-      .from('brand-assets')
-      .upload(filePath, file, {
-        contentType: file.type,
-        upsert: false,
-      })
+    // Generate path for GDrive: brand-assets/{asset_type}/{slug}_{timestamp}.{ext}
+    const slug = generateSlug(name)
+    const fileExt = file.name.split('.').pop() || 'png'
+    const filePath = `brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
 
-    if (uploadError) {
-      return NextResponse.json({ error: uploadError.message }, { status: 500 })
-    }
-
-    // Get public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('brand-assets')
-      .getPublicUrl(filePath)
+    // Upload to Google Drive
+    const storageFile = await uploadFile(buffer, filePath, {
+      contentType: file.type,
+      provider: 'gdrive',
+    })
 
     // Insert into brand_assets table
     const { data: asset, error: dbError } = await supabase
@@ -103,8 +96,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         name,
         asset_type: assetType,
-        storage_path: filePath,
-        storage_url: publicUrl,
+        storage_provider: 'gdrive',
+        storage_path: storageFile.path,
+        storage_url: storageFile.publicUrl,
+        gdrive_file_id: storageFile.fileId || null,
         metadata: {
           file_name: file.name,
           file_size: file.size,
@@ -115,13 +110,20 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      // Cleanup uploaded file if database insert fails
-      await supabase.storage.from('brand-assets').remove([filePath])
+      // Cleanup uploaded GDrive file if database insert fails
+      try {
+        const { deleteFile } = await import('@/lib/storage')
+        const fileIdOrPath = storageFile.fileId || storageFile.path
+        await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+      } catch (cleanupErr) {
+        console.error('Failed to clean up orphaned GDrive file:', cleanupErr)
+      }
       return NextResponse.json({ error: dbError.message }, { status: 500 })
     }
 
+    const publicUrl = storageFile.publicUrl
+
     // Create asset_references entry
-    const slug = generateSlug(name)
     const referenceId = `@global/${assetType}/${slug}`
 
     const { error: refError } = await supabase
