@@ -263,8 +263,11 @@ def composite_final_asset(
                 left = (img.width - lw) // 2
                 top = (img.height - lh) // 2
                 img = img.crop((left, top, left + lw, top + lh))
-            else:  # contain
+            else:  # contain — fit inside cell, centered
                 img.thumbnail((lw, lh), Image.Resampling.LANCZOS)
+                # Center within cell bounds
+                x = x + (lw - img.width) // 2
+                y = y + (lh - img.height) // 2
 
             # Remove white background if flagged (for hero product on grid)
             if layer.get('remove_bg'):

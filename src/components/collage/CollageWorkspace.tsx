@@ -37,6 +37,7 @@ interface PresetCell {
   type: 'image' | 'text'
   name?: string // custom layer name (e.g. "Hero Product", "Background 1")
   remove_bg?: boolean // remove white background (for hero product overlays)
+  object_fit?: 'cover' | 'contain' // default: cover
   x: number; y: number; width: number; height: number
   // text-only fields
   text_content?: string; font_size?: number; color?: string; text_align?: 'left' | 'center' | 'right'
@@ -142,7 +143,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
       { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 50 },
       { type: 'image', name: 'Background 3', x: 0, y: 50, width: 50, height: 50 },
       { type: 'image', name: 'Background 4', x: 50, y: 50, width: 50, height: 50 },
-      { type: 'image', name: 'Hero Product', remove_bg: true, x: 25, y: 20, width: 50, height: 60 },
+      { type: 'image', name: 'Hero Product', remove_bg: true, object_fit: 'contain', x: 25, y: 20, width: 50, height: 60 },
     ],
   },
   '4grid-text-overlay': {
@@ -168,7 +169,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
       { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 50 },
       { type: 'image', name: 'Background 3', x: 0, y: 50, width: 50, height: 50 },
       { type: 'image', name: 'Background 4', x: 50, y: 50, width: 50, height: 50 },
-      { type: 'image', name: 'Hero Product', remove_bg: true, x: 25, y: 22, width: 50, height: 58 },
+      { type: 'image', name: 'Hero Product', remove_bg: true, object_fit: 'contain', x: 25, y: 22, width: 50, height: 58 },
       { type: 'text', name: 'Headline', x: 3, y: 3, width: 45, height: 22, text_content: 'YOUR HEADLINE.', font_size: 38, color: '#FFFFFF', text_align: 'left' },
     ],
   },
@@ -180,7 +181,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
     cells: [
       { type: 'image', name: 'Background 1', x: 0, y: 0, width: 50, height: 100 },
       { type: 'image', name: 'Background 2', x: 50, y: 0, width: 50, height: 100 },
-      { type: 'image', name: 'Hero Product', remove_bg: true, x: 20, y: 15, width: 60, height: 70 },
+      { type: 'image', name: 'Hero Product', remove_bg: true, object_fit: 'contain', x: 20, y: 15, width: 60, height: 70 },
     ],
   },
   '2col-text-overlay': {
@@ -227,7 +228,7 @@ const GRID_PRESETS: Record<string, GridPreset> = {
     cells: [
       { type: 'image', name: 'Image Left', x: 0, y: 45, width: 50, height: 55 },
       { type: 'image', name: 'Image Right', x: 50, y: 45, width: 50, height: 55 },
-      { type: 'image', name: 'Hero Product', remove_bg: true, x: 10, y: 30, width: 35, height: 45 },
+      { type: 'image', name: 'Hero Product', remove_bg: true, object_fit: 'contain', x: 10, y: 30, width: 35, height: 45 },
       { type: 'text', name: 'Headline', x: 10, y: 5, width: 80, height: 28, text_content: 'YOUR HEADLINE HERE.', font_size: 40, color: '#FFFFFF', text_align: 'center' },
     ],
   },
@@ -490,7 +491,7 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
         width: gapped.width,
         height: gapped.height,
         z_index: i,
-        object_fit: 'cover' as const,
+        object_fit: (cell.object_fit || 'cover') as 'cover' | 'contain',
         ...(cell.remove_bg ? { remove_bg: true } : {}),
       }
     })
