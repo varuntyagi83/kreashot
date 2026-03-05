@@ -412,26 +412,22 @@ def composite_final_asset(
             sys.stderr.write(f"    ✅ Drew text ({len(lines)} lines): \"{text_content[:40]}...\"\n")
 
         elif layer_type == 'logo' and logo_url:
-            # Paste logo with edge feathering for smooth blending
+            # Paste logo preserving aspect ratio and crisp edges
             logo_image = download_image(logo_url)
             logo_image = logo_image.convert('RGBA')
-            logo_image = logo_image.resize((lw, lh), Image.Resampling.LANCZOS)
 
-            # Feather edges: create a soft alpha mask that fades out at the boundary
-            # This prevents hard "sticker" edges on the logo
-            feather_radius = max(2, min(lw, lh) // 40)
-            alpha = logo_image.split()[3]
-            # Slight blur on the alpha channel for anti-aliased edges
-            alpha = alpha.filter(ImageFilter.GaussianBlur(radius=feather_radius * 0.5))
-            logo_image.putalpha(alpha)
+            # Preserve aspect ratio: fit inside layer bounds (contain), then center
+            logo_image.thumbnail((lw, lh), Image.Resampling.LANCZOS)
+            paste_x = x + (lw - logo_image.width) // 2
+            paste_y = y + (lh - logo_image.height) // 2
 
             # Composite onto a transparent layer at the right position
             logo_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
-            logo_layer.paste(logo_image, (x, y), logo_image)
+            logo_layer.paste(logo_image, (paste_x, paste_y), logo_image)
             final_image = Image.alpha_composite(final_image.convert('RGBA'), logo_layer).convert('RGB')
             draw = ImageDraw.Draw(final_image)
 
-            sys.stderr.write("    ✅ Pasted logo (feathered edges)\n")
+            sys.stderr.write(f"    ✅ Pasted logo ({logo_image.width}x{logo_image.height} in {lw}x{lh} zone)\n")
 
         elif layer_type == 'overlay':
             source_url = layer.get('source_url', '')

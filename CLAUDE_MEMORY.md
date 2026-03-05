@@ -181,6 +181,11 @@ Meta Ads Manager upload
 - **Composite pipeline comparison**: Composites use **Gemini AI** to intelligently place product on background (lighting, shadows, blending). Collage uses **PIL flood-fill** for bg removal since it composites multiple grid images.
 - **SSL fix for Railway**: `composite_final_asset.py` uses `certifi` SSL context; Dockerfile installs `python3-certifi` + `ca-certificates`
 
+### Logo Compositing (Fixed 2026-03-05)
+- **No alpha-channel blur** — previous code applied GaussianBlur to the logo's alpha channel for "edge feathering", which destroyed crisp edges, text, and fine details. Removed entirely; logos now composite with their original sharp edges.
+- **Aspect ratio preserved** — uses `thumbnail((lw, lh))` (contain-fit + center) instead of `resize((lw, lh))` (stretch-to-fill). Logo is never distorted.
+- File: `scripts/composite_final_asset.py` lines 414-430
+
 ### Background Gen — Flat/Solid Color Path
 - `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`
 - When matched: uses a stripped prompt (no DSLR, no lighting, no shadows) + flat-color-swatch system instruction

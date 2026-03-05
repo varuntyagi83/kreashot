@@ -484,6 +484,18 @@
 
 ---
 
+### Logo Compositing Fix (2026-03-05):
+- [x] **Logo no longer destroyed in final assets** — two bugs in `scripts/composite_final_asset.py`:
+  1. **Alpha channel GaussianBlur removed** — the "edge feathering" code blurred the entire alpha channel, washing out crisp edges, text, and fine logo details. Logos now composite with their original sharp edges.
+  2. **Aspect ratio preserved** — changed from `resize((lw, lh))` (stretches to fill layer bounds, distorting the logo) to `thumbnail((lw, lh))` (contain-fit preserving proportions) + centered within the layer zone.
+
+**Files changed:**
+| File | Changes |
+|------|---------|
+| `scripts/composite_final_asset.py` | Removed alpha GaussianBlur feathering, switched to aspect-preserving thumbnail + center |
+
+---
+
 ## 🚧 In Progress
 
 ### Current Focus:
