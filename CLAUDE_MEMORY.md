@@ -176,7 +176,9 @@ Meta Ads Manager upload
 - Image source picker: 3 tabs — Pipeline (angled shots + backgrounds + composites), Brand Assets, URL input
 - `collage_data` JSON: `{ layers: [...], background_color: "#hex" }` — stored in `collages.collage_data` JSONB column
 - Generate route calls the same `composite_final_asset.py` script (no composite_url needed — all images from layer source_urls)
-- **Grid Layout Presets** (added 2026-03-05): 8 presets in `CollageWorkspace.tsx` — `2col`, `2row`, `3col`, `4grid`, `1hero-2sub`, `2hero-1side`, `1hero-3side`, `hero-over-4grid`. Each defines cells with x/y/width/height percentages. `applyGap()` adds 1% spacing. "Layout" dropdown in top action bar. `hero-over-4grid` = 2x2 background grid + hero image superimposed on top (higher z_index).
+- **Grid Layout Presets** (updated 2026-03-05): 15 presets in 3 categories (grid/overlay/banner). `PresetCell` supports `name`, `remove_bg`, `object_fit`. Hero Product cells default to `remove_bg: true` + `object_fit: 'contain'`. Dropdown grouped by category with labels/separators.
+- **White Background Removal** (collage hero product): Uses **flood-fill from edges** (not simple threshold). BFS from all edge pixels removes only the connected white background region. Preserves white text on product labels. Auto-crops to content bounds. Requires `python3-numpy` in Dockerfile.
+- **Composite pipeline comparison**: Composites use **Gemini AI** to intelligently place product on background (lighting, shadows, blending). Collage uses **PIL flood-fill** for bg removal since it composites multiple grid images.
 - **SSL fix for Railway**: `composite_final_asset.py` uses `certifi` SSL context; Dockerfile installs `python3-certifi` + `ca-certificates`
 
 ### Background Gen — Flat/Solid Color Path

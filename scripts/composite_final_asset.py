@@ -26,29 +26,71 @@ except ImportError:
     _ssl_ctx.verify_mode = ssl.CERT_NONE
 
 
-def remove_white_background(img, threshold=230):
-    """Remove white/near-white background from an image.
+def remove_white_background(img, threshold=225):
+    """Remove white/near-white background from a product image using flood-fill.
 
-    Converts white-ish pixels (R,G,B all >= threshold) to transparent,
-    then auto-crops to content bounds (trims transparent padding).
+    Unlike a simple threshold that kills ALL white pixels (including white text
+    on the product label), this flood-fills from the image edges so only the
+    connected background region is removed.  White elements inside the product
+    (labels, text) are preserved.
+
+    After removal, auto-crops to content bounds.
     Returns an RGBA image containing just the product.
     """
+    import numpy as np
+    from collections import deque
+
     img = img.convert('RGBA')
-    data = img.getdata()
-    new_data = []
-    for r, g, b, a in data:
-        if r >= threshold and g >= threshold and b >= threshold:
-            new_data.append((r, g, b, 0))  # fully transparent
-        else:
-            new_data.append((r, g, b, a))
-    img.putdata(new_data)
+    w, h = img.size
+    pixels = np.array(img)  # shape (h, w, 4)
+
+    # Mask of "white-ish" pixels
+    is_white = (
+        (pixels[:, :, 0] >= threshold) &
+        (pixels[:, :, 1] >= threshold) &
+        (pixels[:, :, 2] >= threshold)
+    )
+
+    # Flood-fill from all edge pixels that are white
+    visited = np.zeros((h, w), dtype=bool)
+    queue = deque()
+
+    # Seed from all four edges
+    for x in range(w):
+        if is_white[0, x]:
+            queue.append((0, x))
+            visited[0, x] = True
+        if is_white[h - 1, x]:
+            queue.append((h - 1, x))
+            visited[h - 1, x] = True
+    for y in range(h):
+        if is_white[y, 0]:
+            queue.append((y, 0))
+            visited[y, 0] = True
+        if is_white[y, w - 1]:
+            queue.append((y, w - 1))
+            visited[y, w - 1] = True
+
+    # BFS flood-fill through connected white pixels
+    while queue:
+        cy, cx = queue.popleft()
+        for dy, dx in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+            ny, nx = cy + dy, cx + dx
+            if 0 <= ny < h and 0 <= nx < w and not visited[ny, nx] and is_white[ny, nx]:
+                visited[ny, nx] = True
+                queue.append((ny, nx))
+
+    # Set visited (edge-connected white) pixels to transparent
+    pixels[visited, 3] = 0
+
+    result = Image.fromarray(pixels)
 
     # Auto-crop: trim transparent padding to content bounds
-    bbox = img.getbbox()  # returns (left, top, right, bottom) of non-transparent area
+    bbox = result.getbbox()
     if bbox:
-        img = img.crop(bbox)
+        result = result.crop(bbox)
 
-    return img
+    return result
 
 
 def download_image(url):
