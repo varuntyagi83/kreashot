@@ -409,6 +409,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         if (Object.keys(layerTexts).length > 0) requestBody.layerTexts = layerTexts
       }
 
+      console.log('🎨 GENERATE REQUEST:', JSON.stringify(requestBody, null, 2))
+
       const response = await fetch(`/api/categories/${categoryId}/final-assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
