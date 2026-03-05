@@ -219,6 +219,19 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     }
   }
 
+  const handleDeleteAsset = async (assetId: string) => {
+    if (!confirm('Delete this final asset?')) return
+    try {
+      const res = await fetch(`/api/categories/${categoryId}/final-assets/${assetId}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (data.error) throw new Error(data.error)
+      setFinalAssets(prev => prev.filter(a => a.id !== assetId))
+      toast.success('Final asset deleted')
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to delete')
+    }
+  }
+
   const fetchTemplates = async () => {
     try {
       // Fetch all templates — format-matching ones will be sorted first
@@ -1177,15 +1190,25 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       <span>{new Date(asset.created_at).toLocaleDateString()}</span>
                     </div>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => window.open(asset.storage_url, '_blank')}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => window.open(asset.storage_url, '_blank')}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Download
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        onClick={() => handleDeleteAsset(asset.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
