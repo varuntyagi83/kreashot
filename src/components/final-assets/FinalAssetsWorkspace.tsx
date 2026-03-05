@@ -121,9 +121,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   // Freeform mode controls (when no template selected)
   const [logoPosition, setLogoPosition] = useState('top-center')
   const [logoSize, setLogoSize] = useState(12)
-  const [textPosition, setTextPosition] = useState('upper-third')
+  const [textX, setTextX] = useState(5)
+  const [textY, setTextY] = useState(85)
+  const [textW, setTextW] = useState(90)
   const [textFontSize, setTextFontSize] = useState(42)
+  const [textFontFamily, setTextFontFamily] = useState('Arial')
   const [textColor, setTextColor] = useState('#FFFFFF')
+  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center')
   const [freeformTagline, setFreeformTagline] = useState('')
 
   const isFreeform = !selectedTemplateId
@@ -348,15 +352,11 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         // Text layer
         if (freeformTagline.trim()) {
           const textH = 12
-          let ty = 5
-          if (textPosition === 'upper-third') ty = 22
-          if (textPosition === 'center')      ty = (100 - textH) / 2
-          if (textPosition === 'lower-third') ty = 65
-          if (textPosition === 'bottom')      ty = 85
           layers.push({
             id: 'tagline', type: 'text', name: 'tagline',
-            x: 5, y: ty, width: 90, height: textH, z_index: 2,
-            font_size: textFontSize, color: textColor, text_align: 'center',
+            x: textX, y: textY, width: textW, height: textH, z_index: 2,
+            font_size: textFontSize, font_family: textFontFamily,
+            color: textColor, text_align: textAlign,
           })
           requestBody.layerTexts = { tagline: freeformTagline }
         }
@@ -615,25 +615,45 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     className="h-8 text-sm"
                   />
                   {freeformTagline && (
-                    <>
-                      <Label className="text-xs text-muted-foreground">Text Position</Label>
-                      <Select value={textPosition} onValueChange={setTextPosition} disabled={generating}>
-                        <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="top">Top</SelectItem>
-                          <SelectItem value="upper-third">Upper Third</SelectItem>
-                          <SelectItem value="center">Center</SelectItem>
-                          <SelectItem value="lower-third">Lower Third</SelectItem>
-                          <SelectItem value="bottom">Bottom</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-3 pl-2 border-l-2 border-muted">
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Font Size: {textFontSize}px</Label>
+                          <Label className="text-xs text-muted-foreground">X Position: {textX}%</Label>
                           <Slider
-                            value={[textFontSize]}
-                            onValueChange={([v]) => setTextFontSize(v)}
-                            min={16} max={96} step={2}
+                            value={[textX]}
+                            onValueChange={(val) => setTextX(val[0])}
+                            min={0} max={80} step={1}
+                            disabled={generating}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Y Position: {textY}%</Label>
+                          <Slider
+                            value={[textY]}
+                            onValueChange={(val) => setTextY(val[0])}
+                            min={0} max={95} step={1}
+                            disabled={generating}
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs text-muted-foreground">Width: {textW}%</Label>
+                        <Slider
+                          value={[textW]}
+                          onValueChange={(val) => setTextW(val[0])}
+                          min={20} max={100} step={5}
+                          disabled={generating}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Font Size</Label>
+                          <Input
+                            type="number"
+                            value={textFontSize}
+                            onChange={(e) => setTextFontSize(Number(e.target.value) || 16)}
+                            min={12} max={120}
+                            className="h-8 text-sm"
                             disabled={generating}
                           />
                         </div>
@@ -648,7 +668,34 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           />
                         </div>
                       </div>
-                    </>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Font</Label>
+                          <Select value={textFontFamily} onValueChange={setTextFontFamily} disabled={generating}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="Arial">Arial</SelectItem>
+                              <SelectItem value="serif-bold">Serif Bold</SelectItem>
+                              <SelectItem value="serif-regular">Serif Regular</SelectItem>
+                              <SelectItem value="Helvetica">Helvetica</SelectItem>
+                              <SelectItem value="Georgia">Georgia</SelectItem>
+                              <SelectItem value="Verdana">Verdana</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">Alignment</Label>
+                          <Select value={textAlign} onValueChange={(v) => setTextAlign(v as 'left' | 'center' | 'right')} disabled={generating}>
+                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="left">Left</SelectItem>
+                              <SelectItem value="center">Center</SelectItem>
+                              <SelectItem value="right">Right</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
@@ -799,21 +846,21 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           </div>
                         )
                       })()}
-                      {isFreeform && freeformTagline && (() => {
-                        const textH = 12
-                        let ty = 5
-                        if (textPosition === 'upper-third') ty = 22
-                        if (textPosition === 'center')      ty = (100 - textH) / 2
-                        if (textPosition === 'lower-third') ty = 65
-                        if (textPosition === 'bottom')      ty = 85
-                        return (
-                          <div className="absolute flex items-center justify-center" style={{ left: '5%', top: `${ty}%`, width: '90%', height: `${textH}%` }}>
-                            <p className="text-xs font-bold text-center leading-tight" style={{ color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.5)' }}>
-                              {freeformTagline}
-                            </p>
-                          </div>
-                        )
-                      })()}
+                      {isFreeform && freeformTagline && (
+                        <div
+                          className="absolute flex items-center"
+                          style={{
+                            left: `${textX}%`,
+                            top: `${textY}%`,
+                            width: `${textW}%`,
+                            justifyContent: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start',
+                          }}
+                        >
+                          <p className="text-xs font-bold leading-tight" style={{ color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.5)', textAlign }}>
+                            {freeformTagline}
+                          </p>
+                        </div>
+                      )}
 
                       {/* Safe Zones Overlay */}
                       {selectedTemplate?.template_data?.safe_zones?.map((zone) => (
