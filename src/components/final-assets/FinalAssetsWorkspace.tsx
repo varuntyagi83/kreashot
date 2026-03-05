@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
-import { Loader2, Download, Sparkles } from 'lucide-react'
+import { Loader2, Download, Sparkles, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 
@@ -88,6 +88,36 @@ interface BrandAsset {
   storage_url: string
 }
 
+interface FreeformTextLayer {
+  id: string
+  text: string
+  x: number
+  y: number
+  width: number
+  fontSize: number
+  fontFamily: string
+  fontUrl?: string  // brand asset font URL for Python compositor
+  color: string
+  align: 'left' | 'center' | 'right'
+}
+
+let _textLayerCounter = 0
+function createTextLayer(defaults?: Partial<FreeformTextLayer>): FreeformTextLayer {
+  _textLayerCounter++
+  return {
+    id: `text_${_textLayerCounter}_${Date.now()}`,
+    text: '',
+    x: 5,
+    y: 80,
+    width: 90,
+    fontSize: 42,
+    fontFamily: 'Arial',
+    color: '#FFFFFF',
+    align: 'center',
+    ...defaults,
+  }
+}
+
 interface FinalAssetsWorkspaceProps {
   categoryId: string
   format?: string
@@ -100,6 +130,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [angledShots, setAngledShots] = useState<AngledShot[]>([])
   const [copyDocs, setCopyDocs] = useState<CopyDoc[]>([])
   const [logos, setLogos] = useState<BrandAsset[]>([])
+  const [brandFonts, setBrandFonts] = useState<BrandAsset[]>([])
   const [selectedLogoId, setSelectedLogoId] = useState<string>('')
 
   const [loading, setLoading] = useState(true)
@@ -121,14 +152,14 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   // Freeform mode controls (when no template selected)
   const [logoPosition, setLogoPosition] = useState('top-center')
   const [logoSize, setLogoSize] = useState(12)
-  const [textX, setTextX] = useState(5)
-  const [textY, setTextY] = useState(85)
-  const [textW, setTextW] = useState(90)
-  const [textFontSize, setTextFontSize] = useState(42)
-  const [textFontFamily, setTextFontFamily] = useState('Arial')
-  const [textColor, setTextColor] = useState('#FFFFFF')
-  const [textAlign, setTextAlign] = useState<'left' | 'center' | 'right'>('center')
-  const [freeformTagline, setFreeformTagline] = useState('')
+  const [freeformTexts, setFreeformTexts] = useState<FreeformTextLayer[]>([])
+
+  const updateFreeformText = (id: string, updates: Partial<FreeformTextLayer>) => {
+    setFreeformTexts(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+  }
+  const removeFreeformText = (id: string) => {
+    setFreeformTexts(prev => prev.filter(t => t.id !== id))
+  }
 
   const isFreeform = !selectedTemplateId
 
@@ -285,10 +316,11 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     try {
       const response = await fetch('/api/brand-assets')
       const data = await response.json()
-      const logoList: BrandAsset[] = (data.assets || []).filter(
-        (a: BrandAsset) => a.asset_type === 'logo'
-      )
+      const allAssets: BrandAsset[] = data.assets || []
+      const logoList = allAssets.filter(a => a.asset_type === 'logo')
+      const fontList = allAssets.filter(a => a.asset_type === 'font')
       setLogos(logoList)
+      setBrandFonts(fontList)
       if (logoList.length > 0) setSelectedLogoId(logoList[0].id)
     } catch {
       // Logo is optional — silently ignore
@@ -349,16 +381,23 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: logoSize, height: logoSize, z_index: 3 })
         }
 
-        // Text layer
-        if (freeformTagline.trim()) {
-          const textH = 12
+        // Text layers
+        const textMap: Record<string, string> = {}
+        freeformTexts.forEach((t, idx) => {
+          if (!t.text.trim()) return
+          const layerName = `text_${idx}`
           layers.push({
-            id: 'tagline', type: 'text', name: 'tagline',
-            x: textX, y: textY, width: textW, height: textH, z_index: 2,
-            font_size: textFontSize, font_family: textFontFamily,
-            color: textColor, text_align: textAlign,
+            id: t.id, type: 'text', name: layerName,
+            x: t.x, y: t.y, width: t.width, height: 12, z_index: 2 + idx,
+            font_size: t.fontSize,
+            font_family: t.fontFamily,
+            ...(t.fontUrl && { font_url: t.fontUrl }),
+            color: t.color, text_align: t.align,
           })
-          requestBody.layerTexts = { tagline: freeformTagline }
+          textMap[layerName] = t.text
+        })
+        if (Object.keys(textMap).length > 0) {
+          requestBody.layerTexts = textMap
         }
 
         requestBody.customLayers = layers
@@ -604,89 +643,77 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                   </div>
                 )}
 
-                {/* Text / tagline */}
+                {/* Text layers — multiple allowed */}
                 <div className="space-y-3">
-                  <Label className="text-xs text-muted-foreground">Tagline Text</Label>
-                  <Input
-                    value={freeformTagline}
-                    onChange={(e) => setFreeformTagline(e.target.value)}
-                    placeholder="e.g. Dein Energielevel ist kein Zufall"
-                    disabled={generating}
-                    className="h-8 text-sm"
-                  />
-                  {freeformTagline && (
-                    <div className="space-y-3 pl-2 border-l-2 border-muted">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">X Position: {textX}%</Label>
-                          <Slider
-                            value={[textX]}
-                            onValueChange={(val) => setTextX(val[0])}
-                            min={0} max={80} step={1}
-                            disabled={generating}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Y Position: {textY}%</Label>
-                          <Slider
-                            value={[textY]}
-                            onValueChange={(val) => setTextY(val[0])}
-                            min={0} max={95} step={1}
-                            disabled={generating}
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">Width: {textW}%</Label>
-                        <Slider
-                          value={[textW]}
-                          onValueChange={(val) => setTextW(val[0])}
-                          min={20} max={100} step={5}
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs text-muted-foreground">Text Layers ({freeformTexts.length})</Label>
+                    <Button
+                      type="button" variant="outline" size="sm"
+                      className="h-7 text-xs"
+                      disabled={generating}
+                      onClick={() => setFreeformTexts(prev => [...prev, createTextLayer({ y: Math.max(5, 85 - prev.length * 15) })])}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add Text
+                    </Button>
+                  </div>
+                  {freeformTexts.map((tl) => (
+                    <div key={tl.id} className="space-y-2 pl-2 border-l-2 border-primary/30 pb-2">
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={tl.text}
+                          onChange={(e) => updateFreeformText(tl.id, { text: e.target.value })}
+                          placeholder="e.g. Entspannter durch den Zyklus"
                           disabled={generating}
+                          className="h-8 text-sm flex-1"
                         />
+                        <Button
+                          type="button" variant="ghost" size="sm"
+                          className="h-8 w-8 p-0 text-destructive"
+                          onClick={() => removeFreeformText(tl.id)}
+                          disabled={generating}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
-                      <div className="grid grid-cols-2 gap-2">
+                      <div className="grid grid-cols-3 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Font Size</Label>
+                          <Label className="text-[10px] text-muted-foreground">X: {tl.x}%</Label>
+                          <Slider value={[tl.x]} onValueChange={(v) => updateFreeformText(tl.id, { x: v[0] })} min={0} max={80} step={1} disabled={generating} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Y: {tl.y}%</Label>
+                          <Slider value={[tl.y]} onValueChange={(v) => updateFreeformText(tl.id, { y: v[0] })} min={0} max={95} step={1} disabled={generating} />
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">W: {tl.width}%</Label>
+                          <Slider value={[tl.width]} onValueChange={(v) => updateFreeformText(tl.id, { width: v[0] })} min={20} max={100} step={5} disabled={generating} />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                          <Label className="text-[10px] text-muted-foreground">Size (px)</Label>
                           <Input
                             type="number"
-                            value={textFontSize}
-                            onChange={(e) => setTextFontSize(Number(e.target.value) || 16)}
-                            min={12} max={120}
-                            className="h-8 text-sm"
+                            value={tl.fontSize}
+                            onChange={(e) => updateFreeformText(tl.id, { fontSize: Math.max(8, Number(e.target.value) || 16) })}
+                            className="h-7 text-xs"
                             disabled={generating}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Text Color</Label>
+                          <Label className="text-[10px] text-muted-foreground">Color</Label>
                           <Input
                             type="color"
-                            value={textColor}
-                            onChange={(e) => setTextColor(e.target.value)}
-                            className="h-8"
+                            value={tl.color}
+                            onChange={(e) => updateFreeformText(tl.id, { color: e.target.value })}
+                            className="h-7"
                             disabled={generating}
                           />
                         </div>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Font</Label>
-                          <Select value={textFontFamily} onValueChange={setTextFontFamily} disabled={generating}>
-                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Arial">Arial</SelectItem>
-                              <SelectItem value="serif-bold">Serif Bold</SelectItem>
-                              <SelectItem value="serif-regular">Serif Regular</SelectItem>
-                              <SelectItem value="Helvetica">Helvetica</SelectItem>
-                              <SelectItem value="Georgia">Georgia</SelectItem>
-                              <SelectItem value="Verdana">Verdana</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Alignment</Label>
-                          <Select value={textAlign} onValueChange={(v) => setTextAlign(v as 'left' | 'center' | 'right')} disabled={generating}>
-                            <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                          <Label className="text-[10px] text-muted-foreground">Align</Label>
+                          <Select value={tl.align} onValueChange={(v) => updateFreeformText(tl.id, { align: v as 'left' | 'center' | 'right' })} disabled={generating}>
+                            <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="left">Left</SelectItem>
                               <SelectItem value="center">Center</SelectItem>
@@ -695,8 +722,36 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           </Select>
                         </div>
                       </div>
+                      <div className="space-y-1">
+                        <Label className="text-[10px] text-muted-foreground">Font</Label>
+                        <Select
+                          value={tl.fontUrl || tl.fontFamily}
+                          onValueChange={(v) => {
+                            const brandFont = brandFonts.find(f => f.storage_url === v)
+                            if (brandFont) {
+                              updateFreeformText(tl.id, { fontUrl: brandFont.storage_url, fontFamily: brandFont.name })
+                            } else {
+                              updateFreeformText(tl.id, { fontUrl: undefined, fontFamily: v })
+                            }
+                          }}
+                          disabled={generating}
+                        >
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Arial">Arial</SelectItem>
+                            <SelectItem value="Helvetica">Helvetica</SelectItem>
+                            <SelectItem value="Georgia">Georgia</SelectItem>
+                            <SelectItem value="Verdana">Verdana</SelectItem>
+                            <SelectItem value="serif-bold">Serif Bold</SelectItem>
+                            <SelectItem value="serif-regular">Serif Regular</SelectItem>
+                            {brandFonts.map((f) => (
+                              <SelectItem key={f.id} value={f.storage_url}>{f.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               </div>
             )}
@@ -846,21 +901,22 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           </div>
                         )
                       })()}
-                      {isFreeform && freeformTagline && (
+                      {isFreeform && freeformTexts.filter(t => t.text.trim()).map((tl) => (
                         <div
+                          key={tl.id}
                           className="absolute flex items-center"
                           style={{
-                            left: `${textX}%`,
-                            top: `${textY}%`,
-                            width: `${textW}%`,
-                            justifyContent: textAlign === 'center' ? 'center' : textAlign === 'right' ? 'flex-end' : 'flex-start',
+                            left: `${tl.x}%`,
+                            top: `${tl.y}%`,
+                            width: `${tl.width}%`,
+                            justifyContent: tl.align === 'center' ? 'center' : tl.align === 'right' ? 'flex-end' : 'flex-start',
                           }}
                         >
-                          <p className="text-xs font-bold leading-tight" style={{ color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.5)', textAlign }}>
-                            {freeformTagline}
+                          <p className="text-xs font-bold leading-tight" style={{ color: tl.color, textShadow: '0 1px 4px rgba(0,0,0,0.5)', textAlign: tl.align }}>
+                            {tl.text}
                           </p>
                         </div>
-                      )}
+                      ))}
 
                       {/* Safe Zones Overlay */}
                       {selectedTemplate?.template_data?.safe_zones?.map((zone) => (
