@@ -24,17 +24,24 @@ interface PropertiesPanelProps {
 
 export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLayerDelete }: PropertiesPanelProps) {
   const [overlays, setOverlays] = useState<AssetOption[]>([])
+  const [fonts, setFonts] = useState<AssetOption[]>([])
   const [angledShots, setAngledShots] = useState<AssetOption[]>([])
   const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
 
   useEffect(() => {
-    if (layer?.type === 'overlay') {
+    if (layer?.type === 'overlay' || layer?.type === 'text') {
       fetch('/api/brand-assets')
         .then((r) => r.json())
         .then((data) => {
+          const assets = data.assets || []
           setOverlays(
-            (data.assets || [])
+            assets
               .filter((a: any) => a.asset_type === 'overlay')
+              .map((a: any) => ({ id: a.id, name: a.name, url: a.storage_url }))
+          )
+          setFonts(
+            assets
+              .filter((a: any) => a.asset_type === 'font')
               .map((a: any) => ({ id: a.id, name: a.name, url: a.storage_url }))
           )
         })
@@ -234,16 +241,33 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
 
             <div className="space-y-2">
               <Label htmlFor="font-family" className="text-xs">
-                Font Family
+                Font
               </Label>
               <Select
-                value={layer.font_family || 'Arial'}
-                onValueChange={(value) => onLayerUpdate({ font_family: value })}
+                value={layer.font_url || layer.font_family || 'Arial'}
+                onValueChange={(value) => {
+                  // If value is a URL (starts with http), it's a custom font
+                  if (value.startsWith('http')) {
+                    const fontAsset = fonts.find(f => f.url === value)
+                    onLayerUpdate({ font_url: value, font_family: fontAsset?.name || 'Custom' })
+                  } else {
+                    onLayerUpdate({ font_url: undefined, font_family: value })
+                  }
+                }}
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  {fonts.length > 0 && (
+                    <>
+                      {fonts.map((f) => (
+                        <SelectItem key={f.id} value={f.url}>
+                          {f.name} (custom)
+                        </SelectItem>
+                      ))}
+                    </>
+                  )}
                   <SelectItem value="Arial">Arial</SelectItem>
                   <SelectItem value="Helvetica">Helvetica</SelectItem>
                   <SelectItem value="Times New Roman">Times New Roman</SelectItem>
@@ -251,6 +275,11 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
                   <SelectItem value="Verdana">Verdana</SelectItem>
                 </SelectContent>
               </Select>
+              {fonts.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Upload custom fonts (.ttf, .otf) in Brand Assets to use them here.
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

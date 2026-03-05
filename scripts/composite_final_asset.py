@@ -106,18 +106,56 @@ def download_image(url):
         return Image.open(BytesIO(response.read()))
 
 
-def load_font(font_size):
-    """Load a font, trying multiple cross-platform paths before falling back."""
+_font_cache = {}
+
+
+def download_font(url):
+    """Download a font file from URL to /tmp/ and return the local path.
+    Results are cached so the same font URL is only downloaded once per run."""
+    if url in _font_cache:
+        return _font_cache[url]
+
+    import hashlib
+    url_hash = hashlib.md5(url.encode()).hexdigest()[:12]
+    ext = '.ttf'
+    for candidate_ext in ('.otf', '.woff', '.woff2', '.ttc'):
+        if candidate_ext in url.lower():
+            ext = candidate_ext
+            break
+    local_path = f"/tmp/font_{url_hash}{ext}"
+
+    if os.path.exists(local_path):
+        _font_cache[url] = local_path
+        return local_path
+
+    sys.stderr.write(f"  Downloading custom font: {url[:80]}...\n")
+    with urllib.request.urlopen(url, timeout=30, context=_ssl_ctx) as response:
+        font_bytes = response.read()
+    with open(local_path, 'wb') as f:
+        f.write(font_bytes)
+
+    _font_cache[url] = local_path
+    sys.stderr.write(f"  Font saved to {local_path} ({len(font_bytes)} bytes)\n")
+    return local_path
+
+
+def load_font(font_size, font_url=None):
+    """Load a font. If font_url is provided, download and use that custom font.
+    Otherwise try multiple cross-platform system paths before falling back."""
+    if font_url:
+        try:
+            local_path = download_font(font_url)
+            return ImageFont.truetype(local_path, font_size)
+        except Exception as e:
+            sys.stderr.write(f"WARNING: Failed to load custom font from {font_url}: {e}\n")
+
     candidates = [
-        # Linux (common server environments)
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
         "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-        # macOS
         "/System/Library/Fonts/Helvetica.ttc",
         "/Library/Fonts/Arial.ttf",
-        # Windows
         "C:\\Windows\\Fonts\\arial.ttf",
     ]
     for path in candidates:
@@ -126,7 +164,6 @@ def load_font(font_size):
                 return ImageFont.truetype(path, font_size)
             except Exception:
                 continue
-    # Last-resort default (tiny bitmap — acceptable as a safety net only)
     sys.stderr.write("WARNING: No system font found, using PIL default bitmap font\n")
     return ImageFont.load_default()
 
@@ -216,7 +253,7 @@ def composite_final_asset(
             text_align = layer.get('text_align', 'center')
             line_spacing = int(font_size * 0.3)
 
-            font = load_font(font_size)
+            font = load_font(font_size, font_url=layer.get('font_url'))
 
             # Wrap text to fit within layer width
             # Estimate chars per line: avg glyph width ≈ font_size * 0.55

@@ -58,10 +58,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf']
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const ALLOWED_TYPES = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',
+      'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
+      'application/x-font-ttf', 'application/x-font-opentype',
+      'application/font-woff', 'application/font-woff2',
+    ]
+    // Browsers sometimes send empty MIME for font files — allow by extension
+    const fontExtensions = ['.ttf', '.otf', '.woff', '.woff2']
+    const isFontByExt = fontExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+    if (!ALLOWED_TYPES.includes(file.type) && !isFontByExt) {
       return NextResponse.json(
-        { error: `Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, SVG, PDF` },
+        { error: `Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, SVG, PDF, TTF, OTF, WOFF, WOFF2` },
         { status: 400 }
       )
     }
@@ -83,11 +91,23 @@ export async function POST(request: NextRequest) {
     const fileExt = file.name.split('.').pop() || 'png'
     const filePath = `brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
 
+    // Determine content type (browsers may send empty MIME for font files)
+    const FONT_EXT_MIME: Record<string, string> = {
+      ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
+    }
+    const contentType = file.type || FONT_EXT_MIME[fileExt.toLowerCase()] || 'application/octet-stream'
+
     // Upload to Google Drive
     const storageFile = await uploadFile(buffer, filePath, {
-      contentType: file.type,
+      contentType,
       provider: 'gdrive',
     })
+
+    // For non-image files (fonts), use GDrive direct download URL instead of lh3 CDN
+    const isFont = assetType === 'font'
+    const storageUrl = isFont && storageFile.fileId
+      ? `https://drive.google.com/uc?export=download&id=${storageFile.fileId}`
+      : storageFile.publicUrl
 
     // Insert into brand_assets table
     const { data: asset, error: dbError } = await supabase
@@ -98,12 +118,12 @@ export async function POST(request: NextRequest) {
         asset_type: assetType,
         storage_provider: 'gdrive',
         storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
+        storage_url: storageUrl,
         gdrive_file_id: storageFile.fileId || null,
         metadata: {
           file_name: file.name,
           file_size: file.size,
-          file_type: file.type,
+          file_type: contentType,
         },
       })
       .select()
@@ -121,7 +141,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: dbError.message }, { status: 500 })
     }
 
-    const publicUrl = storageFile.publicUrl
+    const publicUrl = storageUrl
 
     // Create asset_references entry
     const referenceId = `@global/${assetType}/${slug}`

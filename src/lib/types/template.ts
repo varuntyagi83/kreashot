@@ -20,6 +20,7 @@ export interface TemplateLayer {
   // Text-specific properties
   font_size?: number
   font_family?: string
+  font_url?: string // URL to a custom font file (brand asset .ttf/.otf)
   color?: string
   background_color?: string
   text_align?: 'left' | 'center' | 'right'
