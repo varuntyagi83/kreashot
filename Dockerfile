@@ -40,6 +40,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-certifi \
     ca-certificates \
     fonts-dejavu-core \
+    fonts-dejavu-extra \
+    fonts-liberation \
+    fonts-liberation2 \
+    fonts-freefont-ttf \
+    fontconfig \
+    && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 # Create symlink so 'python3' is callable as expected by spawn()

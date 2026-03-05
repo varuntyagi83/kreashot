@@ -140,7 +140,8 @@ def download_font(url):
         return local_path
 
     sys.stderr.write(f"  Downloading custom font: {url[:80]}...\n")
-    with urllib.request.urlopen(url, timeout=30, context=_ssl_ctx) as response:
+    req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+    with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx) as response:
         font_bytes = response.read()
     with open(local_path, 'wb') as f:
         f.write(font_bytes)
@@ -153,75 +154,77 @@ def download_font(url):
 # Font family name → list of candidate paths (first match wins)
 FONT_FAMILY_MAP = {
     'serif-bold': [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
         "/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf",
         "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
         "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
-        "/Library/Fonts/Georgia Bold.ttf",
-        "/Library/Fonts/Times New Roman Bold.ttf",
         "C:\\Windows\\Fonts\\georgiab.ttf",
-        "C:\\Windows\\Fonts\\timesbd.ttf",
     ],
     'serif-regular': [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif.ttf",
         "/usr/share/fonts/truetype/freefont/FreeSerif.ttf",
         "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf",
         "/System/Library/Fonts/Supplemental/Georgia.ttf",
         "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
-        "/Library/Fonts/Georgia.ttf",
-        "/Library/Fonts/Times New Roman.ttf",
         "C:\\Windows\\Fonts\\georgia.ttf",
-        "C:\\Windows\\Fonts\\times.ttf",
     ],
     'Georgia': [
         "/System/Library/Fonts/Supplemental/Georgia Bold.ttf",
         "/System/Library/Fonts/Supplemental/Georgia.ttf",
         "/Library/Fonts/Georgia Bold.ttf",
         "/Library/Fonts/Georgia.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
         "C:\\Windows\\Fonts\\georgiab.ttf",
-        "C:\\Windows\\Fonts\\georgia.ttf",
     ],
     'Times New Roman': [
         "/System/Library/Fonts/Supplemental/Times New Roman Bold.ttf",
         "/System/Library/Fonts/Supplemental/Times New Roman.ttf",
-        "/Library/Fonts/Times New Roman Bold.ttf",
-        "/Library/Fonts/Times New Roman.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSerifBold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf",
         "C:\\Windows\\Fonts\\timesbd.ttf",
-        "C:\\Windows\\Fonts\\times.ttf",
     ],
     'Helvetica': [
         "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "C:\\Windows\\Fonts\\arial.ttf",
     ],
     'Arial': [
         "/Library/Fonts/Arial.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "C:\\Windows\\Fonts\\arial.ttf",
     ],
     'Verdana': [
         "/System/Library/Fonts/Supplemental/Verdana Bold.ttf",
         "/System/Library/Fonts/Supplemental/Verdana.ttf",
-        "/Library/Fonts/Verdana Bold.ttf",
-        "/Library/Fonts/Verdana.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
         "C:\\Windows\\Fonts\\verdanab.ttf",
-        "C:\\Windows\\Fonts\\verdana.ttf",
     ],
 }
 
 # Default fallback (sans-serif bold)
 _DEFAULT_CANDIDATES = [
-    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
     "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
     "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
     "/System/Library/Fonts/Helvetica.ttc",
@@ -239,11 +242,14 @@ def load_font(font_size, font_url=None, font_family=None):
         except Exception as e:
             sys.stderr.write(f"WARNING: Failed to load custom font from {font_url}: {e}\n")
 
+    sys.stderr.write(f"  load_font: family={font_family!r}, url={font_url!r}, size={font_size}\n")
     candidates = FONT_FAMILY_MAP.get(font_family, _DEFAULT_CANDIDATES) if font_family else _DEFAULT_CANDIDATES
     for path in candidates:
         if os.path.exists(path):
             try:
-                return ImageFont.truetype(path, font_size)
+                f = ImageFont.truetype(path, font_size)
+                sys.stderr.write(f"  -> Loaded font: {path}\n")
+                return f
             except Exception:
                 continue
 
@@ -252,7 +258,9 @@ def load_font(font_size, font_url=None, font_family=None):
         for path in _DEFAULT_CANDIDATES:
             if os.path.exists(path):
                 try:
-                    return ImageFont.truetype(path, font_size)
+                    f = ImageFont.truetype(path, font_size)
+                    sys.stderr.write(f"  -> Fallback font: {path}\n")
+                    return f
                 except Exception:
                     continue
 
