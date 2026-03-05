@@ -89,7 +89,7 @@ export function TemplateSamplePreview({
         const w = (layer.width / 100) * width
         const h = (layer.height / 100) * height
 
-        const imageUrl = layer.type === 'overlay' ? layer.source_url : layer.preview_url
+        const imageUrl = (layer.type === 'overlay' || layer.type === 'composite') ? layer.source_url : layer.preview_url
 
         if (imageUrl) {
           try {
@@ -113,12 +113,20 @@ export function TemplateSamplePreview({
           const scaleFactor = width / 1080
           const fontSize = Math.max((layer.font_size || 24) * scaleFactor, 10)
           ctx.font = `bold ${fontSize}px ${layer.font_family || 'Arial'}`
-          ctx.fillStyle = layer.color || '#000000'
+          const textColor = layer.color || '#000000'
           ctx.textAlign = (layer.text_align as CanvasTextAlign) || 'left'
-          // Semi-transparent background behind text for legibility
-          ctx.fillStyle = 'rgba(251, 191, 36, 0.18)'
-          ctx.fillRect(x, y, w, h)
-          ctx.fillStyle = layer.color || '#111111'
+          // Only add backdrop behind light-colored text for legibility
+          const hex = textColor.replace('#', '')
+          const isLight = hex.length >= 6 && (
+            parseInt(hex.substring(0, 2), 16) * 0.299 +
+            parseInt(hex.substring(2, 4), 16) * 0.587 +
+            parseInt(hex.substring(4, 6), 16) * 0.114
+          ) > 186
+          if (isLight) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
+            ctx.fillRect(x, y, w, h)
+          }
+          ctx.fillStyle = textColor
           const textX =
             layer.text_align === 'center'
               ? x + w / 2

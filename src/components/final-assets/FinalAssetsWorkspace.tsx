@@ -684,7 +684,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                                 <img
                                   src={selectedLogo.storage_url}
                                   alt="Brand logo"
-                                  className="w-full h-full object-contain bg-white/80 p-1 rounded"
+                                  className="w-full h-full object-contain"
                                 />
                               ) : (
                                 <span className="text-xs font-bold text-green-600 bg-white/90 px-2 py-1 rounded">
