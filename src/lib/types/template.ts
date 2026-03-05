@@ -27,7 +27,7 @@ export interface TemplateLayer {
   max_chars?: number
 
   // Logo-specific properties
-  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
+  position?: 'top-left' | 'top-center' | 'top-right' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   padding?: number
 
   // Product-specific properties

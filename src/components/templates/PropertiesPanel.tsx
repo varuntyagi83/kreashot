@@ -25,12 +25,13 @@ interface PropertiesPanelProps {
 export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLayerDelete }: PropertiesPanelProps) {
   const [overlays, setOverlays] = useState<AssetOption[]>([])
   const [fonts, setFonts] = useState<AssetOption[]>([])
+  const [logos, setLogos] = useState<AssetOption[]>([])
   const [angledShots, setAngledShots] = useState<AssetOption[]>([])
   const [backgrounds, setBackgrounds] = useState<AssetOption[]>([])
   const [composites, setComposites] = useState<AssetOption[]>([])
 
   useEffect(() => {
-    if (layer?.type === 'overlay' || layer?.type === 'text') {
+    if (layer?.type === 'overlay' || layer?.type === 'text' || layer?.type === 'logo') {
       fetch('/api/brand-assets')
         .then((r) => r.json())
         .then((data) => {
@@ -43,6 +44,11 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
           setFonts(
             assets
               .filter((a: any) => a.asset_type === 'font')
+              .map((a: any) => ({ id: a.id, name: a.name, url: a.storage_url }))
+          )
+          setLogos(
+            assets
+              .filter((a: any) => a.asset_type === 'logo')
               .map((a: any) => ({ id: a.id, name: a.name, url: a.storage_url }))
           )
         })
@@ -455,38 +461,74 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
         {layer.type === 'logo' && (
           <>
             <div className="space-y-2">
+              <Label className="text-xs">Logo Image (canvas preview)</Label>
+              {logos.length > 0 ? (
+                <Select
+                  value={layer.preview_url || '__none__'}
+                  onValueChange={(val) =>
+                    onLayerUpdate({ preview_url: val === '__none__' ? '' : val })
+                  }
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select logo to preview" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {logos.map((l) => (
+                      <SelectItem key={l.id} value={l.url}>
+                        {l.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-amber-600">
+                  No logos uploaded yet. Upload one in Brand Assets.
+                </p>
+              )}
+              {layer.preview_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={layer.preview_url}
+                  alt="Logo preview"
+                  className="w-full rounded border object-contain bg-white p-2"
+                />
+              )}
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="logo-position" className="text-xs">
                 Position Preset
               </Label>
               <Select
                 value={layer.position || 'top-left'}
-                onValueChange={(value: any) => onLayerUpdate({ position: value })}
+                onValueChange={(value: any) => {
+                  const margin = 2 // % from edge
+                  const w = layer.width || 15
+                  const h = layer.height || 15
+                  let newX = layer.x
+                  let newY = layer.y
+                  if (value === 'top-left')     { newX = margin;            newY = margin }
+                  if (value === 'top-right')    { newX = 100 - w - margin;  newY = margin }
+                  if (value === 'bottom-left')  { newX = margin;            newY = 100 - h - margin }
+                  if (value === 'bottom-right') { newX = 100 - w - margin;  newY = 100 - h - margin }
+                  if (value === 'top-center')   { newX = (100 - w) / 2;     newY = margin }
+                  if (value === 'bottom-center'){ newX = (100 - w) / 2;     newY = 100 - h - margin }
+                  onLayerUpdate({ position: value, x: newX, y: newY })
+                }}
               >
                 <SelectTrigger className="h-8 text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="top-left">Top Left</SelectItem>
+                  <SelectItem value="top-center">Top Center</SelectItem>
                   <SelectItem value="top-right">Top Right</SelectItem>
                   <SelectItem value="bottom-left">Bottom Left</SelectItem>
+                  <SelectItem value="bottom-center">Bottom Center</SelectItem>
                   <SelectItem value="bottom-right">Bottom Right</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="logo-padding" className="text-xs">
-                Padding (px)
-              </Label>
-              <Input
-                id="logo-padding"
-                type="number"
-                value={layer.padding || 10}
-                onChange={(e) =>
-                  onLayerUpdate({ padding: parseInt(e.target.value) || 10 })
-                }
-                className="h-8 text-sm"
-              />
             </div>
           </>
         )}

@@ -195,7 +195,7 @@ export function TemplateBuilderCanvas({
         const lh = (layer.height / 100) * canvasWidth * (height / width)
         const layerColor = getLayerColor(layer.type)
 
-        // overlay/composite use source_url (part of template); product/background use preview_url (preview only)
+        // overlay/composite use source_url (part of template); product/background/logo use preview_url (preview only)
         const imageUrl = (layer.type === 'overlay' || layer.type === 'composite') ? layer.source_url : layer.preview_url
 
         if (imageUrl) {
