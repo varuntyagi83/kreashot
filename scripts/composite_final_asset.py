@@ -260,6 +260,12 @@ def composite_final_asset(
             img = download_image(source_url)
             obj_fit = layer.get('object_fit', 'cover')
 
+            # Remove white background FIRST (before resizing) so auto-crop
+            # trims the whitespace and we size only the actual product
+            if layer.get('remove_bg'):
+                img = remove_white_background(img)
+                sys.stderr.write(f"    🔲 Removed white bg, cropped to {img.width}x{img.height}\n")
+
             if obj_fit == 'cover':
                 # Resize to fill the cell then center-crop to exact dimensions
                 scale = max(lw / img.width, lh / img.height)
@@ -275,11 +281,6 @@ def composite_final_asset(
                 # Center within cell bounds
                 x = x + (lw - img.width) // 2
                 y = y + (lh - img.height) // 2
-
-            # Remove white background if flagged (for hero product on grid)
-            if layer.get('remove_bg'):
-                img = remove_white_background(img)
-                sys.stderr.write("    🔲 Removed white background\n")
 
             if img.mode == 'RGBA':
                 final_image.paste(img, (x, y), img)
