@@ -64,6 +64,16 @@ interface Composite {
   background?: { name?: string }
 }
 
+interface AngledShot {
+  id: string
+  angle_name: string
+  display_name?: string
+  storage_url: string
+  public_url: string
+  created_at: string
+  product?: { name?: string }
+}
+
 interface CopyDoc {
   id: string
   copy_type: string
@@ -87,6 +97,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [finalAssets, setFinalAssets] = useState<FinalAsset[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [composites, setComposites] = useState<Composite[]>([])
+  const [angledShots, setAngledShots] = useState<AngledShot[]>([])
   const [copyDocs, setCopyDocs] = useState<CopyDoc[]>([])
   const [logos, setLogos] = useState<BrandAsset[]>([])
   const [selectedLogoId, setSelectedLogoId] = useState<string>('')
@@ -100,6 +111,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
   const [selectedCompositeId, setSelectedCompositeId] = useState<string>('')
   const [selectedCopyDocId, setSelectedCopyDocId] = useState<string>('')
+  // Image source: 'composite' or 'angled-shot'
+  const [imageSource, setImageSource] = useState<'composite' | 'angled-shot'>('composite')
+  const [selectedAngledShotId, setSelectedAngledShotId] = useState<string>('')
 
   // Per-layer text inputs (keyed by layer name)
   const [layerTexts, setLayerTexts] = useState<Record<string, string>>({})
@@ -139,6 +153,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         fetchFinalAssets(),
         fetchTemplates(),
         fetchComposites(),
+        fetchAngledShots(),
         fetchCopyDocs(),
         fetchLogo(),
       ])
@@ -223,6 +238,23 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     }
   }
 
+  const fetchAngledShots = async () => {
+    try {
+      const response = await fetch(`/api/categories/${categoryId}/angled-shots`)
+      const data = await response.json()
+      const shots: AngledShot[] = (data.angledShots || []).map((s: any) => ({
+        ...s,
+        public_url: s.public_url || s.storage_url,
+      }))
+      setAngledShots(shots)
+      if (shots.length > 0 && !selectedAngledShotId) {
+        setSelectedAngledShotId(shots[0].id)
+      }
+    } catch (error: any) {
+      console.error('Error fetching angled shots:', error)
+    }
+  }
+
   const fetchCopyDocs = async () => {
     try {
       const response = await fetch(`/api/categories/${categoryId}/copy-docs`)
@@ -268,8 +300,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       return
     }
 
-    if (!selectedCompositeId) {
+    const selectedAngledShot = angledShots.find(s => s.id === selectedAngledShotId)
+    if (imageSource === 'composite' && !selectedCompositeId) {
       toast.error('Please select a composite image')
+      return
+    }
+    if (imageSource === 'angled-shot' && !selectedAngledShot) {
+      toast.error('Please select an angled shot')
       return
     }
 
@@ -284,7 +321,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       const requestBody: any = {
         name: assetName,
         format,
-        compositeId: selectedCompositeId,
+        ...(imageSource === 'composite'
+          ? { compositeId: selectedCompositeId }
+          : { baseImageUrl: selectedAngledShot!.public_url }),
         ...(logo && { logoUrl: logo.storage_url }),
       }
 
@@ -364,8 +403,12 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   // Get selected items for preview
   const selectedTemplate = templates.find(t => t.id === selectedTemplateId)
   const selectedComposite = composites.find(c => c.id === selectedCompositeId)
+  const selectedAngledShot = angledShots.find(s => s.id === selectedAngledShotId)
   const selectedCopyDoc = copyDocs.find(d => d.id === selectedCopyDocId)
   const selectedLogo = logos.find(l => l.id === selectedLogoId) || null
+  const previewImageUrl = imageSource === 'composite'
+    ? selectedComposite?.storage_url
+    : selectedAngledShot?.public_url
 
   return (
     <div className="space-y-6">
@@ -417,40 +460,86 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="composite">Composite Image *</Label>
+              <Label>Base Image *</Label>
               <Select
-                value={selectedCompositeId}
-                onValueChange={setSelectedCompositeId}
+                value={imageSource}
+                onValueChange={(val) => setImageSource(val as 'composite' | 'angled-shot')}
                 disabled={generating}
               >
-                <SelectTrigger id="composite">
-                  <SelectValue placeholder="Select composite image" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {composites.map((composite) => {
-                    const label = composite.name
-                      || [
-                           composite.angled_shot?.angle_name,
-                           composite.background?.name,
-                         ].filter(Boolean).join(' + ')
-                      || `Composite ${composite.id.slice(0, 6)}`
-                    return (
-                      <SelectItem key={composite.id} value={composite.id}>
-                        {label} • {new Date(composite.created_at).toLocaleDateString()}
-                      </SelectItem>
-                    )
-                  })}
-                  {composites.length === 0 && (
-                    <SelectItem value="none" disabled>No composites available</SelectItem>
-                  )}
+                  <SelectItem value="composite">Composite (product + background)</SelectItem>
+                  <SelectItem value="angled-shot">Angled Shot (standalone)</SelectItem>
                 </SelectContent>
               </Select>
-              {composites.length === 0 && (
-                <p className="text-xs text-red-500">
-                  Please generate a composite first in the Composites tab
-                </p>
-              )}
             </div>
+
+            {imageSource === 'composite' ? (
+              <div className="space-y-2">
+                <Label htmlFor="composite">Composite Image</Label>
+                <Select
+                  value={selectedCompositeId}
+                  onValueChange={setSelectedCompositeId}
+                  disabled={generating}
+                >
+                  <SelectTrigger id="composite">
+                    <SelectValue placeholder="Select composite image" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {composites.map((composite) => {
+                      const label = composite.name
+                        || [
+                             composite.angled_shot?.angle_name,
+                             composite.background?.name,
+                           ].filter(Boolean).join(' + ')
+                        || `Composite ${composite.id.slice(0, 6)}`
+                      return (
+                        <SelectItem key={composite.id} value={composite.id}>
+                          {label} • {new Date(composite.created_at).toLocaleDateString()}
+                        </SelectItem>
+                      )
+                    })}
+                    {composites.length === 0 && (
+                      <SelectItem value="none" disabled>No composites available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {composites.length === 0 && (
+                  <p className="text-xs text-red-500">
+                    Please generate a composite first in the Composites tab
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="angled-shot">Angled Shot</Label>
+                <Select
+                  value={selectedAngledShotId}
+                  onValueChange={setSelectedAngledShotId}
+                  disabled={generating}
+                >
+                  <SelectTrigger id="angled-shot">
+                    <SelectValue placeholder="Select angled shot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {angledShots.map((shot) => (
+                      <SelectItem key={shot.id} value={shot.id}>
+                        {shot.display_name || shot.angle_name}
+                        {shot.product?.name ? ` — ${shot.product.name}` : ''}
+                      </SelectItem>
+                    ))}
+                    {angledShots.length === 0 && (
+                      <SelectItem value="none" disabled>No angled shots available</SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
+                {angledShots.length === 0 && (
+                  <p className="text-xs text-red-500">
+                    Generate angled shots in the Angled Shots tab first
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="copy">On-image tagline (optional)</Label>
@@ -643,7 +732,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
             <Button
               onClick={handleGenerate}
-              disabled={generating || !assetName.trim() || !selectedCompositeId}
+              disabled={generating || !assetName.trim() || (imageSource === 'composite' ? !selectedCompositeId : !selectedAngledShotId)}
               className="w-full"
             >
               {generating ? (
@@ -674,7 +763,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 </div>
 
                 {/* Final Ad Preview */}
-                {selectedComposite ? (
+                {previewImageUrl ? (
                   <div className="border rounded-lg p-3 space-y-2">
                     <p className="text-xs font-medium">Final Ad Preview</p>
                     <div
@@ -686,10 +775,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           : '1/1',
                       }}
                     >
-                      {/* Background Composite */}
+                      {/* Base Image (composite or angled shot) */}
                       <Image
-                        src={selectedComposite.storage_url}
-                        alt="Selected composite"
+                        src={previewImageUrl}
+                        alt="Selected base image"
                         fill
                         className="object-contain"
                       />
@@ -890,7 +979,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                   </div>
                 ) : (
                   <div className="border rounded-lg p-6 text-center bg-muted/10">
-                    <p className="text-sm text-muted-foreground">No composite selected</p>
+                    <p className="text-sm text-muted-foreground">
+                      No {imageSource === 'composite' ? 'composite' : 'angled shot'} selected
+                    </p>
                   </div>
                 )}
 

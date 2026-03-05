@@ -61,6 +61,7 @@ export async function POST(
       name = 'Untitled Ad',
       format = '1:1',
       compositeId,
+      baseImageUrl,
       copyDocId,
       templateId,
       logoUrl,
@@ -138,9 +139,12 @@ export async function POST(
       }
     }
 
-    // 2. Fetch composite (background + product)
+    // 2. Resolve base image: direct URL (angled shot) or composite lookup
     let compositeUrl: string
-    if (compositeId) {
+    if (baseImageUrl) {
+      // Direct image URL (e.g. angled shot with baked-in background)
+      compositeUrl = baseImageUrl
+    } else if (compositeId) {
       const { data: composite } = await supabase
         .from('composites')
         .select('storage_url')
@@ -161,7 +165,7 @@ export async function POST(
 
     if (!compositeUrl) {
       return NextResponse.json(
-        { error: 'No composite found. Please generate a composite first.' },
+        { error: 'No base image found. Please select an angled shot or generate a composite first.' },
         { status: 400 }
       )
     }
