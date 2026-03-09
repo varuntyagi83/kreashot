@@ -9,6 +9,10 @@ export async function GET(
   try {
     const { id: categoryId } = await params
     const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const searchParams = request.nextUrl.searchParams
     const format = searchParams.get('format')
 
@@ -70,7 +74,12 @@ export async function POST(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
+      .eq('user_id', user.id)
       .single()
+
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
 
     const categorySlug = category?.slug || 'unknown'
 

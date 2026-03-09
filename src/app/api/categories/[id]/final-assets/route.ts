@@ -8,6 +8,7 @@ import { uploadFile } from '@/lib/storage'
 import { spawn } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
+import crypto from 'crypto'
 
 // GET - Fetch all final assets for category
 export async function GET(
@@ -234,7 +235,7 @@ export async function POST(
       format,
       width,
       height,
-      output_path: `/tmp/final_asset_${Date.now()}.png`
+      output_path: `/tmp/final_asset_${crypto.randomUUID()}.png`
     }
 
     const pythonScript = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
@@ -258,7 +259,8 @@ export async function POST(
       python.on('close', (code) => {
         if (code !== 0) {
           console.error('❌ Python script failed:', stderr)
-          reject(new Error(`Python script failed: ${stderr}`))
+          console.error('Python script failed. stderr:', stderr)
+          reject(new Error('Image processing failed'))
         } else {
           if (stderr) console.log('🐍 Python debug:', stderr)
           console.log('✅ Python script output:', stdout)
