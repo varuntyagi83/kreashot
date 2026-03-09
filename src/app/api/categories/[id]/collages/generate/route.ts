@@ -134,6 +134,10 @@ export async function POST(
         let stdout = ''
         let stderr = ''
 
+        if (!python.stdin) {
+          reject(new Error('Failed to open Python stdin'))
+          return
+        }
         python.stdin.write(JSON.stringify(inputData))
         python.stdin.end()
 
