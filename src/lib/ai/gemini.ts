@@ -101,7 +101,7 @@ export async function generateAngledShots(
       const batchResults = await Promise.all(batch.map(async (angle) => {
       console.log(`  → Starting ${angle.name}...`)
 
-      const safePrompt = sanitizePromptMaxLength(lookAndFeel || '', 500)
+      const safePrompt = sanitizePromptMaxLength(lookAndFeel || '')
       const prompt = `TASK: Re-photograph this product from a COMPLETELY DIFFERENT camera angle.
 
 CAMERA POSITION:
@@ -253,7 +253,7 @@ export async function generateBackgrounds(
 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
 
-    const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
+    const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '')
     const CONCURRENCY = 3
     console.log(`Generating ${count} ${aspectRatio} backgrounds (${CONCURRENCY} at a time)...`)
     const indices = Array.from({ length: count }, (_, i) => i)
@@ -266,7 +266,7 @@ export async function generateBackgrounds(
       // Build the background generation prompt
       // Use pre-computed color description if available (saved at upload time in brand_guidelines.color_description)
       const colorDesc = brandColorDescription || ''
-      const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '', 500)
+      const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '')
 
       // Detect flat/solid color requests — these must bypass all photorealism/shadow directives
       const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(safeUserPrompt)
@@ -624,7 +624,7 @@ The following areas are restricted - do NOT place the product in these zones:\n`
     }
 
     // Build the composite generation prompt
-    const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '', 500)
+    const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '')
     const prompt = `Compose these two images into a single professional product photograph:
 
 Image 1 (Product): This is the product that needs to be placed in the scene.

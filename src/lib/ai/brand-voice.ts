@@ -101,8 +101,8 @@ export async function extractVoiceFromText(
   samples: string[],
   lookAndFeel?: string
 ): Promise<BrandVoiceProfile> {
-  const safeSamples = samples.map(s => sanitizePromptMaxLength(s, 1000))
-  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
+  const safeSamples = samples.map(s => sanitizePromptMaxLength(s))
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '')
   const combinedSamples = safeSamples.map((s, i) => `Sample ${i + 1}:\n${s}`).join('\n\n---\n\n')
 
   const prompt = `You are a brand strategist and expert copywriter. Analyse these copy samples and extract the brand's tone of voice.
@@ -140,11 +140,11 @@ export async function extractVoiceFromQA(
   answers: QAAnswer[],
   lookAndFeel?: string
 ): Promise<BrandVoiceProfile> {
-  const safeAnswers = Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, sanitizePromptMaxLength(String((v as QAAnswer).answer ?? v), 500)]))
-  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
+  const safeAnswers = Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, sanitizePromptMaxLength(String((v as QAAnswer).answer ?? v))]))
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '')
   const formattedAnswers = answers
     .filter(a => a.answer.trim())
-    .map((a, i) => `Q: ${a.question}\nA: ${safeAnswers[i] ?? sanitizePromptMaxLength(a.answer, 500)}`)
+    .map((a, i) => `Q: ${a.question}\nA: ${safeAnswers[i] ?? sanitizePromptMaxLength(a.answer)}`)
     .join('\n\n')
 
   const prompt = `You are a brand strategist. A brand owner has answered questions about their brand's voice and personality. Synthesise their answers into a structured brand voice profile.
@@ -195,7 +195,7 @@ export async function extractVoiceFromImages(
     },
   }))
 
-  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '')
   parts.push({
     text: `You are a brand strategist analysing ad creatives. Study these advertisement images — look at any visible copy/text, the visual language, emotional tone, colour choices, and overall personality they project.
 
