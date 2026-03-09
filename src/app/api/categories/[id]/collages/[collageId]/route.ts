@@ -61,7 +61,19 @@ export async function PUT(
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
 
     if (body.name !== undefined) updateData.name = body.name
-    if (body.collage_data !== undefined) updateData.collage_data = body.collage_data
+    if (body.collage_data !== undefined) {
+      // Validate background_color if provided
+      if (body.collage_data?.background_color !== undefined) {
+        const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
+        if (!hexRegex.test(body.collage_data.background_color)) {
+          return NextResponse.json(
+            { error: 'background_color must be a valid hex color (e.g. #RRGGBB or #RGB)' },
+            { status: 400 }
+          )
+        }
+      }
+      updateData.collage_data = body.collage_data
+    }
     if (body.format !== undefined) {
       const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
         '1:1':  { width: 1080, height: 1080 },

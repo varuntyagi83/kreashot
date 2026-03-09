@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/categories/[id]/backgrounds/[backgroundId]/reformat
@@ -27,6 +28,14 @@ export async function POST(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before reformatting more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     // Fetch background with category info

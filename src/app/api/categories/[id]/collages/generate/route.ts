@@ -91,6 +91,15 @@ export async function POST(
         : layer.name,
     }))
 
+    const VALID_COLLAGE_LAYER_TYPES = ['image', 'text', 'overlay', 'background', 'background_color']
+    const validatedLayers = sanitizedLayers.filter((layer: any) => {
+      if (!VALID_COLLAGE_LAYER_TYPES.includes(layer?.type)) {
+        console.warn(`Skipping layer with invalid type: ${layer?.type}`)
+        return false
+      }
+      return true
+    })
+
     // Build copy_text from text layers (keyed by layer name)
     const copyText: Record<string, string> = {}
     for (const layer of layers) {
@@ -102,7 +111,7 @@ export async function POST(
     const outputPath = `/tmp/collage_${Date.now()}.png`
 
     const inputData = {
-      template_data: { layers: sanitizedLayers },
+      template_data: { layers: validatedLayers },
       composite_url: '',  // no composite — images come from layer source_urls
       copy_text: copyText,
       logo_url: null,

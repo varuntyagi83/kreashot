@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getStorageAdapter } from '@/lib/storage'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/categories/[id]/angled-shots/sync
@@ -23,6 +24,14 @@ export async function POST(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`angled-shots-sync:${user.id}`, 3, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before syncing again.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     // Verify category belongs to user

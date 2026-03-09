@@ -69,21 +69,41 @@ export async function POST(
     switch (method) {
       case 'text': {
         const { samples } = body
-        if (!samples || !Array.isArray(samples) || samples.filter((s: string) => s.trim()).length === 0) {
+        if (!samples || !Array.isArray(samples)) {
+          return NextResponse.json({ error: 'samples must be an array' }, { status: 400 })
+        }
+        if (samples.length === 0) {
           return NextResponse.json({ error: 'Provide at least one text sample' }, { status: 400 })
         }
-        console.log(`Extracting brand voice from ${samples.length} text samples for: ${category.name}`)
-        profile = await extractVoiceFromText(samples, contextLookAndFeel)
+        if (samples.length > 20) {
+          return NextResponse.json({ error: 'Maximum 20 samples allowed' }, { status: 400 })
+        }
+        const validSamples = samples
+          .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
+          .map((s: string) => s.slice(0, 2000))
+        if (validSamples.length === 0) {
+          return NextResponse.json({ error: 'Provide at least one non-empty text sample' }, { status: 400 })
+        }
+        console.log(`Extracting brand voice from ${validSamples.length} text samples for: ${category.name}`)
+        profile = await extractVoiceFromText(validSamples, contextLookAndFeel)
         break
       }
 
       case 'qa': {
         const { answers } = body
-        if (!answers || !Array.isArray(answers) || answers.filter((a: any) => a.answer?.trim()).length === 0) {
-          return NextResponse.json({ error: 'Provide answers to at least one question' }, { status: 400 })
+        if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
+          return NextResponse.json({ error: 'answers must be an object' }, { status: 400 })
         }
+        const answerEntries = Object.entries(answers)
+        if (answerEntries.length > 50) {
+          return NextResponse.json({ error: 'Too many answers (max 50)' }, { status: 400 })
+        }
+        // Cap each answer value at 1000 chars
+        const sanitizedAnswers = Object.fromEntries(
+          answerEntries.map(([k, v]) => [String(k).slice(0, 100), String(v || '').slice(0, 1000)])
+        )
         console.log(`Extracting brand voice from Q&A for: ${category.name}`)
-        profile = await extractVoiceFromQA(answers, contextLookAndFeel)
+        profile = await extractVoiceFromQA(sanitizedAnswers, contextLookAndFeel)
         break
       }
 

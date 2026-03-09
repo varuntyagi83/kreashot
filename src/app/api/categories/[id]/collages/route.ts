@@ -57,6 +57,17 @@ export async function POST(
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
 
+    // Validate background_color if provided
+    if (collage_data?.background_color !== undefined) {
+      const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
+      if (!hexRegex.test(collage_data.background_color)) {
+        return NextResponse.json(
+          { error: 'background_color must be a valid hex color (e.g. #RRGGBB or #RGB)' },
+          { status: 400 }
+        )
+      }
+    }
+
     const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
       '1:1':  { width: 1080, height: 1080 },
       '16:9': { width: 1920, height: 1080 },
