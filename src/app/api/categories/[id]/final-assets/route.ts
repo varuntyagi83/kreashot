@@ -357,6 +357,10 @@ export async function POST(
         let stdout = ''
         let stderr = ''
 
+        if (!python.stdin || !python.stdout || !python.stderr) {
+          reject(new Error('Failed to open Python stdio streams'))
+          return
+        }
         python.stdin.write(JSON.stringify(inputData))
         python.stdin.end()
 
