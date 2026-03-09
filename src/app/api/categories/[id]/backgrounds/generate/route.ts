@@ -86,16 +86,16 @@ export async function POST(
       )
     }
 
-    if (typeof resolvedPrompt === 'string' && resolvedPrompt.length > 1000) {
+    if (typeof resolvedPrompt === 'string' && resolvedPrompt.length > 3000) {
       return NextResponse.json(
-        { error: 'prompt must be 1000 characters or fewer' },
+        { error: 'prompt must be 3000 characters or fewer' },
         { status: 400 }
       )
     }
 
-    if (lookAndFeel && typeof lookAndFeel === 'string' && lookAndFeel.length > 1000) {
+    if (lookAndFeel && typeof lookAndFeel === 'string' && lookAndFeel.length > 2000) {
       return NextResponse.json(
-        { error: 'lookAndFeel must be 1000 characters or fewer' },
+        { error: 'lookAndFeel must be 2000 characters or fewer' },
         { status: 400 }
       )
     }
