@@ -62,6 +62,11 @@ export async function POST(
 
     const body = await request.json()
     const { method, lookAndFeel } = body
+
+    if (lookAndFeel && typeof lookAndFeel === 'string' && lookAndFeel.length > 1000) {
+      return NextResponse.json({ error: 'lookAndFeel must be 1000 characters or fewer' }, { status: 400 })
+    }
+
     const contextLookAndFeel = lookAndFeel || category.look_and_feel || undefined
 
     let profile

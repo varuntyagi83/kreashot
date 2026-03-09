@@ -66,6 +66,10 @@ export async function POST(
       return NextResponse.json({ error: 'Too many pairs. Maximum 20 allowed per request.' }, { status: 400 })
     }
 
+    if (userPrompt && typeof userPrompt === 'string' && userPrompt.length > 1000) {
+      return NextResponse.json({ error: 'userPrompt must be 1000 characters or fewer' }, { status: 400 })
+    }
+
     // Validate format whitelist
     const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
     if (format && !VALID_FORMATS.includes(format)) {
