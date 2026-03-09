@@ -83,9 +83,11 @@ export async function POST(
         if (samples.length > 20) {
           return NextResponse.json({ error: 'Maximum 20 samples allowed' }, { status: 400 })
         }
-        const validSamples = samples
-          .filter((s: any) => typeof s === 'string' && s.trim().length > 0)
-          .map((s: string) => s.slice(0, 2000))
+        const tooLong = samples.findIndex((s: any) => typeof s === 'string' && s.length > 2000)
+        if (tooLong !== -1) {
+          return NextResponse.json({ error: `Sample ${tooLong + 1} exceeds 2000 characters` }, { status: 400 })
+        }
+        const validSamples = samples.filter((s: any) => typeof s === 'string' && s.trim().length > 0)
         if (validSamples.length === 0) {
           return NextResponse.json({ error: 'Provide at least one non-empty text sample' }, { status: 400 })
         }
@@ -103,10 +105,15 @@ export async function POST(
         if (answerEntries.length > 50) {
           return NextResponse.json({ error: 'Too many answers (max 50)' }, { status: 400 })
         }
-        // Cap each answer value at 1000 chars
-        const sanitizedAnswers = Object.fromEntries(
-          answerEntries.map(([k, v]) => [String(k).slice(0, 100), String(v || '').slice(0, 1000)])
-        )
+        const longKey = answerEntries.find(([k]) => String(k).length > 100)
+        if (longKey) {
+          return NextResponse.json({ error: 'Answer keys must be 100 characters or fewer' }, { status: 400 })
+        }
+        const longValue = answerEntries.find(([, v]) => String(v || '').length > 1000)
+        if (longValue) {
+          return NextResponse.json({ error: 'Answer values must be 1000 characters or fewer' }, { status: 400 })
+        }
+        const sanitizedAnswers = Object.fromEntries(answerEntries)
         console.log(`Extracting brand voice from Q&A for: ${category.name}`)
         profile = await extractVoiceFromQA(sanitizedAnswers, contextLookAndFeel)
         break

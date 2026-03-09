@@ -81,15 +81,15 @@ export async function POST(
         ]
 
     const MAX_LAYER_TEXT = 500
-    const sanitizedLayers = (effectiveLayers || []).map((layer: any) => ({
-      ...layer,
-      text_content: typeof layer.text_content === 'string'
-        ? layer.text_content.slice(0, MAX_LAYER_TEXT)
-        : layer.text_content,
-      name: typeof layer.name === 'string'
-        ? layer.name.slice(0, 100)
-        : layer.name,
-    }))
+    for (const layer of (effectiveLayers || [])) {
+      if (typeof layer.text_content === 'string' && layer.text_content.length > MAX_LAYER_TEXT) {
+        return NextResponse.json({ error: `Layer text_content exceeds ${MAX_LAYER_TEXT} characters` }, { status: 400 })
+      }
+      if (typeof layer.name === 'string' && layer.name.length > 100) {
+        return NextResponse.json({ error: 'Layer name must be 100 characters or fewer' }, { status: 400 })
+      }
+    }
+    const sanitizedLayers = effectiveLayers || []
 
     const VALID_COLLAGE_LAYER_TYPES = ['image', 'text', 'overlay', 'background', 'background_color']
     const validatedLayers = sanitizedLayers.filter((layer: any) => {
