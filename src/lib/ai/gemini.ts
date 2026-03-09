@@ -85,7 +85,7 @@ export async function generateAngledShots(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
     // Convert base64 image to proper format
     const base64Data = productImageData.replace(/^data:image\/\w+;base64,/, '')
@@ -155,7 +155,7 @@ RULES:
             responseModalities: ['IMAGE'],
             imageConfig: {
               aspectRatio: aspectRatio,
-              imageSize: '2K'
+              imageSize: '4K'
             }
           }
         }
@@ -235,7 +235,7 @@ export async function generateBackgrounds(
   count: number = 1,
   styleReferenceImages?: Array<{ data: string; mimeType: string }>,
   aspectRatio: string = '1:1',
-  imageSize: string = '2K',
+  imageSize: string = '4K',
   brandGuidelines?: string,
   brandColorDescription?: string // Pre-computed natural-language color description (from DB)
 ): Promise<
@@ -251,7 +251,7 @@ export async function generateBackgrounds(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
     const safeLookAndFeel = sanitizeForPrompt(lookAndFeel || '')
     const CONCURRENCY = 3
@@ -462,7 +462,7 @@ export async function regenerateBackgroundInFormat(
   sourceImageData: string,
   sourceMimeType: string,
   targetAspectRatio: string,
-  imageSize: string = '2K'
+  imageSize: string = '4K'
 ): Promise<{
   promptUsed: string
   imageData: string
@@ -473,7 +473,7 @@ export async function regenerateBackgroundInFormat(
     throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
   }
 
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
+  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
   const base64Data = sourceImageData.replace(/^data:image\/\w+;base64,/, '')
 
@@ -587,7 +587,7 @@ export async function generateComposite(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
     // Build safe zone instructions if provided
     let safeZoneInstructions = ''
@@ -711,7 +711,7 @@ Think of yourself as operating a camera, not Photoshop. You photograph what exis
         responseModalities: ['IMAGE'],
         imageConfig: {
           aspectRatio: aspectRatio, // ✅ Enforce aspect ratio (calculated from canvas dimensions)
-          imageSize: '2K' // ✅ Control output resolution
+          imageSize: '4K' // ✅ Control output resolution
         }
       }
     }
