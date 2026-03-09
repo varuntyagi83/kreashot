@@ -3,6 +3,7 @@ export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
 import { downloadFile, uploadFile } from '@/lib/storage'
@@ -34,6 +35,14 @@ export async function POST(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before generating more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     const { data: category } = await supabase
@@ -238,7 +247,7 @@ export async function POST(
   } catch (error) {
     console.error('Error generating angled shots:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to generate angled shots' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

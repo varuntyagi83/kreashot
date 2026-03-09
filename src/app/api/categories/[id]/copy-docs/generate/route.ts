@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { generateCopyVariations, generateCopyKit, CopyType } from '@/lib/ai/openai'
 
 const VALID_COPY_TYPES: CopyType[] = ['hook', 'cta', 'body', 'tagline', 'headline']
@@ -15,6 +16,14 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`copy-docs:${user.id}`, 20, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before generating more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     // Fetch category including all brand context fields
@@ -54,6 +63,9 @@ export async function POST(
 
       if (!copyTypes || !Array.isArray(copyTypes) || copyTypes.length === 0) {
         return NextResponse.json({ error: 'copyTypes array is required for kit mode' }, { status: 400 })
+      }
+      if (copyTypes.length > 10) {
+        return NextResponse.json({ error: 'copyTypes array cannot exceed 10 items' }, { status: 400 })
       }
       if (!tones || !Array.isArray(tones) || tones.length === 0) {
         return NextResponse.json({ error: 'tones array is required for kit mode' }, { status: 400 })
@@ -97,8 +109,9 @@ export async function POST(
     // ── SINGLE MODE: one type, one tone, N variations (backwards compatible) ─
     const { copyType = 'hook', count = 1, tone, targetAudience } = body
 
-    if (count < 1 || count > 5) {
-      return NextResponse.json({ error: 'count must be between 1 and 5' }, { status: 400 })
+    const countNum = typeof count === 'number' ? count : parseInt(String(count), 10)
+    if (!Number.isFinite(countNum) || countNum < 1 || countNum > 5) {
+      return NextResponse.json({ error: 'count must be an integer between 1 and 5' }, { status: 400 })
     }
     if (!VALID_COPY_TYPES.includes(copyType as CopyType)) {
       return NextResponse.json(
@@ -107,13 +120,13 @@ export async function POST(
       )
     }
 
-    console.log(`Generating ${count} ${copyType} variations for category: ${category.slug}`)
+    console.log(`Generating ${countNum} ${copyType} variations for category: ${category.slug}`)
 
     const results = await generateCopyVariations(
       brief,
       copyType as CopyType,
       category.look_and_feel || '',
-      count,
+      countNum,
       tone,
       targetAudience,
       category.brand_guidelines || undefined,
@@ -134,7 +147,7 @@ export async function POST(
   } catch (error: any) {
     console.error('Error generating copy:', error)
     return NextResponse.json(
-      { error: error.message || 'Internal server error' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 
+function detectMimeFromBytes(buffer: Buffer): string | null {
+  if (buffer.length < 12) return null
+  // JPEG
+  if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) return 'image/jpeg'
+  // PNG
+  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png'
+  // WebP: RIFF????WEBP
+  if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
+      buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50) return 'image/webp'
+  // PDF
+  if (buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46) return 'application/pdf'
+  // WOFF
+  if (buffer[0] === 0x77 && buffer[1] === 0x4F && buffer[2] === 0x46 && buffer[3] === 0x46) return 'font/woff'
+  // WOFF2
+  if (buffer[0] === 0x77 && buffer[1] === 0x4F && buffer[2] === 0x46 && buffer[3] === 0x32) return 'font/woff2'
+  // OTF
+  if (buffer[0] === 0x4F && buffer[1] === 0x54 && buffer[2] === 0x54 && buffer[3] === 0x4F) return 'font/otf'
+  // TTF
+  if (buffer[0] === 0x00 && buffer[1] === 0x01 && buffer[2] === 0x00 && buffer[3] === 0x00) return 'font/ttf'
+  // SVG (XML text)
+  const head = buffer.slice(0, 64).toString('utf-8').trimStart()
+  if (head.startsWith('<?xml') || head.startsWith('<svg') || head.includes('<svg')) return 'image/svg+xml'
+  return null
+}
+
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -27,12 +52,14 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-assets GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ assets })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[brand-assets GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -86,6 +113,16 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
+    // Validate file content via magic bytes
+    const detectedMime = detectMimeFromBytes(buffer)
+    const ALLOWED_MIME_BYTES = [
+      'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',
+      'font/woff', 'font/woff2', 'font/otf', 'font/ttf',
+    ]
+    if (detectedMime && !ALLOWED_MIME_BYTES.includes(detectedMime)) {
+      return NextResponse.json({ error: 'File content does not match an allowed type' }, { status: 400 })
+    }
+
     // Generate path for GDrive: brand-assets/{asset_type}/{slug}_{timestamp}.{ext}
     const slug = generateSlug(name)
     const fileExt = file.name.split('.').pop() || 'png'
@@ -138,7 +175,8 @@ export async function POST(request: NextRequest) {
       } catch (cleanupErr) {
         console.error('Failed to clean up orphaned GDrive file:', cleanupErr)
       }
-      return NextResponse.json({ error: dbError.message }, { status: 500 })
+      console.error('[brand-assets POST] dbError:', dbError)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     const publicUrl = storageUrl
@@ -166,6 +204,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ asset }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[brand-assets POST] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

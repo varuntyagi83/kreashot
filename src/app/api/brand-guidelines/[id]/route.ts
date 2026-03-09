@@ -25,12 +25,14 @@ export async function GET(
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-guidelines/[id] GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ guideline })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to get brand guideline' }, { status: 500 })
+    console.error('[brand-guidelines/[id] GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -78,7 +80,8 @@ export async function PUT(
       if (error.code === '23505') {
         return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-guidelines/[id] PUT] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     // Update asset_references display_name if name changed
@@ -92,7 +95,8 @@ export async function PUT(
 
     return NextResponse.json({ guideline })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to update brand guideline' }, { status: 500 })
+    console.error('[brand-guidelines/[id] PUT] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -124,11 +128,13 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-guidelines/[id] DELETE] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'Brand guideline deleted' })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to delete brand guideline' }, { status: 500 })
+    console.error('[brand-guidelines/[id] DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

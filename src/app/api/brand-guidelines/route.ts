@@ -29,7 +29,8 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-guidelines GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -46,7 +47,8 @@ export async function GET() {
       })),
     })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to list brand guidelines' }, { status: 500 })
+    console.error('[brand-guidelines GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -126,7 +128,8 @@ export async function POST(request: NextRequest) {
       if (error.code === '23505') {
         return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-guidelines POST] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     // Also register in asset_references for @ search
@@ -159,6 +162,7 @@ export async function POST(request: NextRequest) {
       },
     }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to save brand guidelines' }, { status: 500 })
+    console.error('[brand-guidelines POST] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

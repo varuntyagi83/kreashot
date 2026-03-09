@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
     const { data: images, error } = await query.order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[fix-image-formats] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!images || images.length === 0) {

@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     if (fetchError) {
       console.error('Error fetching deletion queue:', fetchError)
-      return NextResponse.json({ error: fetchError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!queuedFiles || queuedFiles.length === 0) {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
           results.push({
             path: file.storage_path,
             success: false,
-            error: error.message
+            error: 'Deletion failed'
           })
         }
       }
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error processing deletions:', error)
     return NextResponse.json({
-      error: error.message
+      error: 'Internal server error'
     }, { status: 500 })
   }
 }
@@ -158,7 +158,8 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[process-deletions GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -167,8 +168,9 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error: any) {
+    console.error('[process-deletions GET] error:', error)
     return NextResponse.json({
-      error: error.message
+      error: 'Internal server error'
     }, { status: 500 })
   }
 }

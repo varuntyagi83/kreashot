@@ -29,7 +29,8 @@ export async function GET(
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[collages GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
   return NextResponse.json({ collages: data })
@@ -80,12 +81,12 @@ export async function POST(
 
     if (error) {
       console.error('Failed to create collage:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ collage, message: 'Collage created successfully' })
   } catch (error: any) {
     console.error('Error creating collage:', error)
-    return NextResponse.json({ error: error.message || 'Failed to create collage' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

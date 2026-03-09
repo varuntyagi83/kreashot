@@ -92,7 +92,7 @@ export async function POST(
   } catch (error: any) {
     console.error('Error processing brand guidelines PDF:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to process PDF' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -133,7 +133,8 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Brand guidelines removed' })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to remove brand guidelines' }, { status: 500 })
+    console.error('[brand-docs DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 

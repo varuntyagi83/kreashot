@@ -25,12 +25,14 @@ export async function GET(
       if (error.code === 'PGRST116') {
         return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-assets/[id] GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ asset })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[brand-assets/[id] GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -59,7 +61,8 @@ export async function DELETE(
       if (fetchError.code === 'PGRST116') {
         return NextResponse.json({ error: 'Asset not found' }, { status: 404 })
       }
-      return NextResponse.json({ error: fetchError.message }, { status: 500 })
+      console.error('[brand-assets/[id] DELETE] fetchError:', fetchError)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     // Delete from storage
@@ -88,11 +91,13 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 })
+      console.error('[brand-assets/[id] DELETE] deleteError:', deleteError)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'Asset deleted successfully' })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[brand-assets/[id] DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

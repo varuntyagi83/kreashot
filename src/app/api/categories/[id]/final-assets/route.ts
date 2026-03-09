@@ -10,6 +10,27 @@ import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
 
+const ALLOWED_FONT_DOMAINS = [
+  'lh3.googleusercontent.com',
+  'drive.google.com',
+  'drive.usercontent.google.com',
+  'fonts.gstatic.com',
+  'fonts.googleapis.com',
+]
+
+function isAllowedUrl(url: string): boolean {
+  if (!url) return false
+  if (url.startsWith('data:')) return true
+  try {
+    const parsed = new URL(url)
+    if (!['https:', 'http:'].includes(parsed.protocol)) return false
+    const hostname = parsed.hostname.toLowerCase()
+    return ALLOWED_FONT_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+  } catch {
+    return false
+  }
+}
+
 // GET - Fetch all final assets for category
 export async function GET(
   request: NextRequest,
@@ -22,6 +43,18 @@ export async function GET(
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  // Verify this category belongs to the authenticated user
+  const { data: category } = await supabase
+    .from('categories')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!category) {
+    return NextResponse.json({ error: 'Category not found' }, { status: 404 })
   }
 
   let query = supabase
@@ -37,7 +70,8 @@ export async function GET(
   const { data, error } = await query
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    console.error('[final-assets GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
   return NextResponse.json({ finalAssets: data })
@@ -201,6 +235,10 @@ export async function POST(
     const fontCleanup: string[] = []
     for (const layer of template.template_data.layers || []) {
       if (layer.type === 'text' && layer.font_url) {
+        if (!isAllowedUrl(layer.font_url)) {
+          console.warn(`Skipping font_url not in allowlist: ${layer.font_url}`)
+          continue
+        }
         try {
           console.log(`🔤 Pre-downloading font: ${layer.font_url.substring(0, 80)}...`)
           const fontRes = await fetch(layer.font_url)
@@ -343,7 +381,7 @@ export async function POST(
   } catch (error: any) {
     console.error('❌ Error generating final asset:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to generate final asset' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

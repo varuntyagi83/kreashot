@@ -149,10 +149,7 @@ export async function POST(
   } catch (error) {
     console.error('Error during sync:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error during sync',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

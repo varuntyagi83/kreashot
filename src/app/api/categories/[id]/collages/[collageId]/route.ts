@@ -83,13 +83,13 @@ export async function PUT(
 
     if (error) {
       console.error('Failed to update collage:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ collage })
   } catch (error: any) {
     console.error('Error updating collage:', error)
-    return NextResponse.json({ error: error.message || 'Failed to update collage' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -133,6 +133,6 @@ export async function DELETE(
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error deleting collage:', error)
-    return NextResponse.json({ error: error.message || 'Failed to delete collage' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

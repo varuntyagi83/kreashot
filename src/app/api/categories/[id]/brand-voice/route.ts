@@ -121,7 +121,7 @@ export async function POST(
   } catch (error: any) {
     console.error('Error extracting brand voice:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to extract brand voice' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }
@@ -156,6 +156,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: 'Brand voice profile cleared' })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to clear brand voice' }, { status: 500 })
+    console.error('[brand-voice DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

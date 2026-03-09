@@ -19,7 +19,8 @@ export async function GET() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-voices GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({
@@ -34,7 +35,8 @@ export async function GET() {
       })),
     })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to list brand voices' }, { status: 500 })
+    console.error('[brand-voices GET] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -79,11 +81,13 @@ export async function POST(request: NextRequest) {
       if (error.code === '23505') {
         return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-voices POST] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ voice }, { status: 201 })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to save brand voice' }, { status: 500 })
+    console.error('[brand-voices POST] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -18,7 +18,7 @@ export async function GET(
 
     if (error) {
       console.error('Error fetching template:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!template) {
@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ template })
   } catch (error: any) {
     console.error('Error in template GET:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -90,7 +90,7 @@ export async function PUT(
 
     if (error) {
       console.error('Error updating template:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!template) {
@@ -159,7 +159,7 @@ export async function PUT(
     return NextResponse.json({ template })
   } catch (error: any) {
     console.error('Error in template PUT:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -189,12 +189,12 @@ export async function DELETE(
 
     if (error) {
       console.error('Error deleting template:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true }, { status: 200 })
   } catch (error: any) {
     console.error('Error in template DELETE:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
@@ -27,6 +28,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const rateLimit = checkRateLimit(`backgrounds:${user.id}`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before generating more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
+    }
+
     // Verify category belongs to user and get look_and_feel + brand_guidelines
     const { data: category } = await supabase
       .from('categories')
@@ -51,6 +60,12 @@ export async function POST(
       format = '1:1',     // Legacy: single format (backwards compatible)
       colorWorld,         // NEW: Selected color world (e.g. "World of Green palette")
     } = body
+
+    // Validate format whitelist
+    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
+    if (format && !VALID_FORMATS.includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    }
 
     // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
     const resolvedPrompt = prompt || userPrompt
@@ -337,12 +352,7 @@ export async function POST(
   } catch (error) {
     console.error('Error generating backgrounds:', error)
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to generate backgrounds',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

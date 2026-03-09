@@ -178,7 +178,7 @@ export async function POST(
   } catch (error: any) {
     console.error('❌ Error generating collage:', error)
     return NextResponse.json(
-      { error: error.message || 'Failed to generate collage' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

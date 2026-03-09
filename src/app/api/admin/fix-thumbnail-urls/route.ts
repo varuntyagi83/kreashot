@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
       .like('storage_url', '%drive.google.com/thumbnail%')
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[fix-thumbnail-urls] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     if (!backgrounds || backgrounds.length === 0) {

@@ -138,14 +138,14 @@ export async function POST(
 
         if (dbError) {
           console.error(`  DB error for ${fmt}:`, dbError)
-          results.push({ format: fmt, backgroundId: '', name: newName, success: false, error: dbError.message })
+          results.push({ format: fmt, backgroundId: '', name: newName, success: false, error: 'Failed to save reformatted background' })
         } else {
           console.log(`  Saved ${fmt} background: ${newBg.id}`)
           results.push({ format: fmt, backgroundId: newBg.id, name: newName, success: true })
         }
       } catch (error: any) {
         console.error(`  Error reformatting to ${fmt}:`, error)
-        results.push({ format: fmt, backgroundId: '', name: '', success: false, error: error.message })
+        results.push({ format: fmt, backgroundId: '', name: '', success: false, error: 'Reformat failed' })
       }
     }
 
@@ -158,7 +158,7 @@ export async function POST(
   } catch (error) {
     console.error('Error in reformat:', error)
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to reformat background' },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

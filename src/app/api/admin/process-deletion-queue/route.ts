@@ -123,10 +123,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error processing deletion queue:', error)
     return NextResponse.json(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: 'Internal server error' },
       { status: 500 }
     )
   }

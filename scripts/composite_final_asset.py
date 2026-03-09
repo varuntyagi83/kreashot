@@ -25,6 +25,35 @@ except ImportError:
     _ssl_ctx.check_hostname = False
     _ssl_ctx.verify_mode = ssl.CERT_NONE
 
+from urllib.parse import urlparse
+
+# ── Security: URL allowlist ──────────────────────────────────────────────────
+_ALLOWED_DOMAINS = {
+    'lh3.googleusercontent.com',
+    'drive.google.com',
+    'drive.usercontent.google.com',
+    'fonts.gstatic.com',
+    'fonts.googleapis.com',
+}
+
+def _is_allowed_url(url: str) -> bool:
+    """Return True if the URL is safe to fetch (allowlisted domain or data URI)."""
+    if not url:
+        return False
+    if url.startswith('data:'):
+        return True
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ('https', 'http'):
+            return False
+        hostname = (parsed.hostname or '').lower()
+        return any(
+            hostname == d or hostname.endswith('.' + d)
+            for d in _ALLOWED_DOMAINS
+        )
+    except Exception:
+        return False
+
 
 def remove_white_background(img, threshold=225):
     """Remove white/near-white background from a product image using flood-fill.
@@ -96,6 +125,8 @@ def remove_white_background(img, threshold=225):
 def download_image(url):
     """Download image from URL and return PIL Image.
     Handles both HTTP(S) URLs and data: URIs (base64-encoded inline images)."""
+    if not _is_allowed_url(url):
+        raise ValueError(f"URL not allowed by security policy: {url}")
     if url.startswith('data:'):
         # Parse data URI: data:[<mediatype>][;base64],<data>
         header, data = url.split(',', 1)
@@ -123,6 +154,8 @@ def _is_dark_color(hex_color):
 def download_font(url):
     """Download a font file from URL to /tmp/ and return the local path.
     Results are cached so the same font URL is only downloaded once per run."""
+    if not _is_allowed_url(url):
+        raise ValueError(f"Font URL not allowed by security policy: {url}")
     if url in _font_cache:
         return _font_cache[url]
 
@@ -585,6 +618,10 @@ if __name__ == '__main__':
     copy_text = input_data['copy_text']
     logo_url = input_data.get('logo_url')
     output_path = input_data.get('output_path', '/tmp/final_asset.png')
+    import os as _os
+    output_path = _os.path.abspath(output_path)
+    if not output_path.startswith('/tmp/'):
+        raise ValueError(f"output_path must be within /tmp/, got: {output_path}")
     width = input_data.get('width', 1080)
     height = input_data.get('height', 1080)
 

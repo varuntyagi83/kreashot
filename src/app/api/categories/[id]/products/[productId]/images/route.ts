@@ -44,7 +44,8 @@ export async function GET(
       .order('created_at', { ascending: true })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[product images GET] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     // Get public URLs for the images (use Google Drive URLs if available)

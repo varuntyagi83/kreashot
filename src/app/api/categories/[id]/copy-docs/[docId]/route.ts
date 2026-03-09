@@ -54,7 +54,7 @@ export async function DELETE(
     if (deleteError) {
       console.error('Delete error:', deleteError)
       return NextResponse.json(
-        { error: deleteError.message },
+        { error: 'Internal server error' },
         { status: 500 }
       )
     }

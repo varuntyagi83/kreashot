@@ -32,13 +32,13 @@ export async function GET(
 
     if (error) {
       console.error('Error fetching templates:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ templates })
   } catch (error: any) {
     console.error('Error in templates GET:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -108,7 +108,7 @@ export async function POST(
 
     if (error) {
       console.error('Error creating template:', error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     // Upload template JSON to Google Drive
@@ -143,6 +143,6 @@ export async function POST(
     }
   } catch (error: any) {
     console.error('Error in templates POST:', error)
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

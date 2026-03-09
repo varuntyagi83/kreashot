@@ -46,12 +46,14 @@ export async function PUT(
       if (error.code === '23505') {
         return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
       }
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-voices/[id] PUT] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ voice })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to update brand voice' }, { status: 500 })
+    console.error('[brand-voices/[id] PUT] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -75,11 +77,13 @@ export async function DELETE(
       .eq('user_id', user.id)
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      console.error('[brand-voices/[id] DELETE] error:', error)
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
     return NextResponse.json({ message: 'Brand voice deleted' })
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Failed to delete brand voice' }, { status: 500 })
+    console.error('[brand-voices/[id] DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
