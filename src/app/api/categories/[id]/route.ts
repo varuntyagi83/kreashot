@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -277,6 +278,10 @@ export async function DELETE(
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
     console.log(`[audit] DELETE category ${id} by user ${user.id} at ${new Date().toISOString()}`)
 

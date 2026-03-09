@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * DELETE /api/categories/[id]/final-assets/[assetId]
@@ -16,6 +17,10 @@ export async function DELETE(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
     // Verify asset belongs to user

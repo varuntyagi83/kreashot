@@ -3,6 +3,7 @@ import { ANGLE_VARIATIONS } from './angle-variations'
 import type { BrandVoiceProfile } from './brand-voice'
 import { formatBrandVoiceForPrompt } from './brand-voice'
 import type { CopyType, CopyVariation, CopyKitItem } from './openai'
+import { sanitizePromptMaxLength } from './sanitize'
 
 // Lazy initialization of Gemini AI client
 let genAI: GoogleGenerativeAI | null = null
@@ -100,13 +101,14 @@ export async function generateAngledShots(
       const batchResults = await Promise.all(batch.map(async (angle) => {
       console.log(`  → Starting ${angle.name}...`)
 
+      const safePrompt = sanitizePromptMaxLength(lookAndFeel || '', 500)
       const prompt = `TASK: Re-photograph this product from a COMPLETELY DIFFERENT camera angle.
 
 CAMERA POSITION:
 ${angle.prompt}
 
 Target view: ${angle.description}
-${lookAndFeel ? `\nSTYLE: ${lookAndFeel}` : ''}
+${safePrompt ? `\nSTYLE: ${safePrompt}` : ''}
 
 The output image MUST show a visually DISTINCT perspective from the input image.
 If the input shows the front, and the target is a side view, the front label should NOT be the main visible face.
@@ -161,9 +163,12 @@ RULES:
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 120000)
 
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`${GEMINI_API_URL}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY,
+          },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
         })
@@ -248,6 +253,7 @@ export async function generateBackgrounds(
 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent'
 
+    const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
     const CONCURRENCY = 3
     console.log(`Generating ${count} ${aspectRatio} backgrounds (${CONCURRENCY} at a time)...`)
     const indices = Array.from({ length: count }, (_, i) => i)
@@ -260,17 +266,18 @@ export async function generateBackgrounds(
       // Build the background generation prompt
       // Use pre-computed color description if available (saved at upload time in brand_guidelines.color_description)
       const colorDesc = brandColorDescription || ''
+      const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '', 500)
 
       // Detect flat/solid color requests — these must bypass all photorealism/shadow directives
-      const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(userPrompt)
+      const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(safeUserPrompt)
 
       // Detect when the user explicitly requests people, faces, or models in the scene
-      const requestsPeople = /\b(female|male|woman|man|girl|boy|person|people|model|face|portrait|human|child|kid|baby|lady|gentleman|couple|group)\b/i.test(userPrompt)
+      const requestsPeople = /\b(female|male|woman|man|girl|boy|person|people|model|face|portrait|human|child|kid|baby|lady|gentleman|couple|group)\b/i.test(safeUserPrompt)
 
       const prompt = isFlatColor
         ? `Generate a completely flat, uniform solid color background image.
 
-Exact color specification: ${userPrompt}
+Exact color specification: ${safeUserPrompt}
 
 STRICT REQUIREMENTS — NO EXCEPTIONS:
 - Completely flat, 100% uniform fill — every pixel the same color
@@ -286,9 +293,9 @@ ${colorDesc}
 The dominant surface color (wall, backdrop) MUST be this exact color — a confident, clearly visible mid-tone. Not washed out, not pale, not faded, not gray. The hue must be unmistakable and saturated enough to be immediately recognizable.
 ` : ''}Create a hyper-realistic ${aspectRatio} product photography background — a real photograph, not a render.
 
-Category Style: ${lookAndFeel}
+Category Style: ${safeLookAndFeel}
 
-User Request: ${userPrompt}
+User Request: ${safeUserPrompt}
 
 PHOTOREALISM DIRECTIVES:
 - Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9), RAW photo, 8K resolution
@@ -382,10 +389,11 @@ QUALITY STANDARD:
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 120000)
 
-        const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+        const response = await fetch(`${GEMINI_API_URL}`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-goog-api-key': GEMINI_API_KEY,
           },
           body: JSON.stringify(requestBody),
           signal: controller.signal,
@@ -500,9 +508,12 @@ export async function regenerateBackgroundInFormat(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120000)
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
     body: JSON.stringify(requestBody),
     signal: controller.signal,
   })
@@ -613,18 +624,19 @@ The following areas are restricted - do NOT place the product in these zones:\n`
     }
 
     // Build the composite generation prompt
+    const safeUserPrompt = sanitizePromptMaxLength(userPrompt || '', 500)
     const prompt = `Compose these two images into a single professional product photograph:
 
 Image 1 (Product): This is the product that needs to be placed in the scene.
 Image 2 (Background): This is the background scene/environment.
 
-${userPrompt ? `USER INSTRUCTION: ${userPrompt}\n\n` : ''}${lookAndFeel ? `STYLE GUIDELINE: ${lookAndFeel}\n\n` : ''}${safeZoneInstructions}
+${safeUserPrompt ? `USER INSTRUCTION: ${safeUserPrompt}\n\n` : ''}${lookAndFeel ? `STYLE GUIDELINE: ${lookAndFeel}\n\n` : ''}${safeZoneInstructions}
 
 COMPOSITING INSTRUCTIONS:
 
 WHAT YOU SHOULD DO:
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE - This is the most important requirement!' : 'Place the product NATURALLY in the background scene'}
-✓ ${userPrompt ? `Follow user instruction: ${userPrompt}` : 'Position the product naturally in the scene'}
+✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
 ✓ Match the product's lighting to the background's lighting
 ✓ Add natural shadows and reflections where the product touches surfaces
 ✓ Make it look like the product was photographed IN that background, not pasted on
@@ -708,10 +720,11 @@ Think of yourself as operating a camera, not Photoshop. You photograph what exis
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 120000)
 
-    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+    const response = await fetch(`${GEMINI_API_URL}`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
       },
       body: JSON.stringify(requestBody),
       signal: controller.signal,

@@ -3,6 +3,17 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
+import { checkRateLimit } from '@/lib/rate-limit'
+
+function detectImageMime(buf: Buffer): string | null {
+  if (buf.length < 12) return null
+  if (buf[0]===0xFF && buf[1]===0xD8 && buf[2]===0xFF) return 'image/jpeg'
+  if (buf[0]===0x89 && buf[1]===0x50 && buf[2]===0x4E && buf[3]===0x47) return 'image/png'
+  if (buf[0]===0x52 && buf[1]===0x49 && buf[2]===0x46 && buf[3]===0x46 &&
+      buf[8]===0x57 && buf[9]===0x45 && buf[10]===0x42 && buf[11]===0x50) return 'image/webp'
+  if (buf[0]===0x47 && buf[1]===0x49 && buf[2]===0x46) return 'image/gif'
+  return null
+}
 
 // GET /api/categories/[id]/products/[productId]/images - List product images
 export async function GET(
@@ -96,6 +107,11 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const rateLimit = checkRateLimit(`upload:${user.id}`, 20, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Upload rate limit exceeded' }, { status: 429 })
+    }
+
     // Verify product belongs to user's category and get slugs
     const { data: product } = await supabase
       .from('products')
@@ -139,8 +155,21 @@ export async function POST(
         continue
       }
 
+      const MAX_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB
+      if (file.size > MAX_IMAGE_SIZE) {
+        return NextResponse.json({ error: 'Image too large (max 20MB)' }, { status: 400 })
+      }
+
       // Convert file to buffer
       const buffer = Buffer.from(await file.arrayBuffer())
+
+      const detectedMime = detectImageMime(buffer)
+      if (detectedMime && !['image/jpeg','image/png','image/webp','image/gif'].includes(detectedMime)) {
+        return NextResponse.json({ error: 'Invalid image file content' }, { status: 400 })
+      }
+      if (!detectedMime && !file.type.startsWith('image/')) {
+        return NextResponse.json({ error: 'Invalid image file' }, { status: 400 })
+      }
 
       // Detect actual image dimensions and determine the correct format
       let detectedFormat = clientFormat || '1:1'

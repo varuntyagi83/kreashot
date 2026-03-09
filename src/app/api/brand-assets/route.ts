@@ -84,6 +84,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    if (!name || name.trim().length === 0) {
+      return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    }
+    if (name.length > 100) {
+      return NextResponse.json({ error: 'Name must be 100 characters or fewer' }, { status: 400 })
+    }
+
     // Validate file type
     const ALLOWED_TYPES = [
       'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',

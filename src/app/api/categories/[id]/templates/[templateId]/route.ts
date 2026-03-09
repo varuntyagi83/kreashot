@@ -1,19 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; templateId: string }> }
 ) {
   try {
-    const { templateId } = await params
+    const { id: categoryId, templateId } = await params
     const supabase = await createServerSupabaseClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', categoryId)
+      .eq('user_id', user.id)
+      .single()
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
 
     const { data: template, error } = await supabase
       .from('templates')
       .select('*')
       .eq('id', templateId)
+      .eq('category_id', categoryId)
       .single()
 
     if (error) {
@@ -64,6 +84,7 @@ export async function PUT(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
+      .eq('user_id', user.id)
       .single()
 
     const categorySlug = category?.slug || 'unknown'
@@ -178,6 +199,10 @@ export async function DELETE(
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
     // Delete template

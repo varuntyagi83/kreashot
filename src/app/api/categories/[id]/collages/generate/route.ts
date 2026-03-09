@@ -1,5 +1,6 @@
 export const maxDuration = 300
 
+import { checkRateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
@@ -19,6 +20,14 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`collage-gen:${user.id}`, 5, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before generating more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     const body = await request.json()
@@ -71,6 +80,17 @@ export async function POST(
           ...layers,
         ]
 
+    const MAX_LAYER_TEXT = 500
+    const sanitizedLayers = (effectiveLayers || []).map((layer: any) => ({
+      ...layer,
+      text_content: typeof layer.text_content === 'string'
+        ? layer.text_content.slice(0, MAX_LAYER_TEXT)
+        : layer.text_content,
+      name: typeof layer.name === 'string'
+        ? layer.name.slice(0, 100)
+        : layer.name,
+    }))
+
     // Build copy_text from text layers (keyed by layer name)
     const copyText: Record<string, string> = {}
     for (const layer of layers) {
@@ -82,7 +102,7 @@ export async function POST(
     const outputPath = `/tmp/collage_${Date.now()}.png`
 
     const inputData = {
-      template_data: { layers: effectiveLayers },
+      template_data: { layers: sanitizedLayers },
       composite_url: '',  // no composite — images come from layer source_urls
       copy_text: copyText,
       logo_url: null,
@@ -96,34 +116,45 @@ export async function POST(
 
     const pythonScript = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
 
-    const result = await new Promise<string>((resolve, reject) => {
-      const python = spawn('python3', [pythonScript])
-      let stdout = ''
-      let stderr = ''
+    const PYTHON_TIMEOUT_MS = 120_000 // 2 minutes
 
-      python.stdin.write(JSON.stringify(inputData))
-      python.stdin.end()
+    let python: ReturnType<typeof spawn>
+    const result = await Promise.race([
+      new Promise<string>((resolve, reject) => {
+        python = spawn('python3', [pythonScript])
+        let stdout = ''
+        let stderr = ''
 
-      python.stdout.on('data', (data) => { stdout += data.toString() })
-      python.stderr.on('data', (data) => { stderr += data.toString() })
+        python.stdin.write(JSON.stringify(inputData))
+        python.stdin.end()
 
-      python.on('close', (code) => {
-        if (code !== 0) {
-          console.error('❌ Python script failed:', stderr)
-          reject(new Error(`Python script failed: ${stderr}`))
-        } else {
-          console.log('✅ Python script output:', stdout)
-          const lines = stdout.trim().split('\n')
-          const resultLine = lines[lines.length - 1]
-          try {
-            const parsed = JSON.parse(resultLine)
-            resolve(parsed.output_path)
-          } catch {
-            resolve(outputPath)
+        python.stdout.on('data', (data) => { stdout += data.toString() })
+        python.stderr.on('data', (data) => { stderr += data.toString() })
+
+        python.on('close', (code) => {
+          if (code !== 0) {
+            console.error('❌ Python script failed:', stderr)
+            reject(new Error(`Python script failed: ${stderr}`))
+          } else {
+            console.log('✅ Python script output:', stdout)
+            const lines = stdout.trim().split('\n')
+            const resultLine = lines[lines.length - 1]
+            try {
+              const parsed = JSON.parse(resultLine)
+              resolve(parsed.output_path)
+            } catch {
+              resolve(outputPath)
+            }
           }
-        }
-      })
-    })
+        })
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => {
+          python.kill('SIGKILL')
+          reject(new Error('Collage generation timed out'))
+        }, PYTHON_TIMEOUT_MS)
+      ),
+    ])
 
     // 4. Upload to Google Drive
     console.log('📤 Uploading collage to Google Drive...')

@@ -45,6 +45,11 @@ export async function POST(
       return NextResponse.json({ error: 'brief is required' }, { status: 400 })
     }
 
+    const MAX_BRIEF_LENGTH = 2000
+    if (brief && brief.length > MAX_BRIEF_LENGTH) {
+      return NextResponse.json({ error: `Brief must be under ${MAX_BRIEF_LENGTH} characters` }, { status: 400 })
+    }
+
     // ── Resolve brand voice (library voice overrides category voice) ─────
     let brandVoice = category.brand_voice || undefined
     if (body.brandVoiceId) {

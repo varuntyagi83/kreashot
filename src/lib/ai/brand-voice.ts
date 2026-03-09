@@ -1,4 +1,5 @@
 import OpenAI from 'openai'
+import { sanitizePromptMaxLength } from './sanitize'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -100,11 +101,13 @@ export async function extractVoiceFromText(
   samples: string[],
   lookAndFeel?: string
 ): Promise<BrandVoiceProfile> {
-  const combinedSamples = samples.map((s, i) => `Sample ${i + 1}:\n${s}`).join('\n\n---\n\n')
+  const safeSamples = samples.map(s => sanitizePromptMaxLength(s, 1000))
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
+  const combinedSamples = safeSamples.map((s, i) => `Sample ${i + 1}:\n${s}`).join('\n\n---\n\n')
 
   const prompt = `You are a brand strategist and expert copywriter. Analyse these copy samples and extract the brand's tone of voice.
 
-${lookAndFeel ? `Brand Style Context: ${lookAndFeel}\n\n` : ''}COPY SAMPLES:
+${safeLookAndFeel ? `Brand Style Context: ${safeLookAndFeel}\n\n` : ''}COPY SAMPLES:
 ${combinedSamples}
 
 Study the writing style, word choices, sentence structure, emotional register, and personality expressed in these samples. Then extract the brand voice profile.
@@ -137,14 +140,16 @@ export async function extractVoiceFromQA(
   answers: QAAnswer[],
   lookAndFeel?: string
 ): Promise<BrandVoiceProfile> {
+  const safeAnswers = Object.fromEntries(Object.entries(answers).map(([k, v]) => [k, sanitizePromptMaxLength(String((v as QAAnswer).answer ?? v), 500)]))
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
   const formattedAnswers = answers
     .filter(a => a.answer.trim())
-    .map(a => `Q: ${a.question}\nA: ${a.answer}`)
+    .map((a, i) => `Q: ${a.question}\nA: ${safeAnswers[i] ?? sanitizePromptMaxLength(a.answer, 500)}`)
     .join('\n\n')
 
   const prompt = `You are a brand strategist. A brand owner has answered questions about their brand's voice and personality. Synthesise their answers into a structured brand voice profile.
 
-${lookAndFeel ? `Brand Style Context: ${lookAndFeel}\n\n` : ''}BRAND OWNER ANSWERS:
+${safeLookAndFeel ? `Brand Style Context: ${safeLookAndFeel}\n\n` : ''}BRAND OWNER ANSWERS:
 ${formattedAnswers}
 
 Based on these answers, define a clear, actionable brand voice profile that a copywriter can follow.
@@ -190,10 +195,11 @@ export async function extractVoiceFromImages(
     },
   }))
 
+  const safeLookAndFeel = sanitizePromptMaxLength(lookAndFeel || '', 500)
   parts.push({
     text: `You are a brand strategist analysing ad creatives. Study these advertisement images — look at any visible copy/text, the visual language, emotional tone, colour choices, and overall personality they project.
 
-${lookAndFeel ? `Brand Style Context: ${lookAndFeel}\n\n` : ''}Based on what you see, extract the brand's tone of voice and define an actionable voice profile.
+${safeLookAndFeel ? `Brand Style Context: ${safeLookAndFeel}\n\n` : ''}Based on what you see, extract the brand's tone of voice and define an actionable voice profile.
 
 ${JSON_SCHEMA}`,
   })
@@ -201,9 +207,12 @@ ${JSON_SCHEMA}`,
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120000)
 
-  const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_URL}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': GEMINI_API_KEY,
+    },
     body: JSON.stringify({
       contents: [{ parts }],
       generationConfig: {

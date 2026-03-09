@@ -5,6 +5,7 @@ import {
   extractVoiceFromQA,
   extractVoiceFromImages,
 } from '@/lib/ai/brand-voice'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +45,11 @@ export async function POST(
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const rateLimit = checkRateLimit(`brand-voice:${user.id}`, 5, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
 
     const { data: category } = await supabase
       .from('categories')

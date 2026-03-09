@@ -5,7 +5,8 @@ export const maxDuration = 300
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
-import { spawn } from 'child_process'
+import { checkRateLimit } from '@/lib/rate-limit'
+import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
@@ -90,6 +91,14 @@ export async function POST(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before generating more.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     // Verify category belongs to the authenticated user
@@ -209,6 +218,9 @@ export async function POST(
     let compositeUrl: string
     if (baseImageUrl) {
       // Direct image URL (e.g. angled shot with baked-in background)
+      if (!isAllowedUrl(baseImageUrl)) {
+        return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
+      }
       compositeUrl = baseImageUrl
     } else if (compositeId) {
       const { data: composite } = await supabase
@@ -320,8 +332,6 @@ export async function POST(
 
     // 6. Call Python compositing script
     console.log('🐍 Calling Python compositing script...')
-    console.log('📋 Layers:', JSON.stringify(template.template_data.layers, null, 2))
-    console.log('📋 Copy text:', JSON.stringify(copyText, null, 2))
 
     const inputData = {
       template_data: template.template_data,
@@ -334,44 +344,57 @@ export async function POST(
       output_path: `/tmp/final_asset_${crypto.randomUUID()}.png`
     }
 
+    console.log(`📊 Final asset: template=${inputData.template_data?.layers?.length ?? 0} layers, ${inputData.width}x${inputData.height}`)
+
     const pythonScript = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
 
-    const result = await new Promise<string>((resolve, reject) => {
-      const python = spawn('python3', [pythonScript])
-      let stdout = ''
-      let stderr = ''
+    const PYTHON_TIMEOUT_MS = 120_000 // 2 minutes
 
-      python.stdin.write(JSON.stringify(inputData))
-      python.stdin.end()
+    let python: ChildProcess
+    const result = await Promise.race([
+      new Promise<string>((resolve, reject) => {
+        python = spawn('python3', [pythonScript])
+        let stdout = ''
+        let stderr = ''
 
-      python.stdout.on('data', (data) => {
-        stdout += data.toString()
-      })
+        python.stdin.write(JSON.stringify(inputData))
+        python.stdin.end()
 
-      python.stderr.on('data', (data) => {
-        stderr += data.toString()
-      })
+        python.stdout.on('data', (data) => {
+          stdout += data.toString()
+        })
 
-      python.on('close', (code) => {
-        if (code !== 0) {
-          console.error('❌ Python script failed:', stderr)
-          console.error('Python script failed. stderr:', stderr)
-          reject(new Error('Image processing failed'))
-        } else {
-          if (stderr) console.log('🐍 Python debug:', stderr)
-          console.log('✅ Python script output:', stdout)
-          // Parse last line as JSON result
-          const lines = stdout.trim().split('\n')
-          const resultLine = lines[lines.length - 1]
-          try {
-            const result = JSON.parse(resultLine)
-            resolve(result.output_path)
-          } catch (e) {
-            resolve(inputData.output_path)
+        python.stderr.on('data', (data) => {
+          stderr += data.toString()
+        })
+
+        python.on('close', (code) => {
+          if (code !== 0) {
+            console.error('❌ Python script failed:', stderr)
+            console.error('Python script failed. stderr:', stderr)
+            reject(new Error('Image processing failed'))
+          } else {
+            if (stderr) console.log('🐍 Python debug:', stderr)
+            console.log('✅ Python script output:', stdout)
+            // Parse last line as JSON result
+            const lines = stdout.trim().split('\n')
+            const resultLine = lines[lines.length - 1]
+            try {
+              const result = JSON.parse(resultLine)
+              resolve(result.output_path)
+            } catch (e) {
+              resolve(inputData.output_path)
+            }
           }
-        }
-      })
-    })
+        })
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => {
+          python.kill('SIGKILL')
+          reject(new Error('Image processing timed out'))
+        }, PYTHON_TIMEOUT_MS)
+      ),
+    ])
 
     // 6. Upload to Google Drive
     console.log('📤 Uploading final asset to Google Drive...')
