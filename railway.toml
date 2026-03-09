@@ -7,5 +7,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY = "${{NEXT_PUBLIC_SUPABASE_ANON_KEY}}"
 
 [deploy]
 startCommand = "sh -c 'HOSTNAME=0.0.0.0 node server.js'"
-healthcheckPath = "/auth/login"
+healthcheckPath = "/api/health"
 healthcheckTimeout = 300
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3

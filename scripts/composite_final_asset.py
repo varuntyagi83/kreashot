@@ -302,6 +302,10 @@ def load_font(font_size, font_url=None, font_family=None, font_path=None):
         try:
             local_path = download_font(font_url)
             f = ImageFont.truetype(local_path, font_size)
+            try:
+                os.unlink(local_path)
+            except Exception:
+                pass  # ignore cleanup errors
             sys.stderr.write(f"  -> Loaded downloaded font: {local_path} at size {font_size}\n")
             return f
         except Exception as e:

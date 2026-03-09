@@ -92,6 +92,18 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Verify category belongs to the authenticated user
+    const { data: ownedCategory } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', categoryId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!ownedCategory) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
+
     const body = await request.json()
     const {
       name = 'Untitled Ad',
@@ -104,6 +116,10 @@ export async function POST(
       layerTexts,
       customLayers,
     } = body
+
+    if (logoUrl && !isAllowedUrl(logoUrl)) {
+      return NextResponse.json({ error: 'Logo URL not allowed' }, { status: 400 })
+    }
 
     const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
       '1:1':  { width: 1080, height: 1080 },
@@ -123,7 +139,21 @@ export async function POST(
     // 1. Resolve layers: customLayers (freeform) > templateId > category template > DEFAULT_LAYERS
     let template: { id: string | null; template_data: { layers: any[] } }
 
+    const VALID_LAYER_TYPES = ['background', 'product', 'text', 'logo', 'overlay']
+    const isValidLayer = (l: any) =>
+      VALID_LAYER_TYPES.includes(l?.type) &&
+      typeof l.x === 'number' && l.x >= 0 && l.x <= 100 &&
+      typeof l.y === 'number' && l.y >= 0 && l.y <= 100 &&
+      typeof l.width === 'number' && l.width > 0 && l.width <= 100 &&
+      typeof l.height === 'number' && l.height > 0 && l.height <= 100
+
     if (customLayers && Array.isArray(customLayers) && customLayers.length > 0) {
+      if (customLayers.length > 20) {
+        return NextResponse.json({ error: 'Too many layers (max 20)' }, { status: 400 })
+      }
+      if (!customLayers.every(isValidLayer)) {
+        return NextResponse.json({ error: 'Invalid layer structure' }, { status: 400 })
+      }
       // Freeform mode — use layers built by the frontend
       console.log('🎨 Using freeform custom layers')
       template = { id: null, template_data: { layers: customLayers } }
@@ -185,7 +215,11 @@ export async function POST(
         .from('composites')
         .select('storage_url')
         .eq('id', compositeId)
+        .eq('category_id', categoryId)
         .single()
+      if (!composite) {
+        return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
+      }
       compositeUrl = composite?.storage_url || ''
     } else {
       // Get latest composite
@@ -218,8 +252,22 @@ export async function POST(
         .from('copy_docs')
         .select('generated_text, copy_type')
         .eq('id', copyDocId)
+        .eq('category_id', categoryId)
         .single()
       if (copyDoc) copyText = copyDoc
+    }
+
+    // Validate copy_text field lengths
+    const MAX_TEXT_LEN = 1000
+    if (copyText && typeof copyText === 'object') {
+      for (const [key, val] of Object.entries(copyText)) {
+        if (typeof val === 'string' && val.length > MAX_TEXT_LEN) {
+          return NextResponse.json(
+            { error: `Text field '${key}' exceeds ${MAX_TEXT_LEN} characters` },
+            { status: 400 }
+          )
+        }
+      }
     }
 
     // 4. Get category slug for storage path
@@ -241,7 +289,17 @@ export async function POST(
         }
         try {
           console.log(`🔤 Pre-downloading font: ${layer.font_url.substring(0, 80)}...`)
-          const fontRes = await fetch(layer.font_url)
+          const ctrl = new AbortController()
+          const timer = setTimeout(() => ctrl.abort(), 10_000)
+          let fontRes: Response
+          try {
+            fontRes = await fetch(layer.font_url, { signal: ctrl.signal })
+            clearTimeout(timer)
+          } catch {
+            clearTimeout(timer)
+            console.warn(`Font fetch failed or timed out for: ${layer.font_url}, skipping`)
+            continue
+          }
           if (fontRes.ok) {
             const fontBuffer = Buffer.from(await fontRes.arrayBuffer())
             const ext = layer.font_url.includes('.otf') ? '.otf' : '.ttf'

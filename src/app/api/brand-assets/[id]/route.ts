@@ -48,6 +48,7 @@ export async function DELETE(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log(`[audit] DELETE brand-asset ${id} by user ${user.id} at ${new Date().toISOString()}`)
 
     // Get asset first to get storage path
     const { data: asset, error: fetchError } = await supabase

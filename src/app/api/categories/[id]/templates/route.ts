@@ -13,6 +13,19 @@ export async function GET(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    // Verify category belongs to the authenticated user
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', categoryId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const format = searchParams.get('format')
 
@@ -60,6 +73,22 @@ export async function POST(
       template_data,
     } = body
 
+    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
+    if (!format || !VALID_FORMATS.includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    }
+
+    const safeName = (name || '')
+      .toLowerCase()
+      .replace(/[^\w\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 100)
+
+    if (!safeName) {
+      return NextResponse.json({ error: 'Invalid template name' }, { status: 400 })
+    }
+
     // Get user ID
     const {
       data: { user },
@@ -98,9 +127,9 @@ export async function POST(
         height,
         template_data,
         storage_provider: 'gdrive',
-        storage_path: `${categorySlug}/templates/${formatFolder}/${name.toLowerCase().replace(/\s+/g, '-')}.json`,
+        storage_path: `${categorySlug}/templates/${formatFolder}/${safeName}.json`,
         storage_url: '', // Will be updated after upload
-        slug: name.toLowerCase().replace(/\s+/g, '-'),
+        slug: safeName,
         metadata: {},
       })
       .select()
@@ -119,7 +148,7 @@ export async function POST(
 
       // Convert format from "4:5" to "4x5" for folder naming
       const formatFolder = format.replace(':', 'x')
-      const storagePath = `${categorySlug}/templates/${formatFolder}/${name.toLowerCase().replace(/\s+/g, '-')}.json`
+      const storagePath = `${categorySlug}/templates/${formatFolder}/${safeName}.json`
       const uploadResult = await gdrive.upload(templateBuffer, storagePath, {
         contentType: 'application/json',
       })

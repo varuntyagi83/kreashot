@@ -57,8 +57,9 @@ export class GoogleDriveAdapter implements StorageAdapter {
     // 3. First caller: do the lookup/create and hold the promise so others wait
     const promise = (async () => {
       try {
+        const escapedFolderName = (folderName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")
         const { data } = await this.drive.files.list({
-          q: `name='${folderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+          q: `name='${escapedFolderName}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
           fields: 'files(id)',
           supportsAllDrives: true,
           includeItemsFromAllDrives: true,

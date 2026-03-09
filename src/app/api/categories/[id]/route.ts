@@ -278,6 +278,7 @@ export async function DELETE(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log(`[audit] DELETE category ${id} by user ${user.id} at ${new Date().toISOString()}`)
 
     // Verify category belongs to user before proceeding
     const { data: category } = await supabase

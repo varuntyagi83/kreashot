@@ -191,6 +191,7 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    console.log(`[audit] DELETE product ${productId} by user ${user.id} at ${new Date().toISOString()}`)
 
     // Verify product belongs to user's category
     const { data: product, error: fetchError } = await supabase

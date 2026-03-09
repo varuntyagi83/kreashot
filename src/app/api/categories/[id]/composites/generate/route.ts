@@ -62,6 +62,10 @@ export async function POST(
       format = '1:1' // NEW: Format parameter
     } = body
 
+    if (Array.isArray(pairs) && pairs.length > 20) {
+      return NextResponse.json({ error: 'Too many pairs. Maximum 20 allowed per request.' }, { status: 400 })
+    }
+
     // Validate format whitelist
     const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
     if (format && !VALID_FORMATS.includes(format)) {

@@ -5,6 +5,9 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const next = requestUrl.searchParams.get('next') ?? '/categories'
+  // Prevent open redirect: only allow relative paths, not absolute URLs to other domains
+  const isRelativePath = next.startsWith('/') && !next.startsWith('//')
+  const safeNext = isRelativePath ? next : '/categories'
 
   if (code) {
     const supabase = await createServerSupabaseClient()
@@ -14,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     if (!error) {
       // Successful confirmation - redirect to dashboard
-      return NextResponse.redirect(new URL(next, request.url))
+      return NextResponse.redirect(new URL(safeNext, request.url))
     }
   }
 
