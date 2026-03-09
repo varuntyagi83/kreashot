@@ -98,24 +98,22 @@ export async function POST(
 
       case 'qa': {
         const { answers } = body
-        if (!answers || typeof answers !== 'object' || Array.isArray(answers)) {
-          return NextResponse.json({ error: 'answers must be an object' }, { status: 400 })
+        if (!answers || !Array.isArray(answers)) {
+          return NextResponse.json({ error: 'answers must be an array' }, { status: 400 })
         }
-        const answerEntries = Object.entries(answers)
-        if (answerEntries.length > 50) {
+        if (answers.length > 50) {
           return NextResponse.json({ error: 'Too many answers (max 50)' }, { status: 400 })
         }
-        const longKey = answerEntries.find(([k]) => String(k).length > 100)
-        if (longKey) {
-          return NextResponse.json({ error: 'Answer keys must be 100 characters or fewer' }, { status: 400 })
+        const longQuestion = answers.find((a: any) => typeof a.question === 'string' && a.question.length > 100)
+        if (longQuestion) {
+          return NextResponse.json({ error: 'Answer questions must be 100 characters or fewer' }, { status: 400 })
         }
-        const longValue = answerEntries.find(([, v]) => String(v || '').length > 1000)
-        if (longValue) {
+        const longAnswer = answers.find((a: any) => typeof a.answer === 'string' && a.answer.length > 1000)
+        if (longAnswer) {
           return NextResponse.json({ error: 'Answer values must be 1000 characters or fewer' }, { status: 400 })
         }
-        const sanitizedAnswers = Object.fromEntries(answerEntries)
         console.log(`Extracting brand voice from Q&A for: ${category.name}`)
-        profile = await extractVoiceFromQA(sanitizedAnswers, contextLookAndFeel)
+        profile = await extractVoiceFromQA(answers, contextLookAndFeel)
         break
       }
 
