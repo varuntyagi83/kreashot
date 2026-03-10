@@ -81,6 +81,12 @@ export async function POST(request: NextRequest) {
 
     const arrayBuffer = await file.arrayBuffer()
 
+    // Validate PDF magic bytes (%PDF-)
+    const header = new Uint8Array(arrayBuffer, 0, 5)
+    if (header[0] !== 0x25 || header[1] !== 0x50 || header[2] !== 0x44 || header[3] !== 0x46 || header[4] !== 0x2D) {
+      return NextResponse.json({ error: 'File does not appear to be a valid PDF' }, { status: 400 })
+    }
+
     // Try Gemini Vision first (reads colors, swatches, visual mood), fall back to text-only
     let extractedText: string | null = null
     let extractionMethod = 'vision'
@@ -134,18 +140,20 @@ export async function POST(request: NextRequest) {
 
     // Also register in asset_references for @ search
     const slug = generateSlug(name.trim())
-    await supabase
-      .from('asset_references')
-      .insert({
-        user_id: user.id,
-        category_id: null,
-        reference_id: `@brand-guidelines/${slug}`,
-        asset_type: 'guideline',
-        asset_table_id: guideline.id,
-        storage_url: null,
-        display_name: name.trim(),
-        searchable_text: `${name.trim()} ${file.name} brand guidelines`,
-      })
+    Promise.resolve(
+      supabase
+        .from('asset_references')
+        .insert({
+          user_id: user.id,
+          category_id: null,
+          reference_id: `@brand-guidelines/${slug}`,
+          asset_type: 'guideline',
+          asset_table_id: guideline.id,
+          storage_url: null,
+          display_name: name.trim(),
+          searchable_text: `${name.trim()} ${file.name} brand guidelines`,
+        })
+    )
       .then(({ error: refError }) => {
         if (refError) console.error('Failed to create asset reference:', refError)
       })
