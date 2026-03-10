@@ -592,16 +592,6 @@ def composite_final_asset(
             draw.rectangle([0, 0, canvas_width, canvas_height], fill=bg_color)
             sys.stderr.write(f"    ✅ Filled background color {bg_color}\n")
 
-    # DEBUG: Draw a small stamp showing what Python actually received for text layers
-    debug_draw = ImageDraw.Draw(final_image)
-    debug_font = load_font(14)
-    debug_y = 5
-    for layer in sorted_layers:
-        if layer.get('type') == 'text':
-            dbg = f"DBG: fs={layer.get('font_size')}, ff={layer.get('font_family')}, fp={layer.get('font_path','')[:30]}"
-            debug_draw.text((5, debug_y), dbg, fill='#FF0000', font=debug_font)
-            debug_y += 18
-
     # Save final composite
     final_image.save(output_path, 'PNG', quality=95)
     sys.stderr.write(f"\n✅ Final asset saved to: {output_path}\n")

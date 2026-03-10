@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
       .then(({ error: refError }) => {
         if (refError) console.error('Failed to create asset reference:', refError)
       })
+      .catch((err) => console.error('[brand-guidelines] background update failed:', err))
 
     console.log(`✅ Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
 

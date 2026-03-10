@@ -62,6 +62,10 @@ export async function POST(
   try {
     const { id: categoryId } = await params
     const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const body = await request.json()
 
     const {
@@ -89,15 +93,6 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid template name' }, { status: 400 })
     }
 
-    // Get user ID
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     // Get category slug for storage path
     const { data: category } = await supabase
       .from('categories')
@@ -120,7 +115,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id,
-        name,
+        name: safeName,
         description,
         format,
         width,

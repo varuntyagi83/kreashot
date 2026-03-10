@@ -75,6 +75,10 @@ export async function PUT(
       updateData.collage_data = body.collage_data
     }
     if (body.format !== undefined) {
+      const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
+      if (!VALID_FORMATS.includes(body.format)) {
+        return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+      }
       const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
         '1:1':  { width: 1080, height: 1080 },
         '16:9': { width: 1920, height: 1080 },

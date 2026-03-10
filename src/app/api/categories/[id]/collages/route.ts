@@ -53,8 +53,16 @@ export async function POST(
     const body = await request.json()
     const { name, format = '1:1', collage_data } = body
 
+    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
+    if (!VALID_FORMATS.includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    }
+
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+    }
+    if (name.trim().length > 100) {
+      return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
     }
 
     // Validate background_color if provided

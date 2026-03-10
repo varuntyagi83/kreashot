@@ -105,7 +105,7 @@ export async function POST(
           sourceBase64,
           sourceMimeType,
           fmt,
-          '2K'
+          '4K'
         )
 
         // Save the generated image

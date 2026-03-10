@@ -144,7 +144,7 @@ export async function extractVoiceFromQA(
   const safeLookAndFeel = sanitizeForPrompt(lookAndFeel || '')
   const formattedAnswers = answers
     .filter(a => a.answer.trim())
-    .map((a, i) => `Q: ${a.question}\nA: ${safeAnswers[i] ?? sanitizeForPrompt(a.answer)}`)
+    .map((a, i) => `Q: ${sanitizeForPrompt(a.question)}\nA: ${safeAnswers[i] ?? sanitizeForPrompt(a.answer)}`)
     .join('\n\n')
 
   const prompt = `You are a brand strategist. A brand owner has answered questions about their brand's voice and personality. Synthesise their answers into a structured brand voice profile.

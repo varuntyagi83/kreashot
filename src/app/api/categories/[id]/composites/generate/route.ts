@@ -196,6 +196,7 @@ export async function POST(
           .from('angled_shots')
           .select('id, display_name, angle_name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.angledShotId)
+          .eq('category_id', categoryId)
           .single()
 
         if (shotError || !angledShot) {
@@ -210,6 +211,7 @@ export async function POST(
           .from('backgrounds')
           .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
           .eq('id', pair.backgroundId)
+          .eq('category_id', categoryId)
           .single()
 
         if (bgError || !background) {

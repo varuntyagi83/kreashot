@@ -83,6 +83,15 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+    if (name.length > 100) {
+      return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
+    }
+    if (description.length > 500) {
+      return NextResponse.json({ error: 'description must be 500 characters or fewer' }, { status: 400 })
+    }
+    if (look_and_feel && look_and_feel.length > 10000) {
+      return NextResponse.json({ error: 'look_and_feel must be 10000 characters or fewer' }, { status: 400 })
+    }
 
     // Generate slug
     const slug = generateSlug(name)

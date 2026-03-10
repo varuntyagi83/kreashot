@@ -209,17 +209,20 @@ export async function POST(
       const { data: productImages } = await supabase
         .from('product_images')
         .select('id, file_path, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
+        .eq('user_id', user.id)
         .in('id', referenceAssetIds)
 
       const { data: angledShots } = await supabase
         .from('angled_shots')
         .select('id, storage_path, storage_provider, storage_url, gdrive_file_id')
+        .eq('user_id', user.id)
         .in('id', referenceAssetIds)
 
       // Also check brand_assets table (stored in Supabase Storage)
       const { data: brandAssets } = await supabase
         .from('brand_assets')
         .select('id, storage_path, storage_url, metadata')
+        .eq('user_id', user.id)
         .in('id', referenceAssetIds)
 
       const allReferences = [
@@ -321,7 +324,7 @@ export async function POST(
           count,
           styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
           fmt,
-          '2K',
+          '4K',
           finalGuidelines,
           resolvedColorDescription || undefined
         )
