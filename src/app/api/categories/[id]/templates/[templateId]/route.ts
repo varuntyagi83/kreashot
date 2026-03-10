@@ -59,6 +59,16 @@ export async function PUT(
   try {
     const { id: categoryId, templateId } = await params
     const supabase = await createServerSupabaseClient()
+
+    // Get user ID
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await request.json()
 
     const {
@@ -70,13 +80,8 @@ export async function PUT(
       template_data,
     } = body
 
-    // Get user ID
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (name && name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
 
     // Get category slug for storage path

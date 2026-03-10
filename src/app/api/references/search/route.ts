@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
     const searchParams = request.nextUrl.searchParams
-    const query = searchParams.get('q') || ''
+    const query = (searchParams.get('q') || '').slice(0, 200)
 
     // Check authentication
     const {

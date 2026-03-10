@@ -176,6 +176,9 @@ export async function POST(
         { status: 400 }
       )
     }
+    if (name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
 
     // Validate image size (20MB max decoded)
     const MAX_BASE64_LENGTH = 20 * 1024 * 1024 * 1.34 // ~27MB as base64

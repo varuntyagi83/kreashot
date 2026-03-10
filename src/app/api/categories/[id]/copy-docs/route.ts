@@ -112,6 +112,18 @@ export async function POST(
         { status: 400 }
       )
     }
+    if (name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
+    if (generatedText.length > 50000) {
+      return NextResponse.json({ error: 'generatedText must be 50000 characters or fewer' }, { status: 400 })
+    }
+    if (originalText && originalText.length > 50000) {
+      return NextResponse.json({ error: 'originalText must be 50000 characters or fewer' }, { status: 400 })
+    }
+    if (promptUsed && promptUsed.length > 10000) {
+      return NextResponse.json({ error: 'promptUsed must be 10000 characters or fewer' }, { status: 400 })
+    }
 
     const slug = generateSlug(name)
 

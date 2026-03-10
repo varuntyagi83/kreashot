@@ -70,6 +70,9 @@ export async function POST(request: NextRequest) {
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
+    if (name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
     if (file.type !== 'application/pdf') {
       return NextResponse.json({ error: 'Only PDF files are supported' }, { status: 400 })
     }

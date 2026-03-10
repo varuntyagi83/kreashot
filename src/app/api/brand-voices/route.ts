@@ -53,6 +53,9 @@ export async function POST(request: NextRequest) {
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
+    if (name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
     if (!profile || typeof profile !== 'object') {
       return NextResponse.json({ error: 'profile is required' }, { status: 400 })
     }

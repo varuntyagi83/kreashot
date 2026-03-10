@@ -61,7 +61,6 @@ export async function PUT(
   try {
     const supabase = await createServerSupabaseClient()
     const { id: categoryId, productId } = await params
-    const body = await request.json()
 
     // Check authentication
     const {
@@ -71,6 +70,8 @@ export async function PUT(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const body = await request.json()
 
     // Verify product belongs to user's category
     const { data: existingProduct, error: fetchError } = await supabase
@@ -134,6 +135,9 @@ async function preQueueProductGDriveFiles(productId: string, userId: string): Pr
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !serviceKey) return 0
 
+  // Service role required: deletion_queue INSERT must bypass RLS so the queued
+  // file IDs survive the cascade-delete of the parent record. The calling route
+  // has already verified user ownership before invoking this helper.
   const admin = createClient(supabaseUrl, serviceKey)
   let queued = 0
 

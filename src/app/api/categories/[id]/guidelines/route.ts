@@ -12,6 +12,14 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+function detectFileMime(buf: Buffer): string | null {
+  if (buf.length < 5) return null
+  if (buf[0] === 0x25 && buf[1] === 0x50 && buf[2] === 0x44 && buf[3] === 0x46 && buf[4] === 0x2D) return 'application/pdf'
+  if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return 'image/jpeg'
+  if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return 'image/png'
+  return null
+}
+
 /**
  * GET /api/categories/[id]/guidelines
  * Lists all guideline documents for a category
@@ -118,6 +126,13 @@ export async function POST(
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
 
+    if (name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
+    if (description && description.length > 1000) {
+      return NextResponse.json({ error: 'description must be 1000 characters or fewer' }, { status: 400 })
+    }
+
     // Validate file type
     const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
@@ -147,6 +162,11 @@ export async function POST(
     // Upload to Google Drive
     const fileName = `${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
+
+    const detectedMime = detectFileMime(buffer)
+    if (!detectedMime || !allowedTypes.includes(detectedMime)) {
+      return NextResponse.json({ error: 'Invalid file type. Only PDF, PNG, and JPEG files are allowed.' }, { status: 400 })
+    }
 
     console.log(`Uploading guideline to Google Drive: ${fileName}`)
     const storageFile = await uploadFile(buffer, fileName, {

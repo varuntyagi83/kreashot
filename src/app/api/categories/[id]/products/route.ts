@@ -70,7 +70,6 @@ export async function POST(
   try {
     const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
-    const body = await request.json()
 
     // Check authentication
     const {
@@ -80,6 +79,8 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const body = await request.json()
 
     // Verify category belongs to user
     const { data: category, error: categoryError } = await supabase

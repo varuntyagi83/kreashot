@@ -133,6 +133,16 @@ export async function PUT(
     const body = await request.json()
     const { name, description, look_and_feel } = body
 
+    if (name !== undefined && name.length > 100) {
+      return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
+    }
+    if (description !== undefined && description.length > 500) {
+      return NextResponse.json({ error: 'description must be 500 characters or fewer' }, { status: 400 })
+    }
+    if (look_and_feel !== undefined && look_and_feel.length > 10000) {
+      return NextResponse.json({ error: 'look_and_feel must be 10000 characters or fewer' }, { status: 400 })
+    }
+
     const updateData: any = {}
     if (name !== undefined) {
       updateData.name = name
@@ -181,6 +191,9 @@ async function preQueueGDriveFiles(categoryId: string, userId: string): Promise<
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !serviceKey) return 0
 
+  // Service role required: deletion_queue INSERT must bypass RLS so the queued
+  // file IDs survive the cascade-delete of the parent record. The calling route
+  // has already verified user ownership before invoking this helper.
   const admin = createClient(supabaseUrl, serviceKey)
 
   // All tables with gdrive_file_id that reference category_id

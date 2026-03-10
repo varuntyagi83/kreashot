@@ -53,6 +53,13 @@ export async function POST(
 
     // Extract text from PDF using pdfjs-dist
     const arrayBuffer = await file.arrayBuffer()
+
+    // Validate PDF magic bytes (%PDF-)
+    const header = new Uint8Array(arrayBuffer, 0, 5)
+    if (header[0] !== 0x25 || header[1] !== 0x50 || header[2] !== 0x44 || header[3] !== 0x46 || header[4] !== 0x2D) {
+      return NextResponse.json({ error: 'File does not appear to be a valid PDF' }, { status: 400 })
+    }
+
     const extractedText = await extractPdfText(arrayBuffer)
 
     if (!extractedText || extractedText.trim().length < 50) {

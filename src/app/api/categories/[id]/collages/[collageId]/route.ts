@@ -60,7 +60,12 @@ export async function PUT(
     const body = await request.json()
     const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
 
-    if (body.name !== undefined) updateData.name = body.name
+    if (body.name !== undefined) {
+      if (body.name.length > 100) {
+        return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
+      }
+      updateData.name = body.name
+    }
     if (body.collage_data !== undefined) {
       // Validate background_color if provided
       if (body.collage_data?.background_color !== undefined) {

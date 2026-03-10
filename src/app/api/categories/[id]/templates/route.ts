@@ -82,12 +82,15 @@ export async function POST(
       return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
     }
 
+    if (name && name.length > 100) {
+      return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
+    }
+
     const safeName = (name || '')
       .toLowerCase()
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/^-+|-+$/g, '')
-      .slice(0, 100)
 
     if (!safeName) {
       return NextResponse.json({ error: 'Invalid template name' }, { status: 400 })

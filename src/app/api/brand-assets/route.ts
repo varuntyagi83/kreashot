@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
       'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',
       'font/woff', 'font/woff2', 'font/otf', 'font/ttf',
     ]
-    if (detectedMime && !ALLOWED_MIME_BYTES.includes(detectedMime)) {
+    if (!detectedMime || !ALLOWED_MIME_BYTES.includes(detectedMime)) {
       return NextResponse.json({ error: 'File content does not match an allowed type' }, { status: 400 })
     }
 

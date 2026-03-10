@@ -53,6 +53,9 @@ export async function PUT(
     const body = await request.json()
     const updateData: Record<string, unknown> = {}
 
+    if (body.name !== undefined && body.name.length > 200) {
+      return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+    }
     if (body.name !== undefined) updateData.name = body.name.trim()
 
     if (body.is_default === true) {
