@@ -814,7 +814,7 @@ export async function generateCopyVariationsGemini(
   brandVoice?: BrandVoiceProfile | null
 ): Promise<CopyVariation[]> {
   const model = getGenAI().getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: buildCopySystemPrompt(lookAndFeel, brandGuidelines, brandVoice),
   })
   const prompt = buildCopyUserPrompt(brief, copyType, tone, targetAudience)
@@ -836,7 +836,7 @@ export async function generateCopyKitGemini(
   brandVoice?: BrandVoiceProfile | null
 ): Promise<CopyKitItem[]> {
   const model = getGenAI().getGenerativeModel({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     systemInstruction: buildCopySystemPrompt(lookAndFeel, brandGuidelines, brandVoice),
   })
 

@@ -185,7 +185,7 @@ export async function extractVoiceFromImages(
   const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY
   if (!GEMINI_API_KEY) throw new Error('GOOGLE_GEMINI_API_KEY is not set')
 
-  const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
+  const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
 
   // Build content parts: all images + text prompt
   const parts: any[] = images.map(img => ({
