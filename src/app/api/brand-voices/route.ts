@@ -59,6 +59,9 @@ export async function POST(request: NextRequest) {
     if (!profile || typeof profile !== 'object') {
       return NextResponse.json({ error: 'profile is required' }, { status: 400 })
     }
+    if (JSON.stringify(profile).length > 65536) {
+      return NextResponse.json({ error: 'profile must be 64KB or smaller' }, { status: 400 })
+    }
 
     // If setting as default, clear any existing default first
     if (is_default) {

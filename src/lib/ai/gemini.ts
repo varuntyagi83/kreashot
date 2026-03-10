@@ -19,45 +19,6 @@ function getGenAI(): GoogleGenerativeAI {
   return genAI
 }
 
-/**
- * Analyzes a product image to understand its features and context
- */
-export async function analyzeProductImage(
-  imageData: string,
-  mimeType: string = 'image/jpeg'
-): Promise<string> {
-  try {
-    const model = getGenAI().getGenerativeModel({ model: 'gemini-3.1-pro-preview' })
-
-    // Convert base64 to proper format if needed
-    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
-
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: base64Data,
-          mimeType,
-        },
-      },
-      {
-        text: `Analyze this product image in detail. Describe:
-1. What is the product?
-2. What are its key visual features (colors, textures, materials)?
-3. What is the current viewing angle?
-4. What background or setting is it in?
-5. What is the product's shape and form?
-
-Provide a concise but detailed description that would help recreate this product from different angles.`,
-      },
-    ])
-
-    const response = await result.response
-    return response.text()
-  } catch (error) {
-    console.error('Error analyzing product image:', error)
-    throw new Error('Failed to analyze product image')
-  }
-}
 
 /**
  * Generates angled shot variations using Gemini 3 Pro Image Preview
@@ -875,28 +836,3 @@ export async function generateCopyKitGemini(
   return results
 }
 
-/**
- * Legacy function for backward compatibility
- */
-export async function generateImage(
-  prompt: string,
-  referenceImages?: { data: string; mimeType: string; role: string }[]
-): Promise<{ images: { data: string; mimeType: string }[]; text: string }> {
-  // Use the reference image if provided
-  if (referenceImages && referenceImages.length > 0) {
-    const refImage = referenceImages[0]
-    const analysis = await analyzeProductImage(refImage.data, refImage.mimeType)
-
-    return {
-      images: [
-        {
-          data: refImage.data, // Placeholder
-          mimeType: refImage.mimeType,
-        },
-      ],
-      text: analysis,
-    }
-  }
-
-  throw new Error('Image generation requires reference images')
-}
