@@ -1,0 +1,23 @@
+---
+description: AdForge project context, conventions, and changelog of improvements/fixes
+alwaysApply: true
+---
+
+# AdForge — Project Context & Memory
+
+## What this app is
+
+- **AdForge** (repo: adforge-railway): Next.js 16 ad-generation platform. Users manage categories, products, brand assets, AI-generated copy/images (backgrounds, angled shots, composites, collages, final assets), and templates. Deployed on Railway; database and auth via Supabase.
+- **Key paths:** API `src/app/api/`, AI lib `src/lib/ai/`, Supabase client `src/lib/supabase/`, migrations `supabase/migrations/`, Python compositor `scripts/composite_final_asset.py`. Progress/known issues: `progress.md`, `Issues.md`. QA skill: `.claude/skills/qa/skill.md`. To run a QA audit on demand, invoke the **run-qa** skill (e.g. type `/qa`, `/qa collages`, or `/qa all`); see `.claude/skills/run-qa/SKILL.md`.
+
+## Conventions to follow
+
+- **Auth & RLS:** Use `createServerSupabaseClient()` (anon key) in app/API so RLS is enforced. Use service role (`createAdminSupabaseClient()`) only in admin routes and only after Bearer token validation. Never expose service role to client or public APIs.
+- **Security:** Every route must call `supabase.auth.getUser()` before touching data; nested resources must verify ownership (e.g. category_id + user_id). AI endpoints must call `checkRateLimit()`; user strings to AI must go through `sanitizeForPrompt()`. See `.claude/skills/qa/skill.md` for full invariants.
+- **Supabase:** User-data tables have RLS with `auth.uid() = user_id` (or equivalent). Reference table `format_configs` has RLS with read-only for `authenticated`. Views that join user data use `security_invoker = on`. See `docs/SUPABASE_SECURITY_ADVISOR.md`.
+
+## Changelog — Improvements & bug fixes
+
+When you add a fix or improvement, append a short line here (date + one-line description) so future sessions retain context.
+
+- **2026-03-11 — Supabase Security Advisor (4 issues):** (1) Enabled RLS on `format_configs` and added read-only policy for `authenticated` (`20260311_fix_security_advisor_rls.sql`). (2) Recreated views `templates_by_format`, `composites_by_format`, `final_assets_by_format` with `WITH (security_invoker = on)` to fix Security Definer View findings (`20260311_fix_security_definer_views.sql`). Doc: `docs/SUPABASE_SECURITY_ADVISOR.md`.
