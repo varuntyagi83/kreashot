@@ -794,6 +794,17 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                             const brandFont = brandFonts.find(f => f.storage_url === v)
                             if (brandFont) {
                               updateFreeformText(tl.id, { fontUrl: brandFont.storage_url, fontFamily: brandFont.name })
+                            } else if (v.startsWith('brandon-grotesque-')) {
+                              // Auto-link to any uploaded BG brand font if available
+                              const bgBrandFont = brandFonts.find(f =>
+                                f.name.toLowerCase().replace(/\s+/g, '-').includes('brandon') ||
+                                f.name.toLowerCase().replace(/\s+/g, '-').includes('grotesque')
+                              )
+                              if (bgBrandFont) {
+                                updateFreeformText(tl.id, { fontUrl: bgBrandFont.storage_url, fontFamily: v })
+                              } else {
+                                updateFreeformText(tl.id, { fontUrl: undefined, fontFamily: v })
+                              }
                             } else {
                               updateFreeformText(tl.id, { fontUrl: undefined, fontFamily: v })
                             }
@@ -976,6 +987,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         const previewScale = 400 / canvasWidth
                         const scaledFontSize = Math.max(8, Math.round(tl.fontSize * previewScale))
                         const CSS_FONT_MAP: Record<string, string> = {
+                          'brandon-grotesque-regular': '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                          'brandon-grotesque-medium':  '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                          'brandon-grotesque-bold':    '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                          'brandon-grotesque-black':   '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
                           'serif-bold': 'Georgia, "Times New Roman", serif',
                           'serif-regular': 'Georgia, "Times New Roman", serif',
                         }

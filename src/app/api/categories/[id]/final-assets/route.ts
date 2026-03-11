@@ -301,28 +301,69 @@ export async function POST(
         }
         try {
           console.log(`🔤 Pre-downloading font: ${layer.font_url.substring(0, 80)}...`)
-          const ctrl = new AbortController()
-          const timer = setTimeout(() => ctrl.abort(), 10_000)
-          let fontRes: Response
-          try {
-            fontRes = await fetch(layer.font_url, { signal: ctrl.signal })
-            clearTimeout(timer)
-          } catch {
-            clearTimeout(timer)
-            console.warn(`Font fetch failed or timed out for: ${layer.font_url}, skipping`)
-            continue
+
+          const fetchFont = async (url: string): Promise<Buffer | null> => {
+            const ctrl = new AbortController()
+            const timer = setTimeout(() => ctrl.abort(), 15_000)
+            try {
+              const res = await fetch(url, {
+                signal: ctrl.signal,
+                headers: { 'User-Agent': 'Mozilla/5.0' },
+                redirect: 'follow',
+              })
+              clearTimeout(timer)
+              if (!res.ok) {
+                console.warn(`⚠️ Font download HTTP ${res.status} for: ${url.substring(0, 80)}`)
+                return null
+              }
+              return Buffer.from(await res.arrayBuffer())
+            } catch {
+              clearTimeout(timer)
+              return null
+            }
           }
-          if (fontRes.ok) {
-            const fontBuffer = Buffer.from(await fontRes.arrayBuffer())
-            const ext = layer.font_url.includes('.otf') ? '.otf' : '.ttf'
+
+          const isHtml = (buf: Buffer) =>
+            buf.slice(0, 200).includes(Buffer.from('<!DOCTYPE')) ||
+            buf.slice(0, 200).includes(Buffer.from('<html'))
+
+          // Detect font format from magic bytes; fall back to .ttf
+          const detectFontExt = (buf: Buffer): string => {
+            if (buf[0] === 0x4F && buf[1] === 0x54 && buf[2] === 0x54 && buf[3] === 0x4F) return '.otf'
+            if (buf[0] === 0x77 && buf[1] === 0x4F && buf[2] === 0x46 && buf[3] === 0x46) return '.woff'
+            if (buf[0] === 0x77 && buf[1] === 0x4F && buf[2] === 0x46 && buf[3] === 0x32) return '.woff2'
+            return '.ttf'
+          }
+
+          let fontBuffer = await fetchFont(layer.font_url)
+
+          // Google Drive may return an HTML confirmation page for font files.
+          // Retry with confirm=t and via drive.usercontent.google.com.
+          if (fontBuffer && isHtml(fontBuffer)) {
+            console.warn(`🔤 Got HTML response, retrying with confirm=t...`)
+            const fileIdMatch = layer.font_url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+            if (fileIdMatch) {
+              const altUrl = `https://drive.usercontent.google.com/download?id=${fileIdMatch[1]}&export=download&confirm=t`
+              fontBuffer = await fetchFont(altUrl)
+              if (fontBuffer && isHtml(fontBuffer)) {
+                console.warn(`⚠️ Still got HTML from alt URL, font download failed`)
+                fontBuffer = null
+              }
+            } else {
+              fontBuffer = null
+            }
+          }
+
+          if (fontBuffer && fontBuffer.length > 100) {
+            const ext = detectFontExt(fontBuffer)
             const fontPath = `/tmp/font_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
             const { writeFile } = await import('fs/promises')
             await writeFile(fontPath, fontBuffer)
-            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes)`)
+            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes, format=${ext})`)
             layer.font_path = fontPath  // Python will use this local path
             fontCleanup.push(fontPath)
           } else {
-            console.warn(`⚠️ Font download failed: ${fontRes.status} ${fontRes.statusText}`)
+            console.warn(`⚠️ Font download produced no usable bytes for: ${layer.font_url.substring(0, 80)}`)
           }
         } catch (e: any) {
           console.warn(`⚠️ Font download error: ${e.message}`)
