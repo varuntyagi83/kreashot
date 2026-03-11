@@ -419,7 +419,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
         ]
 
-        // Logo layer
+        // Logo layer (ensure numeric so API validation passes)
         if (logo) {
           const { width: cw, height: ch } = getFormatDimensions(format)
           const margin = 3
@@ -429,23 +429,25 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
-          // Pixel overrides take precedence over preset
-          if (logoXPx !== null) lx = (logoXPx / cw) * 100
-          if (logoYPx !== null) ly = (logoYPx / ch) * 100
-          layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: logoSize, height: logoSize, z_index: 3 })
+          if (logoXPx !== null) lx = (Number(logoXPx) / cw) * 100
+          if (logoYPx !== null) ly = (Number(logoYPx) / ch) * 100
+          const sz = Number(logoSize) || 12
+          layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: sz, height: sz, z_index: 3 })
         }
 
-        // Text layers
+        // Text layers (ensure numeric bounds so API validation passes: x,y,width,height in 0–100, height > 0)
         const textMap: Record<string, string> = {}
         freeformTexts.forEach((t, idx) => {
           if (!t.text.trim()) return
           const layerName = `text_${idx}`
-          // Calculate height to fit remaining canvas space (don't overflow)
-          const layerHeight = Math.min(20, 100 - t.y)
+          const nx = Number(t.x)
+          const ny = Number(t.y)
+          const nw = Number(t.width)
+          const layerHeight = Math.max(1, Math.min(20, 100 - ny))
           layers.push({
             id: t.id, type: 'text', name: layerName,
-            x: t.x, y: t.y, width: t.width, height: layerHeight, z_index: 2 + idx,
-            font_size: t.fontSize,
+            x: nx, y: ny, width: nw, height: layerHeight, z_index: 2 + idx,
+            font_size: Number(t.fontSize) || 24,
             font_family: t.fontFamily,
             ...(t.fontUrl && { font_url: t.fontUrl }),
             color: t.color, text_align: t.align,
