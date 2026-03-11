@@ -19,6 +19,13 @@ export async function POST(
     const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
+    if (!categoryId || categoryId === 'undefined' || categoryId === 'null') {
+      return NextResponse.json(
+        { error: 'Invalid category. Make sure you are on a category page (e.g. /categories/...) and refresh if needed.' },
+        { status: 400 }
+      )
+    }
+
     // Check authentication
     const {
       data: { user },

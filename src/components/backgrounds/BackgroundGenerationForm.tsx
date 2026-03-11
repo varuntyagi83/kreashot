@@ -147,6 +147,11 @@ export function BackgroundGenerationForm({
       )
     }
 
+    if (!category?.id) {
+      toast.error('Category not found. Please refresh the page and try again.')
+      return
+    }
+
     setIsGenerating(true)
     onGeneratingChange(true)
 
