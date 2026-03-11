@@ -772,7 +772,7 @@ Think of yourself as operating a camera, not Photoshop. You photograph what exis
     }
   } catch (error) {
     console.error('Error generating composite:', error)
-    throw new Error('Failed to generate composite')
+    throw new Error(`Failed to generate composite: ${error instanceof Error ? error.message : error}`)
   }
 }
 
