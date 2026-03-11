@@ -71,14 +71,21 @@ export async function DELETE(
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    // Delete from storage
-    const { error: storageError } = await supabase.storage
-      .from('brand-assets')
-      .remove([asset.storage_path])
-
-    if (storageError) {
-      console.error('Failed to delete from storage:', storageError)
-      // Continue anyway to clean up database
+    // Delete from storage (Supabase for fonts, GDrive for other assets)
+    if (asset.storage_provider === 'supabase') {
+      const { error: storageError } = await supabase.storage
+        .from('brand-assets')
+        .remove([asset.storage_path])
+      if (storageError) {
+        console.error('Failed to delete from Supabase storage:', storageError)
+      }
+    } else if (asset.storage_provider === 'gdrive' && (asset.gdrive_file_id || asset.storage_path)) {
+      try {
+        const { deleteFile } = await import('@/lib/storage')
+        await deleteFile(asset.gdrive_file_id || asset.storage_path, { provider: 'gdrive' })
+      } catch (e) {
+        console.error('Failed to delete from GDrive:', e)
+      }
     }
 
     // Delete asset_references entry

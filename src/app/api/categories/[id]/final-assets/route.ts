@@ -17,6 +17,10 @@ const ALLOWED_FONT_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
+  // Supabase storage (fonts stored in brand-assets bucket for @font-face)
+  ...(typeof process.env.NEXT_PUBLIC_SUPABASE_URL === 'string'
+    ? [new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname]
+    : []),
 ]
 
 function isAllowedUrl(url: string): boolean {

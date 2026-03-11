@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -157,6 +157,16 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [logoXPx, setLogoXPx] = useState<number | null>(null)
   const [logoYPx, setLogoYPx] = useState<number | null>(null)
   const [freeformTexts, setFreeformTexts] = useState<FreeformTextLayer[]>([])
+
+  // Stable list of brand font URLs for @font-face injection (preview) — same order => same family name
+  const freeformBrandFontUrls = useMemo(
+    () => [...new Set(freeformTexts.filter(t => t.fontUrl?.startsWith('http')).map(t => t.fontUrl as string))],
+    [freeformTexts]
+  )
+  const fontUrlToFamily = useMemo(
+    () => Object.fromEntries(freeformBrandFontUrls.map((url, i) => [url, `AdForgeBrandFont-${i}`])),
+    [freeformBrandFontUrls]
+  )
 
   const updateFreeformText = (id: string, updates: Partial<FreeformTextLayer>) => {
     setFreeformTexts(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
@@ -947,6 +957,16 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {previewImageUrl ? (
                   <div className="border rounded-lg p-3 space-y-2">
                     <p className="text-xs font-medium">Final Ad Preview</p>
+                    {/* Inject @font-face for uploaded brand fonts so preview shows correct typeface (e.g. Brandon Grotesque) */}
+                    {isFreeform && freeformBrandFontUrls.length > 0 && (
+                      <style dangerouslySetInnerHTML={{
+                        __html: freeformBrandFontUrls.map((url, i) => {
+                          const family = `AdForgeBrandFont-${i}`
+                          const escaped = url.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+                          return `@font-face{font-family:'${family}';src:url('${escaped}');}`
+                        }).join('')
+                      }} />
+                    )}
                     <div
                       className="relative rounded-lg overflow-hidden bg-gray-100"
                       style={{
@@ -964,8 +984,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         className="object-contain"
                       />
 
-                      {/* Freeform position preview */}
+                      {/* Freeform position preview — pixel overrides take precedence over preset */}
                       {isFreeform && selectedLogo && (() => {
+                        const { width: cw, height: ch } = getFormatDimensions(format)
                         const margin = 3
                         let lx = margin, ly = margin
                         if (logoPosition === 'top-center')    { lx = (100 - logoSize) / 2; ly = margin }
@@ -973,6 +994,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
                         if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
                         if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
+                        if (logoXPx !== null) lx = (logoXPx / cw) * 100
+                        if (logoYPx !== null) ly = (logoYPx / ch) * 100
                         return (
                           <div className="absolute" style={{ left: `${lx}%`, top: `${ly}%`, width: `${logoSize}%`, height: `${logoSize}%` }}>
                             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -994,7 +1017,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           'serif-bold': 'Georgia, "Times New Roman", serif',
                           'serif-regular': 'Georgia, "Times New Roman", serif',
                         }
-                        const cssFontFamily = CSS_FONT_MAP[tl.fontFamily] || tl.fontFamily || 'Arial, sans-serif'
+                        // Use injected @font-face when user selected an uploaded font (e.g. Brandon Grotesque)
+                        const cssFontFamily = (tl.fontUrl && fontUrlToFamily[tl.fontUrl])
+                          ? fontUrlToFamily[tl.fontUrl]
+                          : (CSS_FONT_MAP[tl.fontFamily] || tl.fontFamily || 'Arial, sans-serif')
                         return (
                           <div
                             key={tl.id}

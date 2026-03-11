@@ -145,10 +145,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'File content does not match an allowed type' }, { status: 400 })
     }
 
-    // Generate path for GDrive: brand-assets/{asset_type}/{slug}_{timestamp}.{ext}
     const slug = generateSlug(name)
     const fileExt = file.name.split('.').pop() || 'png'
-    const filePath = `brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
+    const isFont = assetType === 'font'
 
     // Determine content type (browsers may send empty MIME for font files)
     const FONT_EXT_MIME: Record<string, string> = {
@@ -156,19 +155,28 @@ export async function POST(request: NextRequest) {
     }
     const contentType = file.type || FONT_EXT_MIME[fileExt.toLowerCase()] || 'application/octet-stream'
 
-    // Upload to Google Drive
-    const storageFile = await uploadFile(buffer, filePath, {
-      contentType,
-      provider: 'gdrive',
-    })
+    // Fonts: store in Supabase so the browser can load them via @font-face (no CORS issues).
+    // Other assets: Google Drive.
+    let storageFile: { path: string; publicUrl: string; fileId?: string }
+    let storageProvider: 'supabase' | 'gdrive'
+    if (isFont) {
+      const filePath = `${user.id}/font/${slug}_${Date.now()}.${fileExt}`
+      storageFile = await uploadFile(buffer, filePath, {
+        contentType,
+        provider: 'supabase',
+        bucket: 'brand-assets',
+      })
+      storageProvider = 'supabase'
+    } else {
+      const filePath = `brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
+      storageFile = await uploadFile(buffer, filePath, {
+        contentType,
+        provider: 'gdrive',
+      })
+      storageProvider = 'gdrive'
+    }
 
-    // For non-image files (fonts), use GDrive direct download URL instead of lh3 CDN.
-    // confirm=t bypasses Google's virus-scan warning page for binary files (OTF/TTF),
-    // which would otherwise return HTML instead of the actual font bytes.
-    const isFont = assetType === 'font'
-    const storageUrl = isFont && storageFile.fileId
-      ? `https://drive.usercontent.google.com/download?id=${storageFile.fileId}&export=download&confirm=t`
-      : storageFile.publicUrl
+    const storageUrl = storageFile.publicUrl
 
     // Insert into brand_assets table
     const { data: asset, error: dbError } = await supabase
@@ -177,10 +185,10 @@ export async function POST(request: NextRequest) {
         user_id: user.id,
         name,
         asset_type: assetType,
-        storage_provider: 'gdrive',
+        storage_provider: storageProvider,
         storage_path: storageFile.path,
         storage_url: storageUrl,
-        gdrive_file_id: storageFile.fileId || null,
+        gdrive_file_id: storageProvider === 'gdrive' ? storageFile.fileId ?? null : null,
         metadata: {
           file_name: file.name,
           file_size: file.size,
@@ -191,13 +199,17 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (dbError) {
-      // Cleanup uploaded GDrive file if database insert fails
+      // Cleanup uploaded file if database insert fails
       try {
-        const { deleteFile } = await import('@/lib/storage')
-        const fileIdOrPath = storageFile.fileId || storageFile.path
-        await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+        if (storageProvider === 'gdrive') {
+          const { deleteFile } = await import('@/lib/storage')
+          const fileIdOrPath = storageFile.fileId || storageFile.path
+          await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+        } else {
+          await supabase.storage.from('brand-assets').remove([storageFile.path])
+        }
       } catch (cleanupErr) {
-        console.error('Failed to clean up orphaned GDrive file:', cleanupErr)
+        console.error('Failed to clean up orphaned storage file:', cleanupErr)
       }
       console.error('[brand-assets POST] dbError:', dbError)
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

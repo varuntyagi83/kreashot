@@ -34,6 +34,7 @@ _ALLOWED_DOMAINS = {
     'drive.usercontent.google.com',
     'fonts.gstatic.com',
     'fonts.googleapis.com',
+    'supabase.co',  # Fonts stored in brand-assets bucket (same-origin for @font-face)
 }
 
 def _is_allowed_url(url: str) -> bool:
@@ -186,7 +187,7 @@ def download_font(url):
             import re
             file_id_match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
             if file_id_match:
-                alt_url = f"https://drive.usercontent.google.com/download?id={file_id_match.group(1)}&export=download"
+                alt_url = f"https://drive.usercontent.google.com/download?id={file_id_match.group(1)}&export=download&confirm=t"
                 sys.stderr.write(f"  Retrying with alt URL: {alt_url[:80]}...\n")
                 req2 = urllib.request.Request(alt_url, headers={'User-Agent': 'Mozilla/5.0'})
                 with urllib.request.urlopen(req2, timeout=30, context=_ssl_ctx) as resp2:
