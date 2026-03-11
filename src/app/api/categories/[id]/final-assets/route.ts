@@ -150,19 +150,24 @@ export async function POST(
     let template: { id: string | null; template_data: { layers: any[] } }
 
     const VALID_LAYER_TYPES = ['background', 'product', 'text', 'logo', 'overlay']
-    const isValidLayer = (l: any) =>
-      VALID_LAYER_TYPES.includes(l?.type) &&
-      typeof l.x === 'number' && l.x >= 0 && l.x <= 100 &&
-      typeof l.y === 'number' && l.y >= 0 && l.y <= 100 &&
-      typeof l.width === 'number' && l.width > 0 && l.width <= 100 &&
-      typeof l.height === 'number' && l.height > 0 && l.height <= 100
+    const isValidLayer = (l: any): { ok: boolean; reason?: string } => {
+      if (!l || !VALID_LAYER_TYPES.includes(l.type)) return { ok: false, reason: `layer type missing or invalid (got ${l?.type})` }
+      if (typeof l.x !== 'number' || Number.isNaN(l.x) || l.x < 0 || l.x > 100) return { ok: false, reason: `layer.x must be number 0-100 (got ${l.x})` }
+      if (typeof l.y !== 'number' || Number.isNaN(l.y) || l.y < 0 || l.y > 100) return { ok: false, reason: `layer.y must be number 0-100 (got ${l.y})` }
+      if (typeof l.width !== 'number' || Number.isNaN(l.width) || l.width <= 0 || l.width > 100) return { ok: false, reason: `layer.width must be number 1-100 (got ${l.width})` }
+      if (typeof l.height !== 'number' || Number.isNaN(l.height) || l.height <= 0 || l.height > 100) return { ok: false, reason: `layer.height must be number 1-100 (got ${l.height})` }
+      return { ok: true }
+    }
 
     if (customLayers && Array.isArray(customLayers) && customLayers.length > 0) {
       if (customLayers.length > 20) {
         return NextResponse.json({ error: 'Too many layers (max 20)' }, { status: 400 })
       }
-      if (!customLayers.every(isValidLayer)) {
-        return NextResponse.json({ error: 'Invalid layer structure' }, { status: 400 })
+      for (let i = 0; i < customLayers.length; i++) {
+        const result = isValidLayer(customLayers[i])
+        if (!result.ok) {
+          return NextResponse.json({ error: `Invalid layer structure: layer[${i}] (type=${customLayers[i]?.type}): ${result.reason}` }, { status: 400 })
+        }
       }
       // Freeform mode — use layers built by the frontend
       console.log('🎨 Using freeform custom layers')

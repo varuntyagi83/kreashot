@@ -419,7 +419,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
         ]
 
-        // Logo layer (ensure numeric so API validation passes)
+        // Logo layer (clamp numbers so API validation never fails: no NaN, all in range)
         if (logo) {
           const { width: cw, height: ch } = getFormatDimensions(format)
           const margin = 3
@@ -429,28 +429,29 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
-          if (logoXPx !== null) lx = (Number(logoXPx) / cw) * 100
-          if (logoYPx !== null) ly = (Number(logoYPx) / ch) * 100
-          const sz = Number(logoSize) || 12
+          if (logoXPx != null) lx = Math.max(0, Math.min(100, (Number(logoXPx) || 0) / cw * 100))
+          if (logoYPx != null) ly = Math.max(0, Math.min(100, (Number(logoYPx) || 0) / ch * 100))
+          const sz = Math.max(1, Math.min(100, Number(logoSize) || 12))
           layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: sz, height: sz, z_index: 3 })
         }
 
-        // Text layers (ensure numeric bounds so API validation passes: x,y,width,height in 0–100, height > 0)
+        // Text layers (clamp and default all numbers so API validation never fails)
         const textMap: Record<string, string> = {}
         freeformTexts.forEach((t, idx) => {
           if (!t.text.trim()) return
           const layerName = `text_${idx}`
-          const nx = Number(t.x)
-          const ny = Number(t.y)
-          const nw = Number(t.width)
+          const nx = Math.max(0, Math.min(100, Number(t.x) || 0))
+          const ny = Math.max(0, Math.min(100, Number(t.y) || 0))
+          const nw = Math.max(1, Math.min(100, Number(t.width) || 90))
           const layerHeight = Math.max(1, Math.min(20, 100 - ny))
           layers.push({
             id: t.id, type: 'text', name: layerName,
             x: nx, y: ny, width: nw, height: layerHeight, z_index: 2 + idx,
-            font_size: Number(t.fontSize) || 24,
-            font_family: t.fontFamily,
+            font_size: Math.max(8, Number(t.fontSize) || 24),
+            font_family: t.fontFamily ?? 'Arial',
             ...(t.fontUrl && { font_url: t.fontUrl }),
-            color: t.color, text_align: t.align,
+            color: t.color ?? '#000000',
+            text_align: t.align ?? 'center',
           })
           textMap[layerName] = t.text
         })
