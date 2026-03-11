@@ -101,15 +101,20 @@ export async function generateAngledShots(
       const safePrompt = sanitizeForPrompt(lookAndFeel || '')
       const prompt = `TASK: Re-photograph this product from a COMPLETELY DIFFERENT camera angle.
 
+ONLY THE CAMERA ANGLE CHANGES. Nothing else.
+- Do NOT change the background — keep the exact same background (color, texture, style) as the input image.
+- Do NOT modify, add, or remove any logo on the product — logos stay exactly as they are.
+- Do NOT modify, add, or remove any text on the product — all labels, text, and copy must be reproduced exactly as in the input (same characters, font, placement). If a face is not visible from the new angle, do not invent text there.
+- Do NOT change lighting style, colors, or materials — only the viewpoint (camera position) changes.
+You are moving the camera around a fixed scene. The product, background, logo, and all text are unchanged.
+
 CAMERA POSITION:
 ${angle.prompt}
 
 Target view: ${angle.description}
 ${safePrompt ? `\nSTYLE: ${safePrompt}` : ''}
 
-The output image MUST show a visually DISTINCT perspective from the input image.
-If the input shows the front, and the target is a side view, the front label should NOT be the main visible face.
-Generate a high-quality professional product photograph from this exact camera angle.`
+The output MUST show a visually distinct perspective (different camera angle only). If the input shows the front and the target is a side view, the front label may be partly or fully out of view — that is correct. Generate a high-quality professional product photograph from this exact camera angle.`
 
       try {
         const requestBody = {
@@ -117,19 +122,15 @@ Generate a high-quality professional product photograph from this exact camera a
             parts: [{
               text: `You are a professional product photographer with a camera on a turntable rig.
 
-YOUR JOB: Move the camera to a new position around the product and take a photograph from that new angle.
-The product stays on the turntable. You walk around it with your camera.
+YOUR ONLY JOB: Move the camera to a new position and take a photograph from that new angle. Nothing else may change.
 
-RULES:
-- The product is the SAME product — same shape, same colors, same materials, same brand.
-- When viewed from the side or back, the front label naturally becomes hidden — this is CORRECT and EXPECTED.
-- Different angles REVEAL different faces of the product (sides, back, top) — each shot should look distinctly different.
-- BACKGROUND: Keep the EXACT SAME background color and style as the input image. Do not change it to warm tones, shadows, or gradients if the original is clean white/neutral.
-- COLORS: Do NOT change any colors. The label color, bottle color, cap color, glass color, and all packaging colors must match the original image exactly — pixel-for-pixel accurate color reproduction. If the label is sage green, it stays sage green. If the glass is amber brown, it stays amber brown.
-- LIGHTING: Preserve the same studio lighting style. Do not add warm glows, shadows, or vignettes not present in the original.
-- The product stays upright (don't flip it upside down).
-- CRITICAL — TEXT & LOGOS: Do NOT alter, invent, or hallucinate any text, words, numbers, or logos on the product. Any text or logo visible from the new angle must be reproduced EXACTLY as it appears on the original — same characters, same font style, same placement. If you cannot read it clearly, keep it blurred/indistinct rather than guessing.
-- Preserve any text/labels that ARE visible from the new angle — but do not force the front label to appear in shots where it would naturally be hidden.`
+STRICT RULES — ONLY CAMERA ANGLE CHANGES:
+- BACKGROUND: Do NOT change the background. Keep the exact same background as the input (same color, same texture, same style). No new backgrounds, no gradients, no added shadows or scenery.
+- LOGO: Do NOT modify, add, or remove any logo on the product. Logos must stay exactly as in the input.
+- PRODUCT TEXT: Do NOT alter, add, or remove any text on the product. All labels, copy, and text must be reproduced exactly as in the original — same characters, same font, same placement. If you cannot read it from the new angle, keep it blurred or out of view; never guess or invent text.
+- PRODUCT: Same product — same shape, colors, materials, brand. No changes.
+- LIGHTING: Preserve the same lighting style as the input. Do not add or change lighting effects.
+- The product stays on the turntable; you only move the camera. When the camera moves to the side or back, the front label may be partly or fully hidden — that is correct. Different angles reveal different faces; do not force the front label into shots where it would naturally be hidden.`
             }]
           },
           contents: [{
