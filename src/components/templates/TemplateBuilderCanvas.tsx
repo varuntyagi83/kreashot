@@ -235,11 +235,22 @@ export function TemplateBuilderCanvas({
 
           // Map custom font family names to CSS font families
           const CSS_FONT_MAP: Record<string, string> = {
+            'brandon-grotesque-regular': '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+            'brandon-grotesque-medium':  '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+            'brandon-grotesque-bold':    '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+            'brandon-grotesque-black':   '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
             'serif-bold': 'Georgia, "Times New Roman", serif',
             'serif-regular': 'Georgia, "Times New Roman", serif',
           }
+          const FONT_WEIGHT_MAP: Record<string, string> = {
+            'brandon-grotesque-regular': '400',
+            'brandon-grotesque-medium':  '500',
+            'brandon-grotesque-bold':    '700',
+            'brandon-grotesque-black':   '900',
+            'serif-bold': 'bold',
+          }
           const cssFontFamily = CSS_FONT_MAP[layer.font_family || ''] || layer.font_family || 'Arial'
-          const fontWeight = (layer.font_family === 'serif-bold') ? 'bold' : 'normal'
+          const fontWeight = FONT_WEIGHT_MAP[layer.font_family || ''] || 'normal'
 
           // Pick a contrasting background so light-colored text (e.g. white) stays visible
           const textColor = layer.color || '#000000'

@@ -204,6 +204,36 @@ def download_font(url):
 
 # Font family name → list of candidate paths (first match wins)
 FONT_FAMILY_MAP = {
+    # Brandon Grotesque — commercial font; upload the .otf/.ttf via Brand Assets
+    # for production rendering. Paths below cover common local install locations.
+    'brandon-grotesque-regular': [
+        "/Library/Fonts/BrandonGrotesque-Regular.otf",
+        "/Library/Fonts/Brandon_Grotesque_Regular.otf",
+        "/Library/Fonts/BrandonGrotesque-Regular.ttf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Regular.otf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Regular.ttf",
+    ],
+    'brandon-grotesque-medium': [
+        "/Library/Fonts/BrandonGrotesque-Medium.otf",
+        "/Library/Fonts/Brandon_Grotesque_Medium.otf",
+        "/Library/Fonts/BrandonGrotesque-Medium.ttf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Medium.otf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Medium.ttf",
+    ],
+    'brandon-grotesque-bold': [
+        "/Library/Fonts/BrandonGrotesque-Bold.otf",
+        "/Library/Fonts/Brandon_Grotesque_Bold.otf",
+        "/Library/Fonts/BrandonGrotesque-Bold.ttf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Bold.otf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Bold.ttf",
+    ],
+    'brandon-grotesque-black': [
+        "/Library/Fonts/BrandonGrotesque-Black.otf",
+        "/Library/Fonts/Brandon_Grotesque_Black.otf",
+        "/Library/Fonts/BrandonGrotesque-Black.ttf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Black.otf",
+        "/usr/share/fonts/brandon-grotesque/BrandonGrotesque-Black.ttf",
+    ],
     'serif-bold': [
         "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSerif-Bold.ttf",

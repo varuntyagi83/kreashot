@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2 } from 'lucide-react'
+import { getFormatDimensions } from '@/lib/formats'
 
 interface AssetOption {
   id: string
@@ -291,6 +292,10 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
                       ))}
                     </>
                   )}
+                  <SelectItem value="brandon-grotesque-regular">Brandon Grotesque Regular</SelectItem>
+                  <SelectItem value="brandon-grotesque-medium">Brandon Grotesque Medium</SelectItem>
+                  <SelectItem value="brandon-grotesque-bold">Brandon Grotesque Bold</SelectItem>
+                  <SelectItem value="brandon-grotesque-black">Brandon Grotesque Black</SelectItem>
                   <SelectItem value="serif-bold">Bold Serif</SelectItem>
                   <SelectItem value="serif-regular">Serif</SelectItem>
                   <SelectItem value="Arial">Arial (Sans)</SelectItem>
@@ -460,6 +465,47 @@ export function PropertiesPanel({ layer, categoryId, format, onLayerUpdate, onLa
         {/* Logo-specific properties */}
         {layer.type === 'logo' && (
           <>
+            {/* Pixel-based X/Y for free logo positioning */}
+            {(() => {
+              const { width: cw, height: ch } = getFormatDimensions(format)
+              const pxX = Math.round((layer.x / 100) * cw)
+              const pxY = Math.round((layer.y / 100) * ch)
+              return (
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold">Position (px)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Canvas: {cw}×{ch}px. Type exact pixel coordinates for precise logo placement.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">X (px)</Label>
+                      <Input
+                        type="number"
+                        value={pxX}
+                        onChange={(e) => {
+                          const px = parseFloat(e.target.value) || 0
+                          onLayerUpdate({ x: (px / cw) * 100 })
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Y (px)</Label>
+                      <Input
+                        type="number"
+                        value={pxY}
+                        onChange={(e) => {
+                          const px = parseFloat(e.target.value) || 0
+                          onLayerUpdate({ y: (px / ch) * 100 })
+                        }}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             <div className="space-y-2">
               <Label className="text-xs">Logo Image (canvas preview)</Label>
               {logos.length > 0 ? (
