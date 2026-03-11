@@ -1003,12 +1003,12 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           : '1/1',
                       }}
                     >
-                      {/* Base Image (composite or angled shot) */}
+                      {/* Base Image: use object-cover so crop matches Python compositor (cover + center crop) */}
                       <Image
                         src={previewImageUrl}
                         alt="Selected base image"
                         fill
-                        className="object-contain"
+                        className="object-cover object-center"
                       />
 
                       {/* Freeform position preview — pixel overrides take precedence over preset */}

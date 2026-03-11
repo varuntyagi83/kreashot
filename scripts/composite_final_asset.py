@@ -489,8 +489,8 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Vertically center within the layer, but clamp to canvas bounds
-            text_y = y + max(0, (lh - block_height) // 2)
+            # Top-align text to match preview (preview uses top: y%; compositor must match)
+            text_y = y
             # Ensure text doesn't go below canvas
             if text_y + block_height > canvas_height:
                 text_y = max(0, canvas_height - block_height - 4)
