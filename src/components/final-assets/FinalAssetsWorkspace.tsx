@@ -980,12 +980,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {previewImageUrl ? (
                   <div className="border rounded-lg p-3 space-y-2">
                     <p className="text-xs font-medium">Final Ad Preview</p>
-                    {/* Inject @font-face for uploaded brand fonts so preview shows correct typeface (e.g. Brandon Grotesque) */}
+                    {/* Inject @font-face via same-origin proxy so CORS never blocks (Supabase/GDrive often block @font-face from other origins) */}
                     {isFreeform && freeformBrandFontUrls.length > 0 && (
                       <style dangerouslySetInnerHTML={{
                         __html: freeformBrandFontUrls.map((url, i) => {
                           const family = `AdForgeBrandFont-${i}`
-                          const escaped = url.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
+                          const proxyUrl = `/api/font-proxy?url=${encodeURIComponent(url)}`
+                          const escaped = proxyUrl.replace(/\\/g, '\\\\').replace(/'/g, "\\'")
                           return `@font-face{font-family:'${family}';src:url('${escaped}');}`
                         }).join('')
                       }} />

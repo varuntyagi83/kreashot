@@ -360,14 +360,14 @@ export async function POST(
             const fontPath = `/tmp/font_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
             const { writeFile } = await import('fs/promises')
             await writeFile(fontPath, fontBuffer)
-            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes, format=${ext})`)
+            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes, format=${ext}) for layer ${layer.name ?? layer.id}`)
             layer.font_path = fontPath  // Python will use this local path
             fontCleanup.push(fontPath)
           } else {
-            console.warn(`⚠️ Font download produced no usable bytes for: ${layer.font_url.substring(0, 80)}`)
+            console.warn(`⚠️ Font download produced no usable bytes for layer ${layer.name ?? layer.id}; font_url will be passed to Python as fallback`)
           }
         } catch (e: any) {
-          console.warn(`⚠️ Font download error: ${e.message}`)
+          console.warn(`⚠️ Font download error for layer ${layer.name ?? layer.id}: ${e.message}; font_url will be passed to Python as fallback`)
         }
       }
     }
