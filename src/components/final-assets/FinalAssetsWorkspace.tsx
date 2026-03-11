@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider'
 import { Loader2, Download, Sparkles, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { getFormatDimensions } from '@/lib/formats'
 
 interface FinalAsset {
   id: string
@@ -152,6 +153,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   // Freeform mode controls (when no template selected)
   const [logoPosition, setLogoPosition] = useState('top-center')
   const [logoSize, setLogoSize] = useState(12)
+  // Custom pixel overrides for logo position (null = use preset)
+  const [logoXPx, setLogoXPx] = useState<number | null>(null)
+  const [logoYPx, setLogoYPx] = useState<number | null>(null)
   const [freeformTexts, setFreeformTexts] = useState<FreeformTextLayer[]>([])
 
   const updateFreeformText = (id: string, updates: Partial<FreeformTextLayer>) => {
@@ -384,6 +388,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
         // Logo layer
         if (logo) {
+          const { width: cw, height: ch } = getFormatDimensions(format)
           const margin = 3
           let lx = margin, ly = margin
           if (logoPosition === 'top-center')    { lx = (100 - logoSize) / 2; ly = margin }
@@ -391,6 +396,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
           if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
+          // Pixel overrides take precedence over preset
+          if (logoXPx !== null) lx = (logoXPx / cw) * 100
+          if (logoYPx !== null) ly = (logoYPx / ch) * 100
           layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: logoSize, height: logoSize, z_index: 3 })
         }
 
@@ -637,7 +645,11 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {selectedLogoId && (
                   <div className="space-y-3">
                     <Label className="text-xs text-muted-foreground">Logo Position</Label>
-                    <Select value={logoPosition} onValueChange={setLogoPosition} disabled={generating}>
+                    <Select
+                      value={logoPosition}
+                      onValueChange={(v) => { setLogoPosition(v); setLogoXPx(null); setLogoYPx(null) }}
+                      disabled={generating}
+                    >
                       <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="top-left">Top Left</SelectItem>
@@ -648,6 +660,41 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         <SelectItem value="bottom-right">Bottom Right</SelectItem>
                       </SelectContent>
                     </Select>
+                    {/* Pixel-precise X/Y override */}
+                    {(() => {
+                      const { width: cw, height: ch } = getFormatDimensions(format)
+                      return (
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Custom X/Y (px) — overrides preset above · canvas {cw}×{ch}
+                          </Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">X (px)</Label>
+                              <Input
+                                type="number"
+                                placeholder="—"
+                                value={logoXPx ?? ''}
+                                onChange={(e) => setLogoXPx(e.target.value === '' ? null : Number(e.target.value))}
+                                className="h-7 text-xs"
+                                disabled={generating}
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-[10px] text-muted-foreground">Y (px)</Label>
+                              <Input
+                                type="number"
+                                placeholder="—"
+                                value={logoYPx ?? ''}
+                                onChange={(e) => setLogoYPx(e.target.value === '' ? null : Number(e.target.value))}
+                                className="h-7 text-xs"
+                                disabled={generating}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })()}
                     <div className="space-y-1">
                       <Label className="text-xs text-muted-foreground">Logo Size: {logoSize}%</Label>
                       <Slider
@@ -755,6 +802,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         >
                           <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="brandon-grotesque-regular">Brandon Grotesque Regular</SelectItem>
+                            <SelectItem value="brandon-grotesque-medium">Brandon Grotesque Medium</SelectItem>
+                            <SelectItem value="brandon-grotesque-bold">Brandon Grotesque Bold</SelectItem>
+                            <SelectItem value="brandon-grotesque-black">Brandon Grotesque Black</SelectItem>
                             <SelectItem value="Arial">Arial</SelectItem>
                             <SelectItem value="Helvetica">Helvetica</SelectItem>
                             <SelectItem value="Georgia">Georgia</SelectItem>
