@@ -26,7 +26,7 @@ export async function POST(
       )
     }
 
-    // Fetch category including all brand context fields
+    // Fetch category including all brand context (always pass brand_voice + brand_guidelines into copy generation)
     const { data: category } = await supabase
       .from('categories')
       .select('id, name, slug, look_and_feel, brand_guidelines, brand_voice')

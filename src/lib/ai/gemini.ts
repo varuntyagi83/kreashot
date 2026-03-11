@@ -5,6 +5,40 @@ import { formatBrandVoiceForPrompt } from './brand-voice'
 import type { CopyType, CopyVariation, CopyKitItem } from './openai'
 import { sanitizeForPrompt } from './sanitize'
 
+// Image generation (angled shots, backgrounds, composites, reformat) uses REST API to
+// generativelanguage.googleapis.com .../generateContent — intentionally not the SDK —
+// to preserve image quality and aspect-ratio control across formats (1:1, 16:9, 9:16, 4:5).
+
+const GEMINI_RETRY_STATUSES = [429, 503]
+const GEMINI_RETRY_ATTEMPTS = 3
+const GEMINI_RETRY_INITIAL_MS = 2000
+
+/**
+ * Call Gemini REST API with retry on 429 (rate limit) and 503 (unavailable).
+ * Exponential backoff: 2s, 4s, 8s.
+ */
+async function fetchGeminiWithRetry(
+  url: string,
+  options: RequestInit,
+  apiKey: string
+): Promise<Response> {
+  let lastResponse: Response | null = null
+  for (let attempt = 1; attempt <= GEMINI_RETRY_ATTEMPTS; attempt++) {
+    const res = await fetch(url, options)
+    lastResponse = res
+    if (res.ok || !GEMINI_RETRY_STATUSES.includes(res.status)) {
+      return res
+    }
+    if (attempt === GEMINI_RETRY_ATTEMPTS) {
+      return res
+    }
+    const delayMs = GEMINI_RETRY_INITIAL_MS * Math.pow(2, attempt - 1)
+    console.warn(`Gemini API ${res.status}, retry ${attempt}/${GEMINI_RETRY_ATTEMPTS} in ${delayMs}ms`)
+    await new Promise(r => setTimeout(r, delayMs))
+  }
+  return lastResponse!
+}
+
 // Lazy initialization of Gemini AI client
 let genAI: GoogleGenerativeAI | null = null
 
@@ -38,6 +72,8 @@ export async function generateAngledShots(
     promptUsed: string
     imageData: string
     mimeType: string
+    /** True when the API failed or returned no image; original product image was used instead. */
+    fallbackToOriginal?: boolean
   }>
 > {
   try {
@@ -124,15 +160,19 @@ RULES:
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 120000)
 
-        const response = await fetch(`${GEMINI_API_URL}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': GEMINI_API_KEY,
+        const response = await fetchGeminiWithRetry(
+          `${GEMINI_API_URL}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': GEMINI_API_KEY,
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
           },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        })
+          GEMINI_API_KEY
+        )
         clearTimeout(timeout)
 
         if (!response.ok) {
@@ -154,6 +194,7 @@ RULES:
             promptUsed: prompt,
             imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
             mimeType: generatedMimeType,
+            fallbackToOriginal: false,
           }
         } else {
           console.warn(`  ⚠️  No image for ${angle.name}, using original as fallback`)
@@ -163,6 +204,7 @@ RULES:
             promptUsed: prompt,
             imageData: productImageData,
             mimeType: productImageMimeType,
+            fallbackToOriginal: true,
           }
         }
       } catch (error) {
@@ -173,6 +215,7 @@ RULES:
           promptUsed: prompt,
           imageData: productImageData,
           mimeType: productImageMimeType,
+          fallbackToOriginal: true,
         }
       }
     }))
@@ -346,19 +389,23 @@ QUALITY STANDARD:
           }
         }
 
-        // Call Gemini API directly
+        // Call Gemini API directly (with retry on 429/503)
         const controller = new AbortController()
         const timeout = setTimeout(() => controller.abort(), 120000)
 
-        const response = await fetch(`${GEMINI_API_URL}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': GEMINI_API_KEY,
+        const response = await fetchGeminiWithRetry(
+          `${GEMINI_API_URL}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': GEMINI_API_KEY,
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
           },
-          body: JSON.stringify(requestBody),
-          signal: controller.signal,
-        })
+          GEMINI_API_KEY
+        )
         clearTimeout(timeout)
 
         if (!response.ok) {
@@ -469,15 +516,19 @@ export async function regenerateBackgroundInFormat(
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), 120000)
 
-  const response = await fetch(`${GEMINI_API_URL}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': GEMINI_API_KEY,
+  const response = await fetchGeminiWithRetry(
+    `${GEMINI_API_URL}`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': GEMINI_API_KEY,
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
     },
-    body: JSON.stringify(requestBody),
-    signal: controller.signal,
-  })
+    GEMINI_API_KEY
+  )
   clearTimeout(timeout)
 
   if (!response.ok) {
@@ -677,19 +728,23 @@ Think of yourself as operating a camera, not Photoshop. You photograph what exis
       }
     }
 
-    // Call Gemini API directly
+    // Call Gemini API directly (with retry on 429/503)
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 120000)
 
-    const response = await fetch(`${GEMINI_API_URL}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': GEMINI_API_KEY,
+    const response = await fetchGeminiWithRetry(
+      `${GEMINI_API_URL}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': GEMINI_API_KEY,
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
       },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    })
+      GEMINI_API_KEY
+    )
     clearTimeout(timeout)
 
     if (!response.ok) {

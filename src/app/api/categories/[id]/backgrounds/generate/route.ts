@@ -36,10 +36,10 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to user and get look_and_feel + brand_guidelines
+    // Verify category belongs to user and get look_and_feel + brand_guidelines + color description (from PDF Vision)
     const { data: category } = await supabase
       .from('categories')
-      .select('id, name, slug, look_and_feel, brand_guidelines')
+      .select('id, name, slug, look_and_feel, brand_guidelines, brand_guidelines_color_description')
       .eq('id', categoryId)
       .eq('user_id', user.id)
       .single()
@@ -149,7 +149,13 @@ export async function POST(
       }
     }
 
-    // If colorWorld is selected but no color description was loaded (no @ references),
+    // Use category-level color description (from brand-docs PDF Vision + translation) when no @ references
+    if (!resolvedColorDescription && (category as { brand_guidelines_color_description?: string }).brand_guidelines_color_description) {
+      resolvedColorDescription = (category as { brand_guidelines_color_description: string }).brand_guidelines_color_description
+      console.log(`Using category brand_guidelines_color_description (${resolvedColorDescription.length} chars)`)
+    }
+
+    // If colorWorld is selected but no color description was loaded (no @ references, no category color),
     // fetch color descriptions from ALL of the user's guidelines
     if (colorWorld && !resolvedColorDescription) {
       const { data: allGuidelines } = await supabase

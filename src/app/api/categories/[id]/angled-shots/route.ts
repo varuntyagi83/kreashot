@@ -56,6 +56,7 @@ export async function GET(
         storage_path,
         storage_url,
         storage_provider,
+        format,
         created_at,
         product:products!inner(id, name, slug),
         product_image:product_images!inner(id, file_name)

@@ -22,6 +22,7 @@ interface AngledShot {
   prompt_used: string | null
   storage_path: string
   storage_url: string
+  format?: string // e.g. '1:1', '16:9' — for single-angle regenerate
   created_at: string
   public_url: string
   product: {

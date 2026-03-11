@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreVertical, Trash2, Download, Eye } from 'lucide-react'
+import { MoreVertical, Trash2, Download, Eye, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface AngledShotCardProps {
@@ -21,6 +21,7 @@ interface AngledShotCardProps {
     prompt_used: string | null
     storage_path: string
     storage_url: string
+    format?: string // e.g. '1:1', '16:9' — used for regenerate single angle
     created_at: string
     public_url: string
     product: {
@@ -43,7 +44,58 @@ export function AngledShotCard({
   onDeleted,
 }: AngledShotCardProps) {
   const [deleting, setDeleting] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
   const [imageError, setImageError] = useState(false)
+
+  const handleRegenerate = async () => {
+    const productId = angledShot.product?.id
+    const productImageId = angledShot.product_image?.id
+    const format = angledShot.format ?? '1:1'
+    if (!productId || !productImageId) {
+      toast.error('Cannot regenerate: missing product or source image')
+      return
+    }
+    setRegenerating(true)
+    try {
+      const deleteRes = await fetch(
+        `/api/categories/${categoryId}/angled-shots/${angledShot.id}`,
+        { method: 'DELETE' }
+      )
+      if (!deleteRes.ok) {
+        const d = await deleteRes.json()
+        toast.error(d.error || 'Failed to remove existing shot')
+        return
+      }
+      const genRes = await fetch(
+        `/api/categories/${categoryId}/angled-shots/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId,
+            productImageId,
+            format,
+            angleName: angledShot.angle_name,
+          }),
+        }
+      )
+      const data = await genRes.json()
+      if (!genRes.ok) {
+        toast.error(data.error || 'Failed to regenerate angled shot')
+        return
+      }
+      if (data.fallbackToOriginalAngles?.length) {
+        toast.warning(`Regenerated, but ${data.fallbackToOriginalAngles.join(', ')} used the original image (generation failed).`)
+      } else {
+        toast.success(`Regenerated ${angledShot.angle_name} and saved to the same folder.`)
+      }
+      onDeleted()
+    } catch (e) {
+      toast.error('Failed to regenerate angled shot')
+    } finally {
+      setRegenerating(false)
+    }
+  }
 
   const handleDelete = async () => {
     if (!confirm(`Delete ${angledShot.angle_description}?`)) {
@@ -96,7 +148,15 @@ export function AngledShotCard({
   }
 
   return (
-    <Card className="group hover:shadow-md transition-shadow">
+    <Card className="group hover:shadow-md transition-shadow relative">
+      {regenerating && (
+        <div className="absolute inset-0 bg-background/80 z-10 flex items-center justify-center rounded-lg">
+          <div className="flex flex-col items-center gap-2">
+            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Regenerating…</span>
+          </div>
+        </div>
+      )}
       <CardContent className="p-4">
         <div
           className="aspect-square mb-3 rounded-md bg-muted flex items-center justify-center overflow-hidden relative cursor-pointer"
@@ -144,7 +204,7 @@ export function AngledShotCard({
                   variant="ghost"
                   size="sm"
                   className="h-8 w-8 p-0"
-                  disabled={deleting}
+                  disabled={deleting || regenerating}
                 >
                   <MoreVertical className="h-4 w-4" />
                 </Button>
@@ -153,6 +213,13 @@ export function AngledShotCard({
                 <DropdownMenuItem onClick={handleView}>
                   <Eye className="h-4 w-4 mr-2" />
                   View Full Size
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleRegenerate}
+                  disabled={regenerating || !angledShot.product_image?.id}
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  {regenerating ? 'Regenerating…' : 'Regenerate this angle'}
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleDownload}>
                   <Download className="h-4 w-4 mr-2" />

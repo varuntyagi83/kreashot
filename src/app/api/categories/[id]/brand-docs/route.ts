@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { extractPdfText } from '@/lib/pdf'
+import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -51,7 +51,6 @@ export async function POST(
 
     console.log(`Parsing brand guidelines PDF: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`)
 
-    // Extract text from PDF using pdfjs-dist
     const arrayBuffer = await file.arrayBuffer()
 
     // Validate PDF magic bytes (%PDF-)
@@ -60,11 +59,15 @@ export async function POST(
       return NextResponse.json({ error: 'File does not appear to be a valid PDF' }, { status: 400 })
     }
 
-    const extractedText = await extractPdfText(arrayBuffer)
+    // Use Vision first (reads colors, swatches, layout) for accurate backgrounds/composites; fallback to text-only
+    let extractedText: string | null = await extractPdfWithVision(arrayBuffer)
+    if (!extractedText || extractedText.trim().length < 50) {
+      extractedText = await extractPdfText(arrayBuffer)
+    }
 
     if (!extractedText || extractedText.trim().length < 50) {
       return NextResponse.json(
-        { error: 'Could not extract readable text from the PDF. Please ensure the PDF contains text (not just scanned images).' },
+        { error: 'Could not extract readable text from the PDF. Please ensure the PDF contains text (or visual design specs for Vision).' },
         { status: 422 }
       )
     }
@@ -73,12 +76,19 @@ export async function POST(
     const truncatedText = extractedText.trim().substring(0, 20000)
     const wasTruncated = extractedText.trim().length > 20000
 
-    // Save to categories table
+    // Generate natural-language color description so backgrounds/composites get accurate brand colors
+    const brandGuidelinesColorDescription = await translateGuidelinesToColorDescription(truncatedText)
+    if (brandGuidelinesColorDescription) {
+      console.log(`Color description for category: ${brandGuidelinesColorDescription.length} chars`)
+    }
+
+    // Save to categories table (text + optional color description for image prompts)
     const { error: updateError } = await supabase
       .from('categories')
       .update({
         brand_guidelines: truncatedText,
         brand_doc_name: file.name,
+        brand_guidelines_color_description: brandGuidelinesColorDescription ?? null,
       })
       .eq('id', categoryId)
 
@@ -135,7 +145,7 @@ export async function DELETE(
 
     await supabase
       .from('categories')
-      .update({ brand_guidelines: null, brand_doc_name: null })
+      .update({ brand_guidelines: null, brand_doc_name: null, brand_guidelines_color_description: null })
       .eq('id', categoryId)
 
     return NextResponse.json({ message: 'Brand guidelines removed' })

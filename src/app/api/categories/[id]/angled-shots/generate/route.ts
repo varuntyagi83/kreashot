@@ -236,13 +236,20 @@ export async function POST(
     )
 
     const saved = savedShots.filter(Boolean)
-    console.log(`✅ Saved ${saved.length}/${generatedShots.length} shots`)
+    const fallbackAngles = generatedShots
+      .filter((s: { fallbackToOriginal?: boolean }) => s.fallbackToOriginal)
+      .map((s: { angleName: string }) => s.angleName)
+    if (fallbackAngles.length > 0) {
+      console.warn(`⚠️ Angled shots that fell back to original (generation failed): ${fallbackAngles.join(', ')}`)
+    }
 
     return NextResponse.json({
       message: `Generated and saved ${saved.length} shot(s) for ${format} format`,
       count: saved.length,
       format,
       angledShots: saved,
+      /** Angle names for which generation failed and the original product image was used instead. UI should show a warning. */
+      fallbackToOriginalAngles: fallbackAngles,
     })
   } catch (error) {
     console.error('Error generating angled shots:', error)

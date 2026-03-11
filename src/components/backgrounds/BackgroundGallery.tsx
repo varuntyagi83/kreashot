@@ -269,8 +269,8 @@ export function BackgroundGallery({
       toast.error('Please select an image file')
       return
     }
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error('Image must be under 20MB')
+    if (file.size > 50 * 1024 * 1024) {
+      toast.error('Image must be under 50MB')
       return
     }
     setUploadFile(file)
@@ -384,7 +384,7 @@ export function BackgroundGallery({
                   Drag & drop an image here, or click to browse
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  JPEG, PNG, WebP up to 20MB
+                  JPEG, PNG, WebP up to 50MB
                 </p>
                 <input
                   id="bg-upload-input"

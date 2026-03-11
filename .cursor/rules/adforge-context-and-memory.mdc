@@ -15,9 +15,13 @@ alwaysApply: true
 - **Auth & RLS:** Use `createServerSupabaseClient()` (anon key) in app/API so RLS is enforced. Use service role (`createAdminSupabaseClient()`) only in admin routes and only after Bearer token validation. Never expose service role to client or public APIs.
 - **Security:** Every route must call `supabase.auth.getUser()` before touching data; nested resources must verify ownership (e.g. category_id + user_id). AI endpoints must call `checkRateLimit()`; user strings to AI must go through `sanitizeForPrompt()`. See `.claude/skills/qa/skill.md` for full invariants.
 - **Supabase:** User-data tables have RLS with `auth.uid() = user_id` (or equivalent). Reference table `format_configs` has RLS with read-only for `authenticated`. Views that join user data use `security_invoker = on`. See `docs/SUPABASE_SECURITY_ADVISOR.md`.
+- **Gemini image generation:** Use the **REST API** (fetch to `generativelanguage.googleapis.com` .../generateContent) for all image-generation endpoints (angled shots, backgrounds, composites, reformat). Do not switch to the SDK for these — REST preserves image quality and aspect-ratio control; keep the current pattern in `src/lib/ai/gemini.ts`.
+- **Parallel work:** When addressing multiple independent issues or features, launch **parallel agents** (e.g. mcp_task with explore/shell/generalPurpose) where applicable so independent items are handled concurrently instead of sequentially.
 
 ## Changelog — Improvements & bug fixes
 
 When you add a fix or improvement, append a short line here (date + one-line description) so future sessions retain context.
 
 - **2026-03-11 — Supabase Security Advisor (4 issues):** (1) Enabled RLS on `format_configs` and added read-only policy for `authenticated` (`20260311_fix_security_advisor_rls.sql`). (2) Recreated views `templates_by_format`, `composites_by_format`, `final_assets_by_format` with `WITH (security_invoker = on)` to fix Security Definer View findings (`20260311_fix_security_definer_views.sql`). Doc: `docs/SUPABASE_SECURITY_ADVISOR.md`.
+- **2026-03-11 — Quality & workflow:** Gemini retries (429/503), Vision+color for category PDFs, angled-shot failure signaling, safe zones doc. Project rule: use REST for Gemini image gen (quality/aspect ratio); use parallel agents for independent issues/features where applicable.
+- **2026-03-11 — Deletion behavior:** Deleting a product image does **not** delete its angled shots. FK `angled_shots.product_image_id` uses ON DELETE SET NULL (`20260311_angled_shots_keep_on_product_image_delete.sql`); angled shots remain with `product_image_id = NULL`. See `docs/DELETION_FLOW.md`.

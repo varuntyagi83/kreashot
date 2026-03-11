@@ -172,7 +172,10 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
 
       if (response.ok) {
         setGeneratedAngles(data.previewData || [])
-        toast.success(`Generated ${data.generatedShots.length} angled shots!`)
+        toast.success(`Generated ${data.generatedShots?.length ?? data.angledShots?.length ?? 0} angled shots!`)
+        if (data.fallbackToOriginalAngles?.length > 0) {
+          toast.warning(`${data.fallbackToOriginalAngles.length} angle(s) used original image (generation failed): ${data.fallbackToOriginalAngles.join(', ')}`)
+        }
       } else {
         toast.error(data.error || 'Failed to generate angled shots')
       }

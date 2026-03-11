@@ -88,7 +88,9 @@ export async function POST(
       .eq('format', format) // NEW: Filter by format
       .single()
 
-    // Extract safe zones from template (optional - category may not have template for this format yet)
+    // Extract safe zones from template so composites respect layout. Define clear safe zones in the template:
+    // - At least one zone with type "safe" and name containing "product" (product placement zone).
+    // - Optional zones with type "restricted" (no product placement there). See docs/TEMPLATE_SAFE_ZONES.md.
     let safeZones: any[] = []
     if (template && template.template_data) {
       safeZones = template.template_data.safe_zones || []

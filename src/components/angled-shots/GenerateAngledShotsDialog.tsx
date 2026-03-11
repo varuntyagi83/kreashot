@@ -139,6 +139,9 @@ export function GenerateAngledShotsDialog({
             failed++
           } else {
             saved++
+            if (data.fallbackToOriginalAngles?.length > 0) {
+              toast.warning(`${angle.name}: generation failed — original image was used. Check logs.`)
+            }
           }
         } catch (err) {
           console.error(`Error generating ${angle.name}:`, err)
