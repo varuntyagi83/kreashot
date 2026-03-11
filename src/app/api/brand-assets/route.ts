@@ -56,7 +56,22 @@ export async function GET() {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    return NextResponse.json({ assets })
+    // Migrate legacy font URLs: old records stored drive.google.com/uc?export=download
+    // which triggers the virus-scan HTML page. Rewrite on read to the direct download URL.
+    const migratedAssets = (assets || []).map((a: any) => {
+      if (a.asset_type === 'font' && a.storage_url?.includes('drive.google.com/uc')) {
+        const match = a.storage_url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
+        if (match) {
+          return {
+            ...a,
+            storage_url: `https://drive.usercontent.google.com/download?id=${match[1]}&export=download&confirm=t`,
+          }
+        }
+      }
+      return a
+    })
+
+    return NextResponse.json({ assets: migratedAssets })
   } catch (error: any) {
     console.error('[brand-assets GET] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -147,10 +162,12 @@ export async function POST(request: NextRequest) {
       provider: 'gdrive',
     })
 
-    // For non-image files (fonts), use GDrive direct download URL instead of lh3 CDN
+    // For non-image files (fonts), use GDrive direct download URL instead of lh3 CDN.
+    // confirm=t bypasses Google's virus-scan warning page for binary files (OTF/TTF),
+    // which would otherwise return HTML instead of the actual font bytes.
     const isFont = assetType === 'font'
     const storageUrl = isFont && storageFile.fileId
-      ? `https://drive.google.com/uc?export=download&id=${storageFile.fileId}`
+      ? `https://drive.usercontent.google.com/download?id=${storageFile.fileId}&export=download&confirm=t`
       : storageFile.publicUrl
 
     // Insert into brand_assets table
