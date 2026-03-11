@@ -5,6 +5,10 @@ import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 import sharp from 'sharp'
+import { spawn } from 'child_process'
+import path from 'path'
+import { readFile, unlink } from 'fs/promises'
+import crypto from 'crypto'
 
 const GEMINI_INPUT_MAX_PX = 1536 // Max dimension for Gemini input images (output is still 4K)
 
@@ -77,7 +81,8 @@ export async function POST(
       mode = 'selected',
       pairs = [],
       userPrompt,
-      format = '1:1' // NEW: Format parameter
+      format = '1:1',
+      superimpose = false, // If true: remove product bg and paste on background (no AI merge)
     } = body
 
     if (Array.isArray(pairs) && pairs.length > 20) {
@@ -314,6 +319,50 @@ export async function POST(
         }
 
         if (!backgroundBuffer) {
+          continue
+        }
+
+        if (superimpose) {
+          // Remove product background and paste on scene (no AI merge) via Python script
+          const outputPath = `/tmp/composite_superimpose_${crypto.randomUUID()}.png`
+          const scriptPath = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
+          const inputData = JSON.stringify({
+            mode: 'superimpose',
+            background_url: background.storage_url,
+            product_url: angledShot.storage_url,
+            output_path: outputPath,
+            width: formatDimensions.width,
+            height: formatDimensions.height,
+          })
+          try {
+            const outPath = await new Promise<string>((resolve, reject) => {
+              const proc = spawn('python3', [scriptPath])
+              let stderr = ''
+              proc.stderr?.on('data', (d) => { stderr += d.toString() })
+              proc.stdin?.write(inputData)
+              proc.stdin?.end()
+              proc.on('close', (code) => {
+                if (code !== 0) reject(new Error(stderr || 'Python script failed'))
+                else resolve(outputPath)
+              })
+            })
+            const buf = await readFile(outPath)
+            await unlink(outPath).catch(() => {})
+            results.push({
+              angledShotId: pair.angledShotId,
+              angledShotName: angledShot.display_name,
+              backgroundId: pair.backgroundId,
+              backgroundName: background.name,
+              image_base64: buf.toString('base64'),
+              image_mime_type: 'image/png',
+              prompt_used: 'Superimposed (background removed from product)',
+            })
+            console.log(`   ✅ Superimpose ${results.length}/${compositionPairs.length} generated`)
+          } catch (err) {
+            const msg = `Superimpose failed: ${err instanceof Error ? err.message : err}`
+            console.error(msg)
+            errors.push(msg)
+          }
           continue
         }
 

@@ -201,21 +201,41 @@ export function TemplateBuilderCanvas({
         if (imageUrl) {
           try {
             // No crossOrigin: Google Drive CDN (lh3.googleusercontent.com) does not send
-          // Access-Control-Allow-Origin when Origin header is present, causing load failure.
-          // Canvas becomes tainted but toDataURL() is never needed for this preview canvas.
-          const img = await fabric.Image.fromURL(imageUrl)
+            // Access-Control-Allow-Origin when Origin header is present, causing load failure.
+            const img = await fabric.Image.fromURL(imageUrl)
             if (cancelled) break
 
+            const iw = img.width || 1
+            const ih = img.height || 1
+            // Product and logo: preserve aspect ratio (contain), centered. No stretch, no multiply.
+            const isContain = layer.type === 'product' || layer.type === 'logo'
+            let scaleX: number
+            let scaleY: number
+            let left: number
+            let top: number
+            if (isContain) {
+              const scale = Math.min(lw / iw, lh / ih)
+              scaleX = scale
+              scaleY = scale
+              left = lx + (lw - iw * scale) / 2
+              top = ly + (lh - ih * scale) / 2
+            } else {
+              scaleX = lw / iw
+              scaleY = lh / ih
+              left = lx
+              top = ly
+            }
+
             img.set({
-              left: lx,
-              top: ly,
-              scaleX: lw / (img.width || 1),
-              scaleY: lh / (img.height || 1),
+              left,
+              top,
+              scaleX,
+              scaleY,
               selectable: !layer.locked,
               stroke: isSelected ? '#2563eb' : undefined,
               strokeWidth: isSelected ? 2 : 0,
-              // Multiply blend: white background of product angled shots blends into the background layer
-              globalCompositeOperation: layer.type === 'product' ? 'multiply' : 'source-over',
+              // Product: superimpose (opaque), not blend. Logo: normal. Background/overlay: fill.
+              globalCompositeOperation: 'source-over',
               ...commonControls,
             })
             ;(img as CustomFabricObject).customData = { isLayer: true, layerId: layer.id }

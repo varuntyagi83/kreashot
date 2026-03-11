@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { deleteFile } from '@/lib/storage'
 
 /**
  * DELETE /api/categories/[id]/final-assets/[assetId]
- * Deletes a final asset (DB row + queues storage cleanup)
+ * Deletes a final asset from DB and from Google Drive.
  */
 export async function DELETE(
   request: NextRequest,
@@ -23,17 +24,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    // Verify asset belongs to user
-    const { data: asset } = await supabase
+    // Fetch asset with storage fields so we can delete from GDrive
+    const { data: asset, error: fetchError } = await supabase
       .from('final_assets')
-      .select('id')
+      .select('id, gdrive_file_id, storage_path, storage_provider')
       .eq('id', assetId)
       .eq('category_id', categoryId)
       .eq('user_id', user.id)
       .single()
 
-    if (!asset) {
+    if (fetchError || !asset) {
       return NextResponse.json({ error: 'Final asset not found' }, { status: 404 })
+    }
+
+    // Delete from Google Drive (final assets are uploaded with provider: 'gdrive')
+    const provider = asset.storage_provider || 'gdrive'
+    if (provider === 'gdrive' && (asset.gdrive_file_id || asset.storage_path)) {
+      try {
+        await deleteFile(asset.gdrive_file_id || asset.storage_path!, { provider: 'gdrive' })
+      } catch (e) {
+        console.error('Failed to delete final asset from GDrive:', e)
+        // Continue to delete DB row so UI stays in sync
+      }
     }
 
     const { error: deleteError } = await supabase

@@ -57,6 +57,7 @@ export function CompositeGenerationForm({
   const [mode, setMode] = useState<'all_combinations' | 'selected'>(
     'selected'
   )
+  const [compositeMode, setCompositeMode] = useState<'ai_merge' | 'superimpose'>('ai_merge')
   const [userPrompt, setUserPrompt] = useState('')
 
   // For selected mode
@@ -137,6 +138,7 @@ export function CompositeGenerationForm({
               mode: 'all_combinations',
               userPrompt: userPrompt.trim() || undefined,
               format,
+              superimpose: compositeMode === 'superimpose',
             }
           : {
               mode: 'selected',
@@ -148,6 +150,7 @@ export function CompositeGenerationForm({
               ),
               userPrompt: userPrompt.trim() || undefined,
               format,
+              superimpose: compositeMode === 'superimpose',
             }
 
       const response = await fetch(
@@ -216,6 +219,33 @@ export function CompositeGenerationForm({
               </SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Composite method: AI merge vs Superimpose */}
+        <div className="space-y-2">
+          <Label htmlFor="composite-mode">Composite Method</Label>
+          <Select
+            value={compositeMode}
+            onValueChange={(value: 'ai_merge' | 'superimpose') => setCompositeMode(value)}
+            disabled={isGenerating}
+          >
+            <SelectTrigger id="composite-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ai_merge">
+                AI merge (blend product into scene)
+              </SelectItem>
+              <SelectItem value="superimpose">
+                Superimpose (remove product background, paste on scene)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {compositeMode === 'ai_merge'
+              ? 'Gemini blends the product with the background for a natural look.'
+              : 'Product background is removed and the cutout is placed on the scene.'}
+          </p>
         </div>
 
         {/* User Prompt (Optional) */}

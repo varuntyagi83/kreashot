@@ -378,13 +378,15 @@ def composite_final_asset(
     height=1080,
 ):
     """
-    Composite final ad asset using template
+    Composite final ad asset: place base image, then superimpose logo and text only.
+    Does not modify the base image (no filters, no color change). When base dimensions
+    match canvas, the image is used 1:1. Logo and text are drawn on top to match the preview.
 
     Args:
         template_data: Template JSON with layers and safe zones
         composite_url: URL to background/composite image
         copy_text: Text content for text layers
-        logo_url: Optional URL to logo image
+        logo_url: Optional URL to logo image (same as preview)
         output_path: Where to save final composite
         width: Canvas width in pixels
         height: Canvas height in pixels
@@ -426,19 +428,25 @@ def composite_final_asset(
         sys.stderr.write(f"  Layer {layer.get('id')}: {layer_type} at ({x}, {y}) size {lw}x{lh}\n")
 
         if layer_type == 'background':
-            # Paste background/composite — resize-to-cover and center-crop to preserve aspect ratio
+            # Use base image as-is: only superimpose logo and text on top; do not modify the image.
+            # When dimensions match, paste 1:1. When they differ, cover+crop to match preview.
             bg_image = download_image(composite_url)
             src_w, src_h = bg_image.size
-            scale = max(canvas_width / src_w, canvas_height / src_h)
-            new_w = int(src_w * scale)
-            new_h = int(src_h * scale)
-            bg_image = bg_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
-            # Center-crop to canvas dimensions
-            crop_x = (new_w - canvas_width) // 2
-            crop_y = (new_h - canvas_height) // 2
-            bg_image = bg_image.crop((crop_x, crop_y, crop_x + canvas_width, crop_y + canvas_height))
-            final_image.paste(bg_image, (0, 0))
-            sys.stderr.write(f"    ✅ Pasted background (src {src_w}x{src_h} → cover {new_w}x{new_h} → crop to {canvas_width}x{canvas_height})\n")
+            if src_w == canvas_width and src_h == canvas_height:
+                # Exact match: use image unchanged (no resize, no crop)
+                final_image.paste(bg_image, (0, 0))
+                sys.stderr.write(f"    ✅ Pasted background 1:1 (no resize/crop)\n")
+            else:
+                # Resize-to-cover and center-crop to match preview (object-cover behavior)
+                scale = max(canvas_width / src_w, canvas_height / src_h)
+                new_w = int(src_w * scale)
+                new_h = int(src_h * scale)
+                bg_image = bg_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                crop_x = (new_w - canvas_width) // 2
+                crop_y = (new_h - canvas_height) // 2
+                bg_image = bg_image.crop((crop_x, crop_y, crop_x + canvas_width, crop_y + canvas_height))
+                final_image.paste(bg_image, (0, 0))
+                sys.stderr.write(f"    ✅ Pasted background (src {src_w}x{src_h} → cover {new_w}x{new_h} → crop to {canvas_width}x{canvas_height})\n")
 
         elif layer_type == 'product':
             # Product is already in composite, skip
@@ -489,8 +497,8 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Top-align text to match preview (preview uses top: y%; compositor must match)
-            text_y = y
+            # Vertically center within the layer, but clamp to canvas bounds
+            text_y = y + max(0, (lh - block_height) // 2)
             # Ensure text doesn't go below canvas
             if text_y + block_height > canvas_height:
                 text_y = max(0, canvas_height - block_height - 4)
@@ -524,16 +532,15 @@ def composite_final_asset(
             sys.stderr.write(f"    ✅ Drew text ({len(lines)} lines): \"{text_content[:40]}...\"\n")
 
         elif layer_type == 'logo' and logo_url:
-            # Paste logo preserving aspect ratio and crisp edges
+            # Superimpose logo only: same image as preview, fit inside layer (contain), centered. No other modification.
             logo_image = download_image(logo_url)
             logo_image = logo_image.convert('RGBA')
 
-            # Preserve aspect ratio: fit inside layer bounds (contain), then center
+            # Fit inside layer bounds (contain), then center — matches preview object-contain
             logo_image.thumbnail((lw, lh), Image.Resampling.LANCZOS)
             paste_x = x + (lw - logo_image.width) // 2
             paste_y = y + (lh - logo_image.height) // 2
 
-            # Composite onto a transparent layer at the right position
             logo_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
             logo_layer.paste(logo_image, (paste_x, paste_y), logo_image)
             final_image = Image.alpha_composite(final_image.convert('RGBA'), logo_layer).convert('RGB')
@@ -630,6 +637,57 @@ def composite_final_asset(
     return output_path
 
 
+def superimpose_product_on_background(
+    background_url: str,
+    product_url: str,
+    output_path: str,
+    width: int,
+    height: int,
+) -> str:
+    """
+    Remove white background from the product image and paste it on top of the
+    background (no AI merge). Product is centered and scaled to fit ~60% of canvas.
+    """
+    bg_image = download_image(background_url)
+    product_image = download_image(product_url)
+
+    # Background: resize to cover and center-crop to exact dimensions
+    src_w, src_h = bg_image.size
+    scale = max(width / src_w, height / src_h)
+    new_w = int(src_w * scale)
+    new_h = int(src_h * scale)
+    bg_image = bg_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    crop_x = (new_w - width) // 2
+    crop_y = (new_h - height) // 2
+    bg_image = bg_image.crop((crop_x, crop_y, crop_x + width, crop_y + height))
+    bg_image = bg_image.convert('RGB')
+    final_image = bg_image.copy()
+
+    # Product: remove white background, then fit inside ~60% of canvas and center
+    product_rgba = remove_white_background(product_image)
+    pw, ph = product_rgba.size
+    if pw == 0 or ph == 0:
+        sys.stderr.write("  WARNING: Product image empty after background removal\n")
+        final_image.save(output_path, 'PNG', quality=95)
+        return output_path
+
+    max_side = int(min(width, height) * 0.6)
+    scale_p = min(max_side / pw, max_side / ph, 1.0)
+    new_pw = max(1, int(pw * scale_p))
+    new_ph = max(1, int(ph * scale_p))
+    product_rgba = product_rgba.resize((new_pw, new_ph), Image.Resampling.LANCZOS)
+    paste_x = (width - new_pw) // 2
+    paste_y = (height - new_ph) // 2
+
+    final_rgba = final_image.convert('RGBA')
+    product_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    product_layer.paste(product_rgba, (paste_x, paste_y), product_rgba)
+    out = Image.alpha_composite(final_rgba, product_layer).convert('RGB')
+    out.save(output_path, 'PNG', quality=95)
+    sys.stderr.write(f"  ✅ Superimposed product ({new_pw}x{new_ph}) on background {width}x{height}\n")
+    return output_path
+
+
 if __name__ == '__main__':
     # Read input from stdin (JSON)
     try:
@@ -638,27 +696,37 @@ if __name__ == '__main__':
         print(json.dumps({'success': False, 'error': f'Invalid JSON input: {e}'}))
         sys.exit(1)
 
-    template_data = input_data['template_data']
-    composite_url = input_data['composite_url']
-    copy_text = input_data['copy_text']
-    logo_url = input_data.get('logo_url')
-    output_path = input_data.get('output_path', '/tmp/final_asset.png')
     import os as _os
+    output_path = input_data.get('output_path', '/tmp/final_asset.png')
     output_path = _os.path.abspath(output_path)
     if not output_path.startswith('/tmp/'):
         raise ValueError(f"output_path must be within /tmp/, got: {output_path}")
     width = input_data.get('width', 1080)
     height = input_data.get('height', 1080)
 
-    result_path = composite_final_asset(
-        template_data=template_data,
-        composite_url=composite_url,
-        copy_text=copy_text,
-        logo_url=logo_url,
-        output_path=output_path,
-        width=width,
-        height=height,
-    )
+    if input_data.get('mode') == 'superimpose':
+        # Remove product background and paste on scene (no AI merge)
+        result_path = superimpose_product_on_background(
+            background_url=input_data['background_url'],
+            product_url=input_data['product_url'],
+            output_path=output_path,
+            width=width,
+            height=height,
+        )
+    else:
+        template_data = input_data['template_data']
+        composite_url = input_data['composite_url']
+        copy_text = input_data['copy_text']
+        logo_url = input_data.get('logo_url')
+        result_path = composite_final_asset(
+            template_data=template_data,
+            composite_url=composite_url,
+            copy_text=copy_text,
+            logo_url=logo_url,
+            output_path=output_path,
+            width=width,
+            height=height,
+        )
 
     # Output result as JSON on stdout (only this line goes to stdout)
     print(json.dumps({'success': True, 'output_path': result_path}))
