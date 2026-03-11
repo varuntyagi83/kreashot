@@ -12,6 +12,7 @@ alwaysApply: true
 
 ## Conventions to follow
 
+- **Git:** Always work in the **main** branch. Do all edits, commits, and pushes on `main`. Do not create or switch to feature branches unless the user explicitly asks.
 - **Auth & RLS:** Use `createServerSupabaseClient()` (anon key) in app/API so RLS is enforced. Use service role (`createAdminSupabaseClient()`) only in admin routes and only after Bearer token validation. Never expose service role to client or public APIs.
 - **Security:** Every route must call `supabase.auth.getUser()` before touching data; nested resources must verify ownership (e.g. category_id + user_id). AI endpoints must call `checkRateLimit()`; user strings to AI must go through `sanitizeForPrompt()`. See `.claude/skills/qa/skill.md` for full invariants.
 - **Supabase:** User-data tables have RLS with `auth.uid() = user_id` (or equivalent). Reference table `format_configs` has RLS with read-only for `authenticated`. Views that join user data use `security_invoker = on`. See `docs/SUPABASE_SECURITY_ADVISOR.md`.
