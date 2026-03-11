@@ -71,7 +71,9 @@ export async function GET() {
       return a
     })
 
-    return NextResponse.json({ assets: migratedAssets })
+    return NextResponse.json({ assets: migratedAssets }, {
+      headers: { 'Cache-Control': 'no-store' },
+    })
   } catch (error: any) {
     console.error('[brand-assets GET] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

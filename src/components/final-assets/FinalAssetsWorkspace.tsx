@@ -190,6 +190,29 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTemplateId, templates])
 
+  // When brand fonts load/update, fix any text layer that still has an old URL (e.g. GDrive)
+  // so it uses the current Supabase URL for the same font by name
+  useEffect(() => {
+    if (brandFonts.length === 0) return
+    const currentUrls = new Set(brandFonts.map((f) => f.storage_url))
+    setFreeformTexts((prev) => {
+      let changed = false
+      const next = prev.map((tl) => {
+        if (!tl.fontUrl) return tl
+        if (currentUrls.has(tl.fontUrl)) return tl
+        const match =
+          brandFonts.find((f) => f.name === tl.fontFamily) ||
+          (tl.fontFamily && /brandon|grotesque/i.test(tl.fontFamily)
+            ? brandFonts.find((f) => /brandon|grotesque/i.test(f.name))
+            : null)
+        if (!match) return tl
+        changed = true
+        return { ...tl, fontUrl: match.storage_url }
+      })
+      return changed ? next : prev
+    })
+  }, [brandFonts])
+
   // Fetch all data
   useEffect(() => {
     fetchAllData()
