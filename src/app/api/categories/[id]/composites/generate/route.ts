@@ -4,11 +4,29 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
+import sharp from 'sharp'
+
+const GEMINI_INPUT_MAX_PX = 1536 // Max dimension for Gemini input images (output is still 4K)
 
 function detectMimeType(buffer: Buffer): string {
   if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) return 'image/png'
   if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) return 'image/webp'
   return 'image/jpeg' // JPEG default (covers FF D8 FF and unknown formats)
+}
+
+/** Downscale image buffer if it exceeds GEMINI_INPUT_MAX_PX on any side. Returns JPEG buffer. */
+async function downscaleForGemini(buffer: Buffer): Promise<Buffer> {
+  const metadata = await sharp(buffer).metadata()
+  const w = metadata.width || 0
+  const h = metadata.height || 0
+  if (w <= GEMINI_INPUT_MAX_PX && h <= GEMINI_INPUT_MAX_PX) {
+    return buffer // Already small enough
+  }
+  console.log(`  Downscaling ${w}x${h} → max ${GEMINI_INPUT_MAX_PX}px for Gemini input`)
+  return sharp(buffer)
+    .resize(GEMINI_INPUT_MAX_PX, GEMINI_INPUT_MAX_PX, { fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 85 })
+    .toBuffer()
 }
 
 /**
@@ -299,12 +317,16 @@ export async function POST(
           continue
         }
 
-        // Convert to base64 with actual MIME type detection from magic bytes
-        const angledShotBase64 = angledShotBuffer.toString('base64')
-        const angledShotMimeType = detectMimeType(angledShotBuffer)
+        // Downscale input images to reduce Gemini payload (output is still 4K)
+        const angledShotResized = await downscaleForGemini(angledShotBuffer)
+        const backgroundResized = await downscaleForGemini(backgroundBuffer)
 
-        const backgroundBase64 = backgroundBuffer.toString('base64')
-        const backgroundMimeType = detectMimeType(backgroundBuffer)
+        // Convert to base64 with actual MIME type detection from magic bytes
+        const angledShotBase64 = angledShotResized.toString('base64')
+        const angledShotMimeType = detectMimeType(angledShotResized)
+
+        const backgroundBase64 = backgroundResized.toString('base64')
+        const backgroundMimeType = detectMimeType(backgroundResized)
 
         // Generate composite using Gemini (with template safe zones if available)
         const composite = await generateComposite(
