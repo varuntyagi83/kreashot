@@ -44,15 +44,22 @@ export async function POST(
     }
 
     // Verify category belongs to user and get look_and_feel + brand_guidelines + color description (from PDF Vision)
-    const { data: category } = await supabase
+    const { data: category, error: categoryError } = await supabase
       .from('categories')
-      .select('id, name, slug, look_and_feel, brand_guidelines, brand_guidelines_color_description')
+      .select('id, name, slug, look_and_feel')
       .eq('id', categoryId)
       .eq('user_id', user.id)
       .single()
 
+    if (categoryError) {
+      console.error(`[backgrounds/generate] Category query error for id=${categoryId}, user=${user.id}:`, categoryError)
+    }
+
     if (!category) {
-      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+      return NextResponse.json(
+        { error: categoryError ? `Category lookup failed: ${categoryError.message}` : 'Category not found' },
+        { status: 404 }
+      )
     }
 
     // Get request body
@@ -156,11 +163,8 @@ export async function POST(
       }
     }
 
-    // Use category-level color description (from brand-docs PDF Vision + translation) when no @ references
-    if (!resolvedColorDescription && (category as { brand_guidelines_color_description?: string }).brand_guidelines_color_description) {
-      resolvedColorDescription = (category as { brand_guidelines_color_description: string }).brand_guidelines_color_description
-      console.log(`Using category brand_guidelines_color_description (${resolvedColorDescription.length} chars)`)
-    }
+    // Category-level color description columns no longer exist on the categories table;
+    // color descriptions are fetched from brand_guidelines below when needed.
 
     // If colorWorld is selected but no color description was loaded (no @ references, no category color),
     // fetch color descriptions from ALL of the user's guidelines
@@ -197,8 +201,8 @@ export async function POST(
       console.log(`Filtered to "${colorWorld}": "${resolvedColorDescription}"`)
     }
 
-    // Merge @-referenced guidelines with category-level brand_guidelines (backwards compatible)
-    const finalGuidelines = [category.brand_guidelines, resolvedGuidelinesText]
+    // Merge @-referenced guidelines text
+    const finalGuidelines = [resolvedGuidelinesText]
       .filter(Boolean).join('\n\n').substring(0, 24000) || undefined
 
     // Use form-submitted lookAndFeel if provided (cleaned of tokens), otherwise fall back to DB value
