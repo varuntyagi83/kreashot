@@ -234,8 +234,9 @@ export function TemplateBuilderCanvas({
               selectable: !layer.locked,
               stroke: isSelected ? '#2563eb' : undefined,
               strokeWidth: isSelected ? 2 : 0,
-              // Product: superimpose (opaque), not blend. Logo: normal. Background/overlay: fill.
-              globalCompositeOperation: 'source-over',
+              // Product: multiply blend makes white background transparent while preserving product colors.
+              // Logo/background/overlay: normal compositing.
+              globalCompositeOperation: layer.type === 'product' ? 'multiply' : 'source-over',
               ...commonControls,
             })
             ;(img as CustomFabricObject).customData = { isLayer: true, layerId: layer.id }
