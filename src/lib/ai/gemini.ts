@@ -302,13 +302,15 @@ Category Style: ${safeLookAndFeel}
 
 User Request: ${safeUserPrompt}
 
-PHOTOREALISM DIRECTIVES:
-- Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9), RAW photo, 8K resolution
-- Natural, physically accurate lighting — use soft diffused studio light, ambient window light with gentle shadows, or golden-hour side lighting as appropriate for the scene
+PHOTOREALISM & CINEMATIC QUALITY DIRECTIVES:
+- Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9) with a premium prime lens (50mm f/1.4 or 85mm f/1.2), RAW photo, 8K resolution
+- Cinematic, directional lighting — use a key light from one side creating gentle shadows and depth, with subtle fill light on the opposite side. Think Rembrandt or butterfly lighting setups used in editorial product photography
+- Rich tonal depth: deep shadows that aren't crushed, creamy highlights that aren't blown — the kind of dynamic range you see in a Kinfolk or Cereal Magazine spread
 - Realistic material textures: visible surface grain on wood, subtle imperfections on concrete, fabric weave on linen, micro-scratches on metal — nothing looks brand-new or computer-generated
-- Shallow depth of field where appropriate (f/1.8–f/4) with natural bokeh in the background
-- Accurate color science: true-to-life white balance, no oversaturation, no HDR glow
-- Subtle lens characteristics: gentle vignetting, minor chromatic aberration at edges — the hallmarks of a real camera lens
+- Shallow depth of field (f/1.4–f/2.8) with natural, creamy bokeh — the foreground surface should be sharp where the product will sit, with a gentle fall-off into soft blur
+- Cohesive color grading: slightly warm or cool tone that unifies the entire scene — like a color-graded film still, not a flat snapshot
+- Subtle lens characteristics: gentle vignetting drawing the eye inward, minor chromatic aberration at edges — the hallmarks of a real camera lens
+- Atmospheric quality: a sense of environment and mood — morning light filtering through a window, warm afternoon glow on a surface, cool studio ambiance
 
 ABSOLUTE EXCLUSIONS (negative prompt):
 - NO illustration, cartoon, painting, watercolor, sketch, line art
@@ -359,20 +361,23 @@ ${styleReferenceImages && styleReferenceImages.length > 0 ? '- Use the provided 
 Your only task is to produce a perfectly uniform, flat fill of the exact requested color.
 There must be zero shadows, zero gradients, zero textures, zero lighting effects — just a pure, solid, single-color rectangle.
 Do not add any photographic or painterly qualities. The output is a flat color chip, nothing more.`
-                : `You are a world-class commercial product photographer operating in a professional studio.
+                : `You are an elite editorial product photographer — the kind whose work appears in premium lifestyle magazines like Kinfolk, Cereal, and Vogue Living.
 
 YOUR CRAFT:
-- You shoot with high-end full-frame cameras (Canon EOS R5, Sony A7R V) and premium lenses
-- Every image you produce is indistinguishable from a real RAW photograph
+- You shoot with high-end full-frame cameras (Canon EOS R5, Sony A7R V) and premium prime lenses (50mm f/1.4, 85mm f/1.2)
+- Every image you produce is indistinguishable from a real RAW photograph — cinematic, rich, and intentional
 - You understand physically accurate lighting: how light wraps around surfaces, how shadows fall naturally, how materials reflect and absorb light
+- You create images with mood and atmosphere — not just technically correct, but emotionally compelling
+- You use directional lighting and shallow depth of field to create dimension and draw the viewer's eye
 - You never produce anything that looks illustrated, rendered, or digitally generated
 ${requestsPeople ? `- When the user requests a person, model, or face in the scene, you MUST include them exactly as described — they are the subject, not an optional element` : ''}
 
 QUALITY STANDARD:
-- Output must pass as a real photograph to a professional art director
+- Output must pass as a real photograph to a professional art director at a luxury brand
 - Textures must be physically accurate: wood grain, fabric weave, stone porosity, metal reflections
-- Lighting must be consistent and physically plausible — no floating shadows or impossible reflections
-- Colors must be true-to-life with proper white balance — no oversaturation or HDR artifacts`
+- Lighting must be cinematic and intentional — directional key light with subtle fill, not flat even lighting
+- Colors must have cohesive grading: a unified warm or cool tone that gives the image editorial character
+- The image should evoke a feeling — warmth, luxury, freshness, calm — not just show a surface`
             }]
           },
           contents: [{
@@ -650,15 +655,19 @@ COMPOSITING INSTRUCTIONS:
 WHAT YOU SHOULD DO:
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE - This is the most important requirement!' : 'Place the product NATURALLY in the background scene'}
 ✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
-✓ Match the product's lighting to the background's lighting
-✓ Add natural shadows and reflections where the product touches surfaces
-✓ Make it look like the product was photographed IN that background, not pasted on
-✓ Adjust depth of field to make the composition feel cohesive
+✓ Match the product's lighting direction, color temperature, and intensity to the background's lighting
+✓ Add natural shadows and reflections where the product touches surfaces — soft contact shadows, not hard drop-shadows
+✓ Make it look like the product was photographed IN that background by a professional commercial photographer, not pasted on
+✓ Use shallow depth of field (f/1.4–f/2.8): product tack-sharp, background with gentle natural bokeh
+✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
+✓ Ensure color harmony: unified color temperature across product and scene, no color cast clashes
+✓ Add subtle environmental interaction: gentle reflections on glossy surfaces, light wrap around product edges, micro-shadows at contact points
 ✓ Scale the product appropriately for the scene ${safeZones ? '(while keeping it within the safe zone)' : ''}
+✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
 
 WHAT YOU MUST NOT DO:
 ✗ Do NOT change the background model/person's appearance
-✗ Do NOT modify the product's colors or design
+✗ Do NOT modify the product's colors, design, or any text/labels on the product
 ✗ Do NOT change the core elements of either image
 ✗ Do NOT add any NEW text that does not already exist on the product — no headlines, taglines, CTAs, slogans, watermarks, captions, or any overlaid copy whatsoever
 ✗ Do NOT add any typographic elements, titles, or editorial text to the image
@@ -672,7 +681,7 @@ You MUST reproduce every word, letter, and character visible on the product pack
 
 If you are unsure whether something is "product text" or "overlay text" — if it appears in Image 1 on the product surface, it is product text and MUST be preserved exactly.
 
-Return a professional, advertisement-quality composite photograph.`
+Return a cinematic, editorial-quality composite photograph — the kind you would see in a premium lifestyle magazine or a high-end brand campaign. Dramatic yet natural lighting, rich tonal depth, and flawless integration between product and scene.`
 
     // Prepare content parts with both images
     const contentParts: any[] = []
@@ -702,16 +711,23 @@ Return a professional, advertisement-quality composite photograph.`
     const requestBody = {
       systemInstruction: {
         parts: [{
-          text: `You are a professional photo compositor specializing in product photography.
+          text: `You are an elite commercial product photographer and photo compositor — the kind hired by luxury brands for editorial campaigns in Vogue, Kinfolk, and Cereal Magazine.
 
-YOUR JOB: Take a product and a background scene and composite them into a single, realistic photograph — as if the product was physically placed and photographed in that scene.
+YOUR JOB: Take a product and a background scene and composite them into a single, cinematic photograph — as if the product was physically placed and photographed in that scene by a world-class photographer with premium lighting equipment.
+
+YOUR PHOTOGRAPHIC EYE:
+- You think in terms of light direction, color temperature, and tonal range
+- You create images with rich depth: a sharp subject against a softly defocused environment
+- You understand how materials interact with light: how glass catches highlights, how matte surfaces absorb, how metallic elements reflect
+- Your composites have the warmth and intention of an editorial spread — never flat, never clinical
+- You use subtle color grading to unify the scene: coherent warm or cool tones that tie product and background together
 
 ABSOLUTE RULES:
 - The product is SACRED. Every label, every word, every letter, every logo, every color on the product packaging MUST appear in the final composite EXACTLY as it appears in the input image. This includes ingredient lists, brand names, product names, taglines printed on the packaging, barcodes, certification marks — every single visual element on the product surface.
 - You are NOT a graphic designer. You do NOT add any text, headlines, captions, watermarks, or typographic elements to the image. Your output is purely photographic — a product sitting in a scene, nothing more.
 - The background scene is also fixed. Do not alter people, hands, props, or environmental elements in the background.
 
-Think of yourself as operating a camera, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.`
+Think of yourself as operating a camera with a 50mm f/1.4 lens, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.`
         }]
       },
       contents: [{
