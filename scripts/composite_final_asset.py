@@ -477,19 +477,36 @@ def composite_final_asset(
 
             font = load_font(font_size, font_url=layer.get('font_url'), font_family=layer.get('font_family'), font_path=layer.get('font_path'))
 
-            # Wrap text to fit within layer width
-            # Estimate chars per line: avg glyph width ≈ font_size * 0.55
-            avg_char_width = max(1, font_size * 0.55)
-            max_chars = max(10, int(lw / avg_char_width))
-            lines = textwrap.wrap(text_content, width=max_chars) or [text_content]
+            # Word-wrap using actual font metrics (matches CSS text wrapping)
+            def wrap_text_by_font(text, fnt, max_width):
+                """Wrap text using actual glyph widths from the loaded font."""
+                words = text.split()
+                lines_out = []
+                current_line = ''
+                for word in words:
+                    test = f"{current_line} {word}".strip() if current_line else word
+                    try:
+                        w = fnt.getlength(test)
+                    except AttributeError:
+                        w = draw.textlength(test, font=fnt)
+                    if w <= max_width or not current_line:
+                        current_line = test
+                    else:
+                        lines_out.append(current_line)
+                        current_line = word
+                if current_line:
+                    lines_out.append(current_line)
+                return lines_out or [text]
+
+            lines = wrap_text_by_font(text_content, font, lw)
             wrapped_text = '\n'.join(lines)
 
-            # Measure total wrapped text block height
+            # Measure total wrapped text block
             bbox = draw.multiline_textbbox((0, 0), wrapped_text, font=font, spacing=line_spacing)
             block_width = bbox[2] - bbox[0]
             block_height = bbox[3] - bbox[1]
 
-            # Horizontal alignment
+            # Horizontal alignment: match CSS text-align behavior within the layer box
             if text_align == 'center':
                 text_x = x + (lw - block_width) // 2
             elif text_align == 'right':
@@ -497,14 +514,15 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Vertically center within the layer, but clamp to canvas bounds
-            text_y = y + max(0, (lh - block_height) // 2)
-            # Ensure text doesn't go below canvas
+            # Vertical position: place at the layer's Y coordinate (matching CSS top: Y%)
+            # NOT vertically centered — the preview places text at the Y position directly.
+            text_y = y
+            # Clamp so text doesn't overflow below canvas
             if text_y + block_height > canvas_height:
                 text_y = max(0, canvas_height - block_height - 4)
 
             sys.stderr.write(f"    Rendering text at ({text_x}, {text_y}), block {block_width}x{block_height}, "
-                             f"font_size={font_size}\n")
+                             f"font_size={font_size}, lines={len(lines)}\n")
 
             # Draw background rectangle if specified
             bg_color = layer.get('background_color')
