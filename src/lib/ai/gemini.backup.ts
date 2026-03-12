@@ -233,13 +233,6 @@ STRICT RULES — ONLY CAMERA ANGLE CHANGES:
 /**
  * Generate backgrounds matching category style using Gemini
  * For Phase 3: Background Generation (updated for multi-format support)
- *
- * CHANGELOG (shadow/light integration pass):
- * - Added requestsWindowLight detection flag for hard directional shadow mode
- * - Replaced generic lighting directive with conditional: soft editorial vs hard window-light
- * - Added SURFACE ARCHITECTURE block for compositing-ready L-cove backgrounds
- * - Temperature raised 0.4 → 0.6 for non-flat backgrounds (more shadow geometry latitude)
- * - System prompt appended with shadow geometry priority directive
  */
 export async function generateBackgrounds(
   userPrompt: string,
@@ -286,26 +279,6 @@ export async function generateBackgrounds(
       // Detect when the user explicitly requests people, faces, or models in the scene
       const requestsPeople = /\b(female|male|woman|man|girl|boy|person|people|model|face|portrait|human|child|kid|baby|lady|gentleman|couple|group)\b/i.test(safeUserPrompt)
 
-      // Detect editorial window-light / hard directional shadow requests
-      // Triggers hard-edged geometric shadow mode instead of soft Rembrandt lighting
-      const requestsWindowLight = /\b(window|sunlight|sun|shadow|dapple|dappled|geometric|hard\s+light|direct\s+light|natural\s+light|afternoon|morning\s+light)\b/i.test(safeUserPrompt)
-
-      // Conditional lighting directive — the core quality split
-      const lightingDirective = requestsWindowLight
-        ? `LIGHTING — HARD DIRECTIONAL SUNLIGHT (editorial window-light style):
-- The primary light source is DIRECT SUNLIGHT entering through a window or opening, coming from one consistent side (upper-left or upper-right — pick one and commit to it for the entire scene)
-- This creates HARD-EDGED shadows with crisp, well-defined edges — not soft, not feathered, not diffused. Think midday sun through a window frame, not a softbox or studio strobe
-- TWO SHADOW TYPES must coexist in the scene: (1) STRUCTURED GEOMETRIC SHADOWS — window frame bars, architectural lines, or grid elements casting clean rectangular shadow patterns across the wall and surface; (2) ORGANIC SHADOW PATTERNS — leaf, branch, or plant silhouettes casting dappled natural patterns across the foreground surface
-- Shadow density must be real: unlit areas are noticeably darker (40–60% luminosity reduction vs lit areas). Shadows must have genuine visual weight, not be pale ghost-shadows
-- Where direct sun hits the surface, it creates a warm bright patch with a slightly warmer color temperature in that zone only — warm highlights against a cool-neutral ambient
-- The overall scene color is cool-neutral; only the direct sunlight patches shift warm — this warm/cool contrast is the defining quality of real sunlight through glass
-- COMPOSITING-READY GEOMETRY: Shadow patterns must be strong, directional, and consistent across the entire scene — committed to a single light source angle — so that when a product is placed in the scene, those same shadows naturally continue across it without any prompt engineering needed in the composite step`
-        : `LIGHTING — CINEMATIC EDITORIAL STYLE:
-- Directional key light from one side creating dimensional shadows and depth, with subtle fill light on the opposite side. Think Rembrandt or butterfly lighting setups used in editorial product photography
-- Rich tonal depth: deep shadows that aren't crushed, creamy highlights that aren't blown — the kind of dynamic range you see in a Kinfolk or Cereal Magazine spread
-- Atmospheric quality: a sense of environment and mood — morning light filtering through a window, warm afternoon glow on a surface, cool studio ambiance
-- Cohesive color grading: slightly warm or cool tone that unifies the entire scene — like a color-graded film still, not a flat snapshot`
-
       const prompt = isFlatColor
         ? `Generate a completely flat, uniform solid color background image.
 
@@ -331,17 +304,13 @@ User Request: ${safeUserPrompt}
 
 PHOTOREALISM & CINEMATIC QUALITY DIRECTIVES:
 - Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9) with a premium prime lens (50mm f/1.4 or 85mm f/1.2), RAW photo, 8K resolution
-${lightingDirective}
+- Cinematic, directional lighting — use a key light from one side creating gentle shadows and depth, with subtle fill light on the opposite side. Think Rembrandt or butterfly lighting setups used in editorial product photography
+- Rich tonal depth: deep shadows that aren't crushed, creamy highlights that aren't blown — the kind of dynamic range you see in a Kinfolk or Cereal Magazine spread
 - Realistic material textures: visible surface grain on wood, subtle imperfections on concrete, fabric weave on linen, micro-scratches on metal — nothing looks brand-new or computer-generated
-- Shallow depth of field (f/1.4–f/2.8) with natural, creamy bokeh — the foreground surface should be sharp where the product will sit, with a gentle fall-off into soft blur toward the edges
+- Shallow depth of field (f/1.4–f/2.8) with natural, creamy bokeh — the foreground surface should be sharp where the product will sit, with a gentle fall-off into soft blur
+- Cohesive color grading: slightly warm or cool tone that unifies the entire scene — like a color-graded film still, not a flat snapshot
 - Subtle lens characteristics: gentle vignetting drawing the eye inward, minor chromatic aberration at edges — the hallmarks of a real camera lens
-
-SURFACE ARCHITECTURE:
-- Use an L-shaped infinity cove composition where possible — a horizontal surface meeting a vertical back wall at a gentle corner, creating natural depth and a clear foreground product placement zone
-- The surface material should be matte or low-sheen (painted plaster, matte concrete, linen, flat-painted wood) — not glossy, not mirror-reflective, not heavily rustic or reclaimed-looking
-- The surface and back wall should share the same color family (monochromatic or near-monochromatic), creating a unified tonal field across which shadow patterns can play
-- Clear foreground-to-background depth: the front edge of the surface is the sharpest zone (where the product will be placed), with the back wall in soft but readable focus
-- Leave generous empty space in the center-foreground of the surface — this is the product placement zone. Do not fill it with props or objects
+- Atmospheric quality: a sense of environment and mood — morning light filtering through a window, warm afternoon glow on a surface, cool studio ambiance
 
 ABSOLUTE EXCLUSIONS (negative prompt):
 - NO illustration, cartoon, painting, watercolor, sketch, line art
@@ -408,16 +377,14 @@ QUALITY STANDARD:
 - Textures must be physically accurate: wood grain, fabric weave, stone porosity, metal reflections
 - Lighting must be cinematic and intentional — directional key light with subtle fill, not flat even lighting
 - Colors must have cohesive grading: a unified warm or cool tone that gives the image editorial character
-- The image should evoke a feeling — warmth, luxury, freshness, calm — not just show a surface
-
-SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, even lighting is technically correct but compositionally weak — it gives the compositor nothing to work with. The most powerful product photography backgrounds have strong, committed light sources that create clear shadow geometry across the scene. This shadow geometry is what makes the composite step succeed: when a product is placed in the scene, those same shadows naturally fall across it, making the composite look like a single photograph rather than a paste-in. Always commit to a clear, single light source. Make the shadows count.`
+- The image should evoke a feeling — warmth, luxury, freshness, calm — not just show a surface`
             }]
           },
           contents: [{
             parts: contentParts
           }],
           generationConfig: {
-            temperature: isFlatColor ? 0.1 : 0.6, // Flat color: near-zero variance. Editorial: balanced for shadow geometry latitude
+            temperature: 0.4, // Lower for accurate color/mood matching
             topP: 0.9,
             maxOutputTokens: 32768,
             responseModalities: ['IMAGE'],
@@ -593,106 +560,6 @@ export async function regenerateBackgroundInFormat(
 }
 
 /**
- * STEP 1 OF 2 — Product cutout extraction (temperature 0.4, fidelity-locked)
- *
- * Extracts the product from its background as a transparent PNG cutout.
- * Run at low temperature — zero creative latitude, zero label risk.
- *
- * Transparent output (not white) is critical: white pixels around the product
- * edges cause fringing/halos when composited onto dark or saturated backgrounds.
- * A transparent PNG gives Step 2 only the product pixels, so the scene
- * background fills in behind them with zero blending artifacts.
- *
- * This is an internal helper called by generateComposite only. The cutout
- * feeds straight into Step 2. If extraction fails, falls back to the original
- * product image so the composite pipeline can still complete.
- *
- * Why this architecture: the background (generated at 0.7) already contains
- * strong committed shadow geometry. The composite step (0.5) only needs to
- * place + blend — it does not need to invent lighting. All creative latitude
- * is absorbed by background generation which has zero fidelity risk.
- */
-async function extractProductCutout(
-  productImageData: string,
-  productImageMimeType: string,
-  GEMINI_API_KEY: string,
-  GEMINI_API_URL: string
-): Promise<{ imageData: string; mimeType: string }> {
-  const base64Data = productImageData.replace(/^data:image\/\w+;base64,/, '')
-
-  const requestBody = {
-    systemInstruction: {
-      parts: [{
-        text: `You are a precision product masking tool — not a photographer, not a designer.
-
-YOUR ONLY JOB: Isolate the product from its background and return it as a transparent PNG cutout — no background color whatsoever.
-
-WHY TRANSPARENCY MATTERS: This cutout will be composited onto a coloured scene background in the next step. Any white or coloured fill around the product edges will cause fringing, halos, or blending artifacts against the scene. The output must have a fully transparent alpha channel around the product so the scene fills in naturally behind it.
-
-STRICT RULES:
-- Keep the product 100% intact: every pixel of the product surface, label, logo, text, cap, lid, and packaging must be preserved exactly as in the input. No exceptions.
-- Do NOT retouch, enhance, smooth, or alter the product in any way. No color correction, no sharpening, no creative interpretation.
-- Do NOT change any text on the product label — not a single character. Reproduce it exactly.
-- Do NOT change any logo — reproduce it exactly as in the input.
-- Remove ONLY the background (the environment, surface, shadows, props around the product). Nothing else.
-- Output format: PNG with full alpha channel transparency. Every pixel outside the product boundary must be fully transparent (alpha = 0). No white fill, no grey fill, no drop shadow, no background of any kind.
-- The product should occupy approximately 70–80% of the frame height, centered horizontally within the transparent canvas.
-- Output: the product pixels only, everything else transparent. Nothing more.`
-      }]
-    },
-    contents: [{
-      parts: [
-        { inline_data: { data: base64Data, mime_type: productImageMimeType } },
-        { text: `Extract this product as a transparent PNG cutout — fully transparent background, no white fill, no drop shadow. Preserve every detail of the product surface exactly as shown: all text, logos, colors, and packaging. Remove only the surrounding environment, leaving pure alpha transparency around the product.` }
-      ]
-    }],
-    generationConfig: {
-      temperature: 0.4, // Low: conservative, fidelity-locked — no creative latitude
-      topP: 0.85,
-      maxOutputTokens: 32768,
-      responseModalities: ['IMAGE'],
-      imageConfig: { aspectRatio: '1:1', imageSize: '4K', outputMimeType: 'image/png' } // PNG required for alpha transparency
-    }
-  }
-
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 120000)
-
-  const response = await fetchGeminiWithRetry(
-    GEMINI_API_URL,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    },
-    GEMINI_API_KEY
-  )
-  clearTimeout(timeout)
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    throw new Error(`Cutout extraction failed: ${response.status} - ${errorText.substring(0, 200)}`)
-  }
-
-  const data = await response.json()
-  const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
-
-  if (!imagePart) {
-    // Cutout failed — fall back to original product image so Step 2 can still run
-    console.warn('  ⚠️  Cutout extraction returned no image — falling back to original product image')
-    return { imageData: productImageData, mimeType: productImageMimeType }
-  }
-
-  const mimeType = imagePart.inlineData.mimeType || 'image/png' // PNG preserves alpha transparency
-  console.log('  ✅ Step 1 complete: product cutout extracted (transparent PNG)')
-  return {
-    imageData: `data:${mimeType};base64,${imagePart.inlineData.data}`,
-    mimeType,
-  }
-}
-
-/**
  * Generate composite image by combining product and background
  * For Phase 4: Format-aware composite generation
  *
@@ -701,18 +568,6 @@ STRICT RULES:
  * - Background scene/model is preserved
  * - Gemini intelligently places product in scene with natural lighting/shadows
  * - Supports multiple aspect ratios (1:1, 16:9, 9:16, 4:5)
- *
- * CHANGELOG (shadow/light integration pass):
- * - NOW A TWO-CALL PIPELINE: Step 1 extracts product cutout at temp 0.4
- *   (fidelity-locked), Step 2 composites cutout into scene at temp 0.7
- *   (full lighting integration latitude). Label fidelity and shadow quality
- *   are no longer a tradeoff — each call is optimised for exactly one job.
- * - Replaced generic shadow instruction with SCENE SHADOW CONTINUATION directive
- * - Added LIGHT SOURCE ANALYSIS block (direction, color temp, shadow geometry)
- * - Added SHADOW WRAPPING directive (shadows wrap around cylindrical geometry)
- * - Added AMBIENT COLOR MODULATION directive (label picks up scene color temp)
- * - System prompt: LIGHTING INTEGRATION IS YOUR PRIMARY TASK paragraph
- * - System prompt: clarified "faithful" = label design, not studio-lit appearance
  */
 export async function generateComposite(
   productImageData: string,
@@ -730,8 +585,8 @@ export async function generateComposite(
     height: number
     type: 'safe' | 'restricted'
   }>,
-  canvasWidth: number = 1080,
-  canvasHeight: number = 1080
+  canvasWidth: number = 1080, // NEW: Canvas width (default 1:1)
+  canvasHeight: number = 1080 // NEW: Canvas height (default 1:1)
 ): Promise<{
   promptUsed: string
   imageData: string
@@ -752,21 +607,6 @@ export async function generateComposite(
 
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
-    // ── STEP 1: Extract product cutout at temp 0.4 (fidelity-locked) ──────────
-    // Isolates the product on a clean white background before any creative work.
-    // Locks label text, logo, and all packaging details at conservative temperature
-    // so Step 2 can freely focus on lighting integration at 0.7 with zero risk
-    // of label hallucination. Fidelity vs shadow quality tradeoff is eliminated:
-    // each call is now optimised for exactly one job.
-    console.log('  → Step 1/2: Extracting product cutout (fidelity-locked at temp 0.4)...')
-    const cutout = await extractProductCutout(
-      productImageData,
-      productImageMimeType,
-      GEMINI_API_KEY,
-      GEMINI_API_URL
-    )
-    console.log('  → Step 2/2: Compositing into scene (lighting integration at temp 0.7)...')
-
     // Build safe zone instructions if provided
     let safeZoneInstructions = ''
     if (safeZones && safeZones.length > 0) {
@@ -774,6 +614,7 @@ export async function generateComposite(
       const restrictedZones = safeZones.filter(z => z.type === 'restricted')
 
       if (productSafeZone) {
+        // Calculate pixel values based on canvas dimensions
         const leftPx = Math.round((productSafeZone.x / 100) * canvasWidth)
         const topPx = Math.round((productSafeZone.y / 100) * canvasHeight)
         const widthPx = Math.round((productSafeZone.width / 100) * canvasWidth)
@@ -804,7 +645,7 @@ The following areas are restricted - do NOT place the product in these zones:\n`
     const safeUserPrompt = sanitizeForPrompt(userPrompt || '')
     const prompt = `Compose these two images into a single professional product photograph:
 
-Image 1 (Product — pre-extracted cutout): This is the product, already isolated on a clean white background. Place it naturally in the scene with full lighting integration.
+Image 1 (Product): This is the product that needs to be placed in the scene.
 Image 2 (Background): This is the background scene/environment.
 
 ${safeUserPrompt ? `USER INSTRUCTION: ${safeUserPrompt}\n\n` : ''}${lookAndFeel ? `STYLE GUIDELINE: ${lookAndFeel}\n\n` : ''}${safeZoneInstructions}
@@ -815,35 +656,7 @@ WHAT YOU SHOULD DO:
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE - This is the most important requirement!' : 'Place the product NATURALLY in the background scene'}
 ✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
 ✓ Match the product's lighting direction, color temperature, and intensity to the background's lighting
-
-✓ SCENE SHADOW CONTINUATION (most critical lighting task): Identify the dominant
-  light source in the background (window, sun angle, direction). The SAME shadows
-  and light patterns that fall across the background surface MUST also fall across
-  the product — the product is physically present in this scene, so all
-  environmental shadow patterns wrap over it. If the background has dappled leaf
-  shadows, they fall on the bottle too. If there are window-frame shadow bars,
-  they cross the product too. The product casts its own ground shadow onto the
-  surface consistent with that exact light source direction and angle.
-
-✓ LIGHT SOURCE ANALYSIS: Before compositing, identify: (a) the light source
-  direction in the background image, (b) the color temperature of that light
-  (warm golden-hour, neutral window, cool overcast), (c) any structured shadow
-  patterns on the surface (leaf dappling, window bars, architectural lines).
-  Apply ALL THREE consistently to the product — same direction, same color
-  temperature, same shadow patterns landing on the product's geometry.
-
-✓ SHADOW WRAPPING: Environmental shadows are not blocked by the product — they
-  wrap around its form following surface curvature. A shadow bar crossing the
-  background surface continues up the side of the bottle, bending to follow its
-  cylindrical curve. This is physically correct and is what makes a composite
-  look real.
-
-✓ AMBIENT COLOR MODULATION: The product's label picks up color from the scene's
-  ambient light — slightly warmer in golden-hour scenes, slightly cooler in
-  north-window scenes. A perfectly white label in isolation becomes a warm-white
-  label in warm light. This subtle shift is what separates a real photograph
-  from a paste-in.
-
+✓ Add natural shadows and reflections where the product touches surfaces — soft contact shadows, not hard drop-shadows
 ✓ Make it look like the product was photographed IN that background by a professional commercial photographer, not pasted on
 ✓ Use shallow depth of field (f/1.4–f/2.8): product tack-sharp, background with gentle natural bokeh
 ✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
@@ -871,18 +684,14 @@ If you are unsure whether something is "product text" or "overlay text" — if i
 Return a cinematic, editorial-quality composite photograph — the kind you would see in a premium lifestyle magazine or a high-end brand campaign. Dramatic yet natural lighting, rich tonal depth, and flawless integration between product and scene.`
 
     // Prepare content parts with both images
-    // NOTE: Step 2 uses the cutout from Step 1 (not the raw product image).
-    // The cutout is the product isolated on white at temp 0.4 — label and logo
-    // are already locked. Gemini's creative latitude at temp 0.7 here applies
-    // only to lighting and placement, not to the product surface itself.
     const contentParts: any[] = []
 
-    // Add product cutout (Step 1 output — fidelity-locked at temp 0.4)
-    const productBase64 = cutout.imageData.replace(/^data:image\/\w+;base64,/, '')
+    // Add product image
+    const productBase64 = productImageData.replace(/^data:image\/\w+;base64,/, '')
     contentParts.push({
       inline_data: {
         data: productBase64,
-        mime_type: cutout.mimeType,
+        mime_type: productImageMimeType,
       },
     })
 
@@ -915,36 +724,23 @@ YOUR PHOTOGRAPHIC EYE:
 
 ABSOLUTE RULES:
 - The product is SACRED. Every label, every word, every letter, every logo, every color on the product packaging MUST appear in the final composite EXACTLY as it appears in the input image. This includes ingredient lists, brand names, product names, taglines printed on the packaging, barcodes, certification marks — every single visual element on the product surface.
-- NOTE: "Faithful" means the label TEXT, COLORS, and DESIGN are preserved — not that the label is immune to environmental lighting. In a real photograph, the same label looks different under warm afternoon light vs cool window light. Apply the scene's light to the product's surfaces freely; preserve only the underlying design information, not the studio-lit appearance of the input image.
 - You are NOT a graphic designer. You do NOT add any text, headlines, captions, watermarks, or typographic elements to the image. Your output is purely photographic — a product sitting in a scene, nothing more.
 - The background scene is also fixed. Do not alter people, hands, props, or environmental elements in the background.
 
-Think of yourself as operating a camera with a 50mm f/1.4 lens, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.
-
-LIGHTING INTEGRATION IS YOUR PRIMARY TASK. A composite fails not when the
-product looks wrong in isolation, but when it looks like it was photographed
-separately from its environment. The single strongest signal of a fake composite
-is mismatched lighting: the background has directional window light casting shadow
-bars, but the product sits in it with flat, even studio illumination. Before
-compositing anything, read the light: direction, color temperature, and shadow
-geometry. Every one of those qualities must be applied to the product — including
-environmental shadow patterns (leaves, window frames, architectural elements) that
-cross the background surface. Those shadows do not stop at the product's edge;
-they continue across it, following its form. Photographic realism lives entirely
-in this detail.`
+Think of yourself as operating a camera with a 50mm f/1.4 lens, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.`
         }]
       },
       contents: [{
         parts: contentParts
       }],
       generationConfig: {
-        temperature: 0.5, // Background (0.7) already has committed shadow geometry — composite only needs to place + blend, not invent lighting
+        temperature: 0.4, // Lower temperature for precise compositing
         topP: 0.9,
         maxOutputTokens: 32768,
         responseModalities: ['IMAGE'],
         imageConfig: {
-          aspectRatio: aspectRatio,
-          imageSize: '4K'
+          aspectRatio: aspectRatio, // ✅ Enforce aspect ratio (calculated from canvas dimensions)
+          imageSize: '4K' // ✅ Control output resolution
         }
       }
     }
@@ -1111,3 +907,4 @@ export async function generateCopyKitGemini(
 
   return results
 }
+
