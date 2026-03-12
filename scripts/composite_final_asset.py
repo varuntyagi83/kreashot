@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """
 Phase 6: Compositing Engine
-Combines template, background, product, copy, and logo into final ad creative
+Combines template, background, product, copy, and logo into final ad creative.
+Uses font-metric text wrapping for preview-accurate positioning.
 """
 
 import sys
