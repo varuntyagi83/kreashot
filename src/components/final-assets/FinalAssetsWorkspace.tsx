@@ -33,6 +33,8 @@ interface TemplateLayer {
   z_index?: number
   sample_text?: string
   font_size?: number
+  font_family?: string
+  text_align?: string
   color?: string
   source_url?: string
 }
