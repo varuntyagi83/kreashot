@@ -158,6 +158,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [logoYPx, setLogoYPx] = useState<number | null>(null)
   const [freeformTexts, setFreeformTexts] = useState<FreeformTextLayer[]>([])
 
+  // Ref + measured width for the preview div — used for accurate font scaling in preview
+  const previewDivRef = useRef<HTMLDivElement>(null)
+  const [previewDivWidth, setPreviewDivWidth] = useState(400)
+
   // Stable list of brand font URLs for @font-face injection (preview) — same order => same family name
   const freeformBrandFontUrls = useMemo(
     () => [...new Set(freeformTexts.filter(t => t.fontUrl?.startsWith('http')).map(t => t.fontUrl as string))],
@@ -212,6 +216,21 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       return changed ? next : prev
     })
   }, [brandFonts])
+
+  // Measure the preview div's actual pixel width via ResizeObserver.
+  // Used in both freeform and template mode to scale font sizes accurately.
+  useEffect(() => {
+    const el = previewDivRef.current
+    if (!el) return
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0]
+      if (entry && entry.contentRect.width > 0) {
+        setPreviewDivWidth(entry.contentRect.width)
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
 
   // Fetch all data
   useEffect(() => {
@@ -995,6 +1014,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       }} />
                     )}
                     <div
+                      ref={previewDivRef}
                       className="relative rounded-lg overflow-hidden bg-gray-100"
                       style={{
                         aspectRatio: format === '16:9' ? '16/9'
@@ -1031,10 +1051,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         )
                       })()}
                       {isFreeform && freeformTexts.filter(t => t.text.trim()).map((tl) => {
-                        // Scale font size relative to preview container
-                        // Preview is ~400px wide, canvas is 1080px, so scale ≈ 0.37
+                        // Scale font size relative to the actual preview container width (measured via ResizeObserver)
                         const canvasWidth = { '1:1': 1080, '16:9': 1920, '9:16': 1080, '4:5': 1080 }[format] ?? 1080
-                        const previewScale = 400 / canvasWidth
+                        const previewScale = previewDivWidth / canvasWidth
                         const scaledFontSize = Math.max(8, Math.round(tl.fontSize * previewScale))
                         const CSS_FONT_MAP: Record<string, string> = {
                           'brandon-grotesque-regular': '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
@@ -1112,23 +1131,45 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                             const b = parseInt(hex.substring(4, 6), 16)
                             return (r * 0.299 + g * 0.587 + b * 0.114) > 186
                           })()
+                          // Scale font size to match Python's rendering on the actual canvas
+                          const { width: canvasW } = getFormatDimensions(format)
+                          const previewScale = previewDivWidth / canvasW
+                          const scaledFontSize = Math.max(8, Math.round((layer.font_size || 24) * previewScale))
+                          const CSS_FONT_MAP_TMPL: Record<string, string> = {
+                            'brandon-grotesque-regular': '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                            'brandon-grotesque-medium':  '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                            'brandon-grotesque-bold':    '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                            'brandon-grotesque-black':   '"brandon-grotesque", "Brandon Grotesque", Futura, "Century Gothic", sans-serif',
+                            'serif-bold':    'Georgia, "Times New Roman", serif',
+                            'serif-regular': 'Georgia, "Times New Roman", serif',
+                          }
+                          const fontFamily = CSS_FONT_MAP_TMPL[layer.font_family || ''] || layer.font_family || 'Arial, sans-serif'
                           return (
                             <div
                               key={layer.id}
-                              className="absolute border-2 border-blue-500 border-dashed flex items-center justify-center p-1 overflow-hidden"
+                              className="absolute border-2 border-blue-500 border-dashed overflow-hidden"
                               style={{
                                 left: `${layer.x || 0}%`,
                                 top: `${layer.y || 0}%`,
                                 width: `${layer.width || 100}%`,
                                 height: `${layer.height || 20}%`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '2px',
                               }}
                             >
                               <p
-                                className="text-xs font-bold text-center leading-tight"
                                 style={{
                                   color: textColor,
                                   textShadow: isLight ? '0 1px 3px rgba(0,0,0,0.6)' : 'none',
                                   wordBreak: 'break-word',
+                                  fontSize: `${scaledFontSize}px`,
+                                  fontFamily,
+                                  fontWeight: 'bold',
+                                  textAlign: (layer.text_align as 'left' | 'center' | 'right') || 'center',
+                                  lineHeight: 1.3,
+                                  margin: 0,
+                                  width: '100%',
                                 }}
                               >
                                 {textContent}
