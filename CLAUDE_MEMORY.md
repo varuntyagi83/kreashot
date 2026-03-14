@@ -203,15 +203,15 @@ Design language: cream bg `#F5F5F3`, white cards `rounded-xl shadow-sm`, purple 
 Old → New: Assets→Products, Angled Shots→(removed, merged into Photoshoots click panel), Backgrounds→Scenes, Guidelines+Templates→Styles, Composites→Photoshoots, Copy→Ad Copy, Final Assets+Ad Export→Ads
 
 ### Phase Progress
-- [ ] Phase 1 — Create branch `ui-redesign`
-- [ ] Phase 2 — Design tokens: tailwind.config.ts + globals.css
-- [ ] Phase 3 — Layout shell: Sidebar + TopBar + CategoryNav
-- [ ] Phase 4 — Dashboard + Category list pages
-- [ ] Phase 5 — Category detail page: tab renames + structural cleanup
-- [ ] Phase 6 — DB migrations: `generation_time_ms` + `aspect_ratio` columns
-- [ ] Phase 7 — Image metadata badges on generated image cards
-- [ ] Phase 8 — Products workspace: redesign + unified gallery
-- [ ] Phase 9 — Scenes workspace: redesign (split pane, filter tabs)
+- [x] Phase 1 — Create branch `ui-redesign`
+- [x] Phase 2 — Design tokens: tailwind.config.ts + globals.css
+- [x] Phase 3 — Layout shell: Sidebar + TopBar + CategoryNav
+- [x] Phase 4 — Dashboard + Category list pages
+- [x] Phase 5 — Category detail page: tab renames + structural cleanup
+- [x] Phase 6 — DB migrations: `generation_time_ms` + `aspect_ratio` columns
+- [x] Phase 7 — Image metadata badges on generated image cards
+- [x] Phase 8 — Products workspace: redesign + unified gallery
+- [x] Phase 9 — Scenes workspace: redesign (split pane, filter tabs)
 - [x] Phase 10 — Styles workspace: StylesWorkspace (Guidelines + Templates tabs) — commit `5704ef8`
 - [x] Phase 11 — Brand Kit page: Logos/Fonts/Overlays sections — commit `a4e77e7`
 - [x] Phase 12 — Photoshoots workspace: CompositeWorkspace redesign — commit `297b993`
