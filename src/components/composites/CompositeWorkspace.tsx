@@ -12,12 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import {
@@ -27,11 +21,14 @@ import {
   Image as ImageIcon,
   Camera,
   Loader2,
+  Palette,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { driveImgSrc } from '@/lib/utils'
 import { FORMATS } from '@/lib/formats'
 import { CompositeGallery } from './CompositeGallery'
+import { SceneLibraryModal } from './SceneLibraryModal'
+import { SelectProductImagesModal } from './SelectProductImagesModal'
 
 interface Category {
   id: string
@@ -87,63 +84,11 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
 
   // Scene selection
   const [selectedScenes, setSelectedScenes] = useState<Scene[]>([])
-  const [scenePickerOpen, setScenePickerOpen] = useState(false)
-  const [availableScenes, setAvailableScenes] = useState<Scene[]>([])
-  const [loadingScenes, setLoadingScenes] = useState(false)
+  const [sceneModalOpen, setSceneModalOpen] = useState(false)
 
   // Product selection
   const [selectedProducts, setSelectedProducts] = useState<ProductShot[]>([])
-  const [productPickerOpen, setProductPickerOpen] = useState(false)
-  const [availableProducts, setAvailableProducts] = useState<ProductShot[]>([])
-  const [loadingProducts, setLoadingProducts] = useState(false)
-
-  const fetchScenes = async () => {
-    setLoadingScenes(true)
-    try {
-      const res = await fetch(`/api/categories/${category.id}/backgrounds?format=${selectedFormat}`)
-      const data = await res.json()
-      if (res.ok) setAvailableScenes(data.backgrounds || [])
-    } catch { /* silent */ } finally {
-      setLoadingScenes(false)
-    }
-  }
-
-  const fetchProducts = async () => {
-    setLoadingProducts(true)
-    try {
-      const res = await fetch(`/api/categories/${category.id}/angled-shots?format=${selectedFormat}`)
-      const data = await res.json()
-      if (res.ok) setAvailableProducts(data.angledShots || [])
-    } catch { /* silent */ } finally {
-      setLoadingProducts(false)
-    }
-  }
-
-  const openScenePicker = () => {
-    fetchScenes()
-    setScenePickerOpen(true)
-  }
-
-  const openProductPicker = () => {
-    fetchProducts()
-    setProductPickerOpen(true)
-  }
-
-  const toggleScene = (scene: Scene) => {
-    setSelectedScenes(prev =>
-      prev.find(s => s.id === scene.id)
-        ? prev.filter(s => s.id !== scene.id)
-        : [...prev, scene]
-    )
-  }
-
-  const toggleProduct = (shot: ProductShot) => {
-    setSelectedProducts(prev =>
-      prev.find(p => p.id === shot.id)
-        ? prev.filter(p => p.id !== shot.id)
-        : [...prev, shot]
-    )
-  }
+  const [productModalOpen, setProductModalOpen] = useState(false)
 
   const n = parseInt(count)
   const totalCombinations = selectedScenes.length * selectedProducts.length * n
@@ -241,7 +186,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-[#7C5DFA]"
-                    onClick={openScenePicker}
+                    onClick={() => setSceneModalOpen(true)}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -249,7 +194,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
 
                 {selectedScenes.length === 0 ? (
                   <button
-                    onClick={openScenePicker}
+                    onClick={() => setSceneModalOpen(true)}
                     className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
                   >
                     <ImageIcon className="h-5 w-5" />
@@ -273,13 +218,31 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                       </div>
                     ))}
                     <button
-                      onClick={openScenePicker}
+                      onClick={() => setSceneModalOpen(true)}
                       className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
                   </div>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* Style card */}
+            <Card className="rounded-xl shadow-sm">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Palette className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="text-sm font-medium">Style</span>
+                    <Badge variant="outline" className="text-xs h-5 px-1.5 text-muted-foreground border-muted-foreground/30">
+                      Optional
+                    </Badge>
+                  </div>
+                </div>
+                <div className="w-full rounded-lg border border-dashed border-muted-foreground/20 p-3 text-center text-xs text-muted-foreground">
+                  Style rules from your Templates tab will be applied automatically.
+                </div>
               </CardContent>
             </Card>
 
@@ -300,7 +263,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                     variant="ghost"
                     size="sm"
                     className="h-7 w-7 p-0 text-[#7C5DFA]"
-                    onClick={openProductPicker}
+                    onClick={() => setProductModalOpen(true)}
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
@@ -308,7 +271,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
 
                 {selectedProducts.length === 0 ? (
                   <button
-                    onClick={openProductPicker}
+                    onClick={() => setProductModalOpen(true)}
                     className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
                   >
                     <Camera className="h-5 w-5" />
@@ -333,7 +296,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                       </div>
                     ))}
                     <button
-                      onClick={openProductPicker}
+                      onClick={() => setProductModalOpen(true)}
                       className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
                     >
                       <Plus className="h-4 w-4" />
@@ -418,133 +381,23 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
         </div>
       </div>
 
-      {/* Scene Picker Dialog */}
-      <Dialog open={scenePickerOpen} onOpenChange={setScenePickerOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Choose Scenes</DialogTitle>
-          </DialogHeader>
-          {loadingScenes ? (
-            <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="aspect-square bg-muted animate-pulse rounded-lg" />
-              ))}
-            </div>
-          ) : availableScenes.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              No scenes yet — generate some in the Scenes tab first.
-            </p>
-          ) : (
-            <div className="grid grid-cols-4 gap-3 max-h-[50vh] overflow-y-auto pr-1">
-              {availableScenes.map(scene => {
-                const selected = selectedScenes.some(s => s.id === scene.id)
-                return (
-                  <button
-                    key={scene.id}
-                    onClick={() => toggleScene(scene)}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      selected
-                        ? 'border-[#7C5DFA] ring-2 ring-[#7C5DFA]/20'
-                        : 'border-transparent hover:border-muted-foreground/30'
-                    }`}
-                  >
-                    <img
-                      src={driveImgSrc(scene.public_url || scene.storage_url, scene.gdrive_file_id)}
-                      alt={scene.name}
-                      className="w-full h-full object-cover"
-                    />
-                    {selected && (
-                      <div className="absolute top-1.5 right-1.5 bg-[#7C5DFA] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                        ✓
-                      </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <p className="text-white text-xs line-clamp-1">{scene.name}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          <div className="flex justify-between items-center pt-3 border-t">
-            <span className="text-sm text-muted-foreground">{selectedScenes.length} selected</span>
-            <Button
-              size="sm"
-              className="bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
-              onClick={() => setScenePickerOpen(false)}
-            >
-              Confirm
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Scene Library Modal */}
+      <SceneLibraryModal
+        open={sceneModalOpen}
+        onClose={() => setSceneModalOpen(false)}
+        categoryId={category.id}
+        initialSelected={selectedScenes}
+        onConfirm={setSelectedScenes}
+      />
 
-      {/* Product Picker Dialog */}
-      <Dialog open={productPickerOpen} onOpenChange={setProductPickerOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Choose Products</DialogTitle>
-          </DialogHeader>
-          {loadingProducts ? (
-            <div className="grid grid-cols-4 gap-3">
-              {[1, 2, 3, 4].map(i => (
-                <div key={i} className="aspect-square bg-muted animate-pulse rounded-lg" />
-              ))}
-            </div>
-          ) : availableProducts.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-8 text-center">
-              No product shots yet — generate angled shots in the Products tab first.
-            </p>
-          ) : (
-            <div className="grid grid-cols-4 gap-3 max-h-[50vh] overflow-y-auto pr-1">
-              {availableProducts.map(shot => {
-                const selected = selectedProducts.some(p => p.id === shot.id)
-                return (
-                  <button
-                    key={shot.id}
-                    onClick={() => toggleProduct(shot)}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
-                      selected
-                        ? 'border-[#7C5DFA] ring-2 ring-[#7C5DFA]/20'
-                        : 'border-transparent hover:border-muted-foreground/30'
-                    }`}
-                  >
-                    <img
-                      src={driveImgSrc(shot.public_url || shot.storage_url, shot.gdrive_file_id)}
-                      alt={shot.display_name || shot.angle_name}
-                      className="w-full h-full object-cover"
-                      onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                    />
-                    {selected && (
-                      <div className="absolute top-1.5 right-1.5 bg-[#7C5DFA] text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">
-                        ✓
-                      </div>
-                    )}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <p className="text-white text-xs line-clamp-1">
-                        {shot.display_name || shot.angle_name}
-                      </p>
-                      {shot.product && (
-                        <p className="text-white/60 text-xs line-clamp-1">{shot.product.name}</p>
-                      )}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-          <div className="flex justify-between items-center pt-3 border-t">
-            <span className="text-sm text-muted-foreground">{selectedProducts.length} selected</span>
-            <Button
-              size="sm"
-              className="bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
-              onClick={() => setProductPickerOpen(false)}
-            >
-              Confirm
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Select Product Images Modal */}
+      <SelectProductImagesModal
+        open={productModalOpen}
+        onClose={() => setProductModalOpen(false)}
+        categoryId={category.id}
+        initialSelected={selectedProducts}
+        onConfirm={setSelectedProducts}
+      />
     </div>
   )
 }
