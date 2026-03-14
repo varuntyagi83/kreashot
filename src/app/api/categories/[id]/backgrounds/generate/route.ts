@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateBackgrounds } from '@/lib/ai/gemini'
+import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/replicate'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 import { parseReferenceTokens } from '@/lib/references'
@@ -334,16 +335,25 @@ export async function POST(
       }
 
       try {
-        const generatedBackgrounds = await generateBackgrounds(
-          cleanPrompt,
-          resolvedLookAndFeel,
-          count,
-          styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
-          fmt,
-          '4K',
-          finalGuidelines,
-          resolvedColorDescription || undefined
-        )
+        // Route to Replicate (FLUX) for formats Gemini doesn't support natively
+        const generatedBackgrounds = REPLICATE_FORMATS.has(fmt)
+          ? await generateBackgroundsWithReplicate(
+              cleanPrompt,
+              resolvedLookAndFeel,
+              count,
+              fmt,
+              finalGuidelines
+            )
+          : await generateBackgrounds(
+              cleanPrompt,
+              resolvedLookAndFeel,
+              count,
+              styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+              fmt,
+              '4K',
+              finalGuidelines,
+              resolvedColorDescription || undefined
+            )
 
         for (const bg of generatedBackgrounds) {
           allMappedBackgrounds.push({
