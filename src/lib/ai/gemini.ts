@@ -636,7 +636,7 @@ STRICT RULES:
 - Do NOT change any logo — reproduce it exactly as in the input.
 - Remove ONLY the background (the environment, surface, shadows, props around the product). Nothing else.
 - Output format: PNG with full alpha channel transparency. Every pixel outside the product boundary must be fully transparent (alpha = 0). No white fill, no grey fill, no drop shadow, no background of any kind.
-- The product should occupy approximately 70–80% of the frame height, centered horizontally within the transparent canvas.
+- The product should occupy approximately 50–65% of the frame height, centered horizontally within the transparent canvas, leaving generous transparent padding around it.
 - Output: the product pixels only, everything else transparent. Nothing more.`
       }]
     },
@@ -849,7 +849,7 @@ WHAT YOU SHOULD DO:
 ✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
 ✓ Ensure color harmony: unified color temperature across product and scene, no color cast clashes
 ✓ Add subtle environmental interaction: gentle reflections on glossy surfaces, light wrap around product edges, micro-shadows at contact points
-✓ Scale the product appropriately for the scene ${safeZones ? '(while keeping it within the safe zone)' : ''}
+✓ PRODUCT SCALE: The product should occupy 40–55% of the frame height — large enough to be the clear hero, but not so large it fills the frame. Leave visible scene context around the product (background wall, surface, props, light). The product should feel placed IN the scene, not scaled to dominate it. ${safeZones ? '(Keep it within the safe zone while observing this scale guideline.)' : ''}
 ✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
 
 WHAT YOU MUST NOT DO:
