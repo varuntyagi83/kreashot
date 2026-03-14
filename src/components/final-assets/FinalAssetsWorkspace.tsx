@@ -11,11 +11,13 @@ import { Loader2, Download, Sparkles, Plus, Trash2, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { getFormatDimensions } from '@/lib/formats'
+import { driveImgSrc } from '@/lib/utils'
 
 interface FinalAsset {
   id: string
   name: string
   storage_url: string
+  gdrive_file_id: string | null
   format: string
   width: number
   height: number
@@ -1252,9 +1254,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     }}
                   >
                     <Image
-                      src={asset.storage_url}
+                      src={driveImgSrc(asset.storage_url, asset.gdrive_file_id)}
                       alt={asset.name}
                       fill
+                      unoptimized
                       className="object-contain"
                     />
                     {/* Generation time badge — bottom-left */}
