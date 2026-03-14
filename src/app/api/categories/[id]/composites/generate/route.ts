@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateComposite } from '@/lib/ai/gemini'
-import { getFormatDimensions } from '@/lib/formats'
+import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { spawn } from 'child_process'
@@ -93,10 +93,9 @@ export async function POST(
       return NextResponse.json({ error: 'userPrompt must be 20000 characters or fewer' }, { status: 400 })
     }
 
-    // Validate format whitelist
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (format && !VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    // Validate format
+    if (format && !Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     // Validate format

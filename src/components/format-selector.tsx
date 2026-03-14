@@ -1,7 +1,13 @@
 'use client'
 
 import { FORMATS, type FormatConfig } from '@/lib/formats'
-import { Button } from '@/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 
 interface FormatSelectorProps {
@@ -17,7 +23,6 @@ export function FormatSelector({
   availableFormats,
   className,
 }: FormatSelectorProps) {
-  // Filter formats if availableFormats is provided
   const formats = availableFormats
     ? Object.values(FORMATS).filter((f) => availableFormats.includes(f.format))
     : Object.values(FORMATS)
@@ -25,20 +30,19 @@ export function FormatSelector({
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <span className="text-sm font-medium text-muted-foreground">Format:</span>
-      <div className="flex gap-2">
-        {formats.map((formatConfig: FormatConfig) => (
-          <Button
-            key={formatConfig.format}
-            variant={selectedFormat === formatConfig.format ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => onFormatChange(formatConfig.format)}
-            className="min-w-[80px]"
-          >
-            <span className="font-mono font-semibold">{formatConfig.format}</span>
-            <span className="ml-2 text-xs opacity-70">{formatConfig.platform}</span>
-          </Button>
-        ))}
-      </div>
+      <Select value={selectedFormat} onValueChange={onFormatChange}>
+        <SelectTrigger className="h-8 w-[160px] text-sm">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {formats.map((formatConfig: FormatConfig) => (
+            <SelectItem key={formatConfig.format} value={formatConfig.format}>
+              <span className="font-mono font-semibold">{formatConfig.format}</span>
+              <span className="ml-2 text-muted-foreground text-xs">({formatConfig.platform})</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }

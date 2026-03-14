@@ -75,10 +75,9 @@ export async function POST(
       colorWorld,         // NEW: Selected color world (e.g. "World of Green palette")
     } = body
 
-    // Validate format whitelist
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (format && !VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    // Validate format
+    if (format && !Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
