@@ -809,7 +809,7 @@ The following areas are restricted - do NOT place the product in these zones:\n`
     const placementContext: PlacementContext = (() => {
       if (/\b(hand|palm|holding|hold|finger|grasp|grip|arm)\b/.test(rawPromptLower)) {
         return { label: 'hand-held', maxHeightPct: 20, minSceneAbovePct: 40,
-          cameraNote: 'The product is held in a person\'s hand. CRITICAL SCALE RULE: the bottle must be sized so the person\'s fingers visibly wrap all the way around it — the bottle diameter must be smaller than the person\'s fist. The bottle height should be roughly equal to the distance from the person\'s palm to their fingertips. If the person is visible from head to knee, the bottle should occupy NO MORE than 15–20% of the frame height. Do NOT make the bottle giant — a real supplement bottle fits in one hand.' }
+          cameraNote: 'The product rests in or on the person\'s hand. CRITICAL SCALE RULE: a real supplement bottle is roughly 10cm tall. When a person holds it and you can see their full upper body, the bottle is a SMALL detail — it should look like a real object, not a prop. Bottle height ≤ 20% of frame. The hand placement style should match exactly what the user instruction says — do not invent a grip or pose beyond what was asked.' }
       }
       if (/\b(floor|ground|mat|rug|carpet|grass|grass)\b/.test(rawPromptLower)) {
         return { label: 'floor-placed', maxHeightPct: 30, minSceneAbovePct: 40,
@@ -837,6 +837,7 @@ COMPOSITING INSTRUCTIONS:
 
 WHAT YOU SHOULD DO:
 ✓ STEP 1 — COMPOSITION FIRST (do this before anything else):
+  ⚠️ Image 1 (the product) is shown large for clarity — scale it DOWN when placing it. Do not use the cutout image size as a guide for placement size.
   Placement: ${placementContext.label}. ${placementContext.cameraNote}
   Hard size ceiling: product height ≤ ${placementContext.maxHeightPct}% of canvas (≤ ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on ${canvasHeight}px canvas). If you are tempted to make it larger, make it smaller instead.
   At least ${placementContext.minSceneAbovePct}% of frame (${Math.round(canvasHeight * placementContext.minSceneAbovePct / 100)}px) of background scene visible ABOVE the product — the person's face/upper body must be clearly visible.
@@ -939,6 +940,7 @@ Return a cinematic, editorial-quality composite photograph — the kind you woul
 YOUR JOB: Take a product and a background scene and composite them into a single, cinematic photograph — as if the product was physically placed and photographed in that scene by a world-class photographer with premium lighting equipment.
 
 COMPOSITION RULE — NON-NEGOTIABLE:
+⚠️ IMAGE 1 (THE PRODUCT CUTOUT) IS SHOWN LARGE FOR DETAIL CLARITY ONLY. This does NOT mean you should place it at that scale. You MUST scale it down significantly when compositing.
 Placement context: ${placementContext.label}. ${placementContext.cameraNote}
 The product must occupy NO MORE THAN ${placementContext.maxHeightPct}% of the frame height — this is a hard ceiling. The background scene must fill the majority of the frame. If you are tempted to make the product larger, make it smaller instead.
 
