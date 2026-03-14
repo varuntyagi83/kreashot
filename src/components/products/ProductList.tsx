@@ -134,7 +134,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
           {loading ? (
             <div className="grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="aspect-square bg-muted rounded-xl animate-pulse" />
+                <div key={i} className="aspect-square bg-muted rounded-xl animate-pulse hover:shadow-md transition-shadow" />
               ))}
             </div>
           ) : products.length === 0 ? (

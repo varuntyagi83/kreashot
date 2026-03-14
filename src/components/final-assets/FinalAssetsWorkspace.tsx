@@ -1233,7 +1233,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         </h3>
 
         {finalAssets.length === 0 ? (
-          <Card className="rounded-xl shadow-sm border">
+          <Card className="rounded-xl shadow-sm border hover:shadow-md transition-shadow">
             <CardContent className="p-12 text-center">
               <Sparkles className="h-12 w-12 mx-auto text-primary mb-4" />
               <p className="text-muted-foreground">
@@ -1244,7 +1244,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {finalAssets.map((asset) => (
-              <Card key={asset.id} className="rounded-xl shadow-sm border">
+              <Card key={asset.id} className="rounded-xl shadow-sm border hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div
                     className="relative rounded-lg overflow-hidden bg-gray-100 mb-3"
