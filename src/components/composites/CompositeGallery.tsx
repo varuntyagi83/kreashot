@@ -5,26 +5,19 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { driveImgSrc } from '@/lib/utils'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
-  ChevronLeft,
-  ChevronRight,
   Download,
   MoreVertical,
   Trash2,
   Image as ImageIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { CompositeImageDrawer } from './CompositeImageDrawer'
 
 interface Composite {
   id: string
@@ -71,13 +64,12 @@ export function CompositeGallery({
   const [composites, setComposites] = useState<Composite[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  const [drawerIndex, setDrawerIndex] = useState<number | null>(null)
 
   const fetchComposites = async () => {
     try {
       const response = await fetch(`/api/categories/${categoryId}/composites?format=${format}`)
       const data = await response.json()
-
       if (response.ok) {
         setComposites(data.composites || [])
       } else {
@@ -96,24 +88,21 @@ export function CompositeGallery({
   }, [categoryId, format, refreshTrigger])
 
   const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`Delete "${name}"? This action cannot be undone.`)) {
-      return
-    }
+    if (!confirm(`Delete "${name}"? This action cannot be undone.`)) return
 
     setDeletingId(id)
-
     try {
       const response = await fetch(
         `/api/categories/${categoryId}/composites/${id}`,
-        {
-          method: 'DELETE',
-        }
+        { method: 'DELETE' }
       )
-
       const data = await response.json()
-
       if (response.ok) {
         toast.success('Composite deleted successfully')
+        // Close drawer if deleted composite was open
+        if (drawerIndex !== null && composites[drawerIndex]?.id === id) {
+          setDrawerIndex(null)
+        }
         fetchComposites()
       } else {
         toast.error(data.error || 'Failed to delete composite')
@@ -159,16 +148,19 @@ export function CompositeGallery({
     )
   }
 
-  const previewComposite = previewIndex !== null ? composites[previewIndex] : null
+  const drawerComposite = drawerIndex !== null ? composites[drawerIndex] : null
 
   return (
     <>
       <div className={`grid ${gridClass} gap-4`}>
         {composites.map((composite, index) => (
-          <Card key={composite.id} className="group overflow-hidden">
+          <Card
+            key={composite.id}
+            className="group overflow-hidden rounded-xl shadow-sm hover:shadow-md transition-shadow"
+          >
             <div
               className="relative aspect-square bg-muted cursor-pointer"
-              onClick={() => setPreviewIndex(index)}
+              onClick={() => setDrawerIndex(index)}
             >
               <img
                 src={driveImgSrc(composite.storage_url, composite.gdrive_file_id)}
@@ -179,7 +171,7 @@ export function CompositeGallery({
                 }}
               />
 
-              {/* Actions Overlay */}
+              {/* Actions overlay — top-right */}
               <div
                 className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={(e) => e.stopPropagation()}
@@ -212,14 +204,14 @@ export function CompositeGallery({
                 </DropdownMenu>
               </div>
 
-              {/* Generation time badge — bottom-left */}
+              {/* Generation time — bottom-left */}
               {composite.generation_time_ms != null && (
                 <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
                   {(composite.generation_time_ms / 1000).toFixed(1)}s
                 </div>
               )}
 
-              {/* Aspect ratio badge — bottom-right */}
+              {/* Aspect ratio — bottom-right */}
               {composite.aspect_ratio && (
                 <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
                   {composite.aspect_ratio}
@@ -227,15 +219,11 @@ export function CompositeGallery({
               )}
             </div>
 
-            <div className="p-4 space-y-1">
-              <h3 className="font-medium line-clamp-1">{composite.name}</h3>
+            <div className="p-3 space-y-1">
+              <h3 className="font-medium line-clamp-1 text-sm">{composite.name}</h3>
               <div className="text-xs text-muted-foreground space-y-0.5">
-                <p className="line-clamp-1">
-                  Shot: {composite.angled_shot?.angle_name || 'Unknown'}
-                </p>
-                <p className="line-clamp-1">
-                  Background: {composite.background?.name || 'Unknown'}
-                </p>
+                <p className="line-clamp-1">Shot: {composite.angled_shot?.angle_name || 'Unknown'}</p>
+                <p className="line-clamp-1">Scene: {composite.background?.name || 'Unknown'}</p>
               </div>
               <p className="text-xs text-muted-foreground">
                 {new Date(composite.created_at).toLocaleDateString()}
@@ -245,79 +233,16 @@ export function CompositeGallery({
         ))}
       </div>
 
-      {/* Preview Lightbox */}
-      <Dialog open={previewIndex !== null} onOpenChange={(open) => { if (!open) setPreviewIndex(null) }}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden">
-          <DialogHeader className="p-4 pb-0">
-            <DialogTitle className="text-lg">
-              {previewComposite?.name || 'Composite Preview'}
-            </DialogTitle>
-            {previewComposite && (
-              <p className="text-sm text-muted-foreground">
-                {previewComposite.angled_shot?.angle_name || 'Unknown shot'} + {previewComposite.background?.name || 'Unknown background'}
-              </p>
-            )}
-          </DialogHeader>
-
-          {previewComposite && (
-            <div className="relative">
-              <div className="flex items-center justify-center bg-muted/30 p-4">
-                <img
-                  src={driveImgSrc(previewComposite.storage_url, previewComposite.gdrive_file_id)}
-                  alt={previewComposite.name}
-                  className="max-h-[70vh] w-auto object-contain rounded-lg"
-                />
-              </div>
-
-              {/* Previous / Next navigation */}
-              {composites.length > 1 && (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
-                    onClick={() => setPreviewIndex((prev) => prev !== null ? (prev - 1 + composites.length) % composites.length : 0)}
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full opacity-80 hover:opacity-100"
-                    onClick={() => setPreviewIndex((prev) => prev !== null ? (prev + 1) % composites.length : 0)}
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </Button>
-                </>
-              )}
-
-              {/* Footer actions */}
-              <div className="flex items-center justify-between p-4 border-t">
-                <p className="text-xs text-muted-foreground">
-                  {previewIndex !== null ? previewIndex + 1 : 0} of {composites.length} &middot; {new Date(previewComposite.created_at).toLocaleDateString()}
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={() => handleDownload(previewComposite)}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => {
-                      setPreviewIndex(null)
-                      handleDelete(previewComposite.id, previewComposite.name)
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Composite Image Drawer */}
+      <CompositeImageDrawer
+        composite={drawerComposite}
+        composites={composites}
+        categoryId={categoryId}
+        currentIndex={drawerIndex ?? 0}
+        onClose={() => setDrawerIndex(null)}
+        onNavigate={setDrawerIndex}
+        onRefresh={fetchComposites}
+      />
     </>
   )
 }
