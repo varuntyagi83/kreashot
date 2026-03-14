@@ -39,33 +39,33 @@ interface BrandVoiceExtractorProps {
 const QA_QUESTIONS = [
   {
     id: 'personality',
-    question: 'Describe your brand as if it were a person — what are its 3–5 personality traits?',
-    placeholder: 'e.g., Confident, warm, science-backed, slightly playful, no-nonsense',
+    question: 'Brand personality traits',
+    placeholder: 'e.g., Confident, warm, science-backed, slightly playful',
   },
   {
     id: 'audience',
-    question: 'Who is your ideal customer and what do they care about most?',
-    placeholder: 'e.g., Health-conscious adults 25–45 who want simple, effective solutions without the fluff',
+    question: 'Ideal customer',
+    placeholder: 'e.g., Health-conscious adults 25–45 who want simple solutions',
   },
   {
     id: 'feeling',
-    question: 'What feeling should someone have after reading your copy?',
-    placeholder: 'e.g., Motivated, reassured, excited, like they just got great advice from a friend',
+    question: 'Feeling after reading',
+    placeholder: 'e.g., Motivated, reassured, like advice from a friend',
   },
   {
     id: 'reference',
-    question: 'What brands or voices does yours sound like? (e.g., "like Apple but warmer")',
-    placeholder: "e.g., Like Nike's confidence but softer — or like Glossier: approachable and direct",
+    question: 'Sounds like which brands?',
+    placeholder: "e.g., Like Nike's confidence but softer, or Glossier",
   },
   {
     id: 'never',
-    question: 'What should your brand NEVER sound like or say?',
-    placeholder: 'e.g., Never fear-monger, no jargon, never overly corporate or cold, no clickbait',
+    question: 'Never sound like',
+    placeholder: 'e.g., No jargon, never corporate or cold, no clickbait',
   },
   {
     id: 'sample',
-    question: 'Paste 1–2 examples of copy you love (yours or any brand)',
-    placeholder: 'e.g., "Just do it." / "Because you\'re worth it." — or paste actual ads you admire',
+    question: 'Copy examples you love',
+    placeholder: 'e.g., "Just do it." — or paste an ad you admire',
   },
 ]
 
@@ -510,11 +510,8 @@ export function BrandVoiceExtractor({
               <ChevronUp className="h-4 w-4" />
             </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          The AI analyses your inputs and builds a brand voice profile that guides every piece of copy generated.
-        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="qa" className="text-xs">
@@ -532,21 +529,18 @@ export function BrandVoiceExtractor({
           </TabsList>
 
           {/* ── Q&A tab ─────────────────────────────────────────────────── */}
-          <TabsContent value="qa" className="space-y-4 mt-4">
-            <p className="text-xs text-muted-foreground">
-              Answer as many questions as you like — the more detail, the sharper the profile.
-            </p>
+          <TabsContent value="qa" className="space-y-2.5 mt-3">
             {QA_QUESTIONS.map((q) => (
-              <div key={q.id} className="space-y-1.5">
-                <Label className="text-xs font-medium">{q.question}</Label>
-                <Textarea
+              <div key={q.id} className="space-y-1">
+                <Label className="text-[11px] font-medium text-[#555]">{q.question}</Label>
+                <input
+                  type="text"
                   placeholder={q.placeholder}
                   value={qaAnswers[q.id] || ''}
                   onChange={(e) =>
                     setQaAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
                   }
-                  rows={2}
-                  className="text-sm resize-none"
+                  className="w-full h-8 px-2.5 text-xs rounded-lg border border-[#E0E0E0] bg-white focus:border-[#7C5DFA] focus:outline-none disabled:opacity-50 placeholder:text-[#BBBBBB]"
                   disabled={extracting}
                 />
               </div>
