@@ -35,6 +35,18 @@ export function Sidebar() {
     fetchCategories()
   }, [pathname])
 
+  // Auto-expand the category that matches the current URL
+  useEffect(() => {
+    const match = pathname.match(/\/categories\/([^/?]+)/)
+    if (match) {
+      const categoryId = match[1]
+      setExpandedCategories((prev) =>
+        prev.includes(categoryId) ? prev : [...prev, categoryId]
+      )
+      setSelectedCategory(categoryId)
+    }
+  }, [pathname])
+
   const fetchCategories = async () => {
     try {
       const response = await fetch('/api/categories')

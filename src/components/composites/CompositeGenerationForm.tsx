@@ -29,6 +29,8 @@ interface AngledShot {
   display_name: string
   angle_name: string
   storage_url: string
+  public_url?: string
+  gdrive_file_id?: string
   product?: { id: string; name: string; slug: string }
 }
 
@@ -317,11 +319,24 @@ export function CompositeGenerationForm({
                               </div>
                             )}
                           </label>
-                          {shot.storage_url && (
+                          {(shot.public_url || shot.storage_url) && (
                             <img
-                              src={shot.storage_url}
+                              src={shot.public_url || shot.storage_url}
                               alt={shot.display_name || shot.angle_name}
                               className="w-10 h-10 rounded object-cover flex-shrink-0"
+                              onError={(e) => {
+                                const target = e.currentTarget
+                                const retry = parseInt(target.dataset.retry || '0')
+                                if (retry === 0 && shot.gdrive_file_id) {
+                                  target.dataset.retry = '1'
+                                  target.src = `https://lh3.googleusercontent.com/d/${shot.gdrive_file_id}=w200`
+                                } else if (retry <= 1 && shot.gdrive_file_id) {
+                                  target.dataset.retry = '2'
+                                  target.src = `https://drive.google.com/thumbnail?id=${shot.gdrive_file_id}&sz=w200`
+                                } else {
+                                  target.style.display = 'none'
+                                }
+                              }}
                             />
                           )}
                         </div>
