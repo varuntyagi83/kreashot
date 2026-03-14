@@ -69,6 +69,7 @@ export interface GeneratedComposite {
   image_base64: string
   image_mime_type: string
   prompt_used: string
+  generationTimeMs?: number
 }
 
 export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorkspaceProps) {

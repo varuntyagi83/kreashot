@@ -149,7 +149,8 @@ export async function POST(
       mimeType,
       format = '1:1', // NEW: Format parameter
       width,
-      height
+      height,
+      generationTimeMs,
     } = body
 
     // Get format dimensions (use provided width/height or defaults from format config)
@@ -230,6 +231,7 @@ export async function POST(
         storage_path: storageFile.path,
         storage_url: storageFile.publicUrl,
         gdrive_file_id: storageFile.fileId || null,
+        generation_time_ms: generationTimeMs ?? null,
         metadata: {},
       })
       .select()

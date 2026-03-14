@@ -341,6 +341,7 @@ export async function POST(
 
       try {
         // Route to Replicate (FLUX) for formats Gemini doesn't support natively
+        const fmtStartMs = Date.now()
         const generatedBackgrounds = REPLICATE_FORMATS.has(fmt)
           ? await generateBackgroundsWithReplicate(
               cleanPrompt,
@@ -359,6 +360,7 @@ export async function POST(
               finalGuidelines,
               resolvedColorDescription || undefined
             )
+        const perBgMs = Math.round((Date.now() - fmtStartMs) / (generatedBackgrounds.length || 1))
 
         for (const bg of generatedBackgrounds) {
           allMappedBackgrounds.push({
@@ -366,6 +368,7 @@ export async function POST(
             imageData: bg.imageData,
             mimeType: bg.mimeType,
             format: fmt,
+            generationTimeMs: perBgMs,
             // Legacy field names for backwards compatibility
             image_base64: bg.imageData,
             image_mime_type: bg.mimeType,

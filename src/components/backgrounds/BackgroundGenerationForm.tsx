@@ -58,6 +58,7 @@ interface GeneratedBackground {
   imageData: string
   mimeType: string
   format: string
+  generationTimeMs?: number
 }
 
 interface BackgroundGenerationFormProps {

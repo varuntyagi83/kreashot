@@ -380,6 +380,7 @@ export async function POST(
         const backgroundMimeType = detectMimeType(backgroundResized)
 
         // Generate composite using Gemini (with template safe zones if available)
+        const compositeStartMs = Date.now()
         const composite = await generateComposite(
           `data:${angledShotMimeType};base64,${angledShotBase64}`,
           angledShotMimeType,
@@ -391,6 +392,7 @@ export async function POST(
           formatDimensions.width,
           formatDimensions.height
         )
+        const compositeGenMs = Date.now() - compositeStartMs
 
         results.push({
           angledShotId: pair.angledShotId,
@@ -400,6 +402,7 @@ export async function POST(
           image_base64: composite.imageData,
           image_mime_type: composite.mimeType,
           prompt_used: composite.promptUsed,
+          generationTimeMs: compositeGenMs,
         })
 
         console.log(

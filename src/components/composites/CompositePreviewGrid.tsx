@@ -68,6 +68,7 @@ export function CompositePreviewGrid({
           angledShotId: composite.angledShotId,
           backgroundId: composite.backgroundId,
           format,
+          generationTimeMs: composite.generationTimeMs,
         }),
       })
 
@@ -120,6 +121,7 @@ export function CompositePreviewGrid({
             angledShotId: composite.angledShotId,
             backgroundId: composite.backgroundId,
             format,
+            generationTimeMs: composite.generationTimeMs,
           }),
         })
       } catch (error) {

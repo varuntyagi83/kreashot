@@ -157,6 +157,7 @@ export async function POST(
 
     console.log(`🎨 Generating ${anglesToGenerate.map(a => a.name).join(', ')} for ${product.name} [${format}]...`)
 
+    const angledShotStartMs = Date.now()
     const generatedShots = await generateAngledShots(
       base64Image,
       productImage.mime_type,
@@ -164,6 +165,7 @@ export async function POST(
       category.look_and_feel || undefined,
       format
     )
+    const perShotMs = Math.round((Date.now() - angledShotStartMs) / (generatedShots.length || 1))
 
     const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
 
@@ -217,6 +219,7 @@ export async function POST(
               storage_path: storageFile.path,
               storage_url: storageFile.publicUrl,
               gdrive_file_id: storageFile.fileId || null,
+              generation_time_ms: perShotMs,
               metadata: {},
             })
             .select()
