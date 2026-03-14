@@ -515,9 +515,8 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Vertical position: place at the layer's Y coordinate (matching CSS top: Y%)
-            # NOT vertically centered — the preview places text at the Y position directly.
-            text_y = y
+            # Vertically center the text block within the layer height
+            text_y = y + max(0, (lh - block_height) // 2)
             # Clamp so text doesn't overflow below canvas
             if text_y + block_height > canvas_height:
                 text_y = max(0, canvas_height - block_height - 4)

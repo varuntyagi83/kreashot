@@ -1156,7 +1156,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                                 width: `${layer.width || 100}%`,
                                 height: `${layer.height || 20}%`,
                                 display: 'flex',
-                                alignItems: 'flex-start',
+                                alignItems: 'center',
                                 padding: '2px',
                               }}
                             >
