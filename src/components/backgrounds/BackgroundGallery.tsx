@@ -489,13 +489,12 @@ export function BackgroundGallery({
                   const target = e.currentTarget
                   const retryCount = parseInt(target.dataset.retryCount || '0')
                   const fileId = background.gdrive_file_id
+                  const isLh3 = (background.storage_url || '').includes('lh3.googleusercontent.com')
 
-                  if (retryCount === 0 && fileId) {
-                    // Try lh3 CDN URL (most reliable for public files)
+                  if (retryCount === 0 && fileId && !isLh3) {
                     target.dataset.retryCount = '1'
                     target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
                   } else if (retryCount <= 1 && fileId) {
-                    // Try old thumbnail endpoint as last resort
                     target.dataset.retryCount = '2'
                     target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
                   } else {

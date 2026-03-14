@@ -165,8 +165,18 @@ export function CompositeGallery({
                 onError={(e) => {
                   const target = e.currentTarget
                   const retry = parseInt(target.dataset.retry || '0')
-                  const fileId = composite.gdrive_file_id
-                  if (retry === 0 && fileId) {
+                  // Extract file ID from gdrive_file_id or from any known Drive URL format
+                  const fileId = composite.gdrive_file_id || (() => {
+                    const url = composite.storage_url || ''
+                    const lh3 = url.match(/lh3\.googleusercontent\.com\/d\/([^=?/]+)/)
+                    if (lh3) return lh3[1]
+                    const drive = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
+                    if (drive) return drive[1]
+                    return null
+                  })()
+                  // If primary URL was already lh3, skip straight to drive thumbnail
+                  const isLh3 = (composite.storage_url || '').includes('lh3.googleusercontent.com')
+                  if (retry === 0 && fileId && !isLh3) {
                     target.dataset.retry = '1'
                     target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
                   } else if (retry <= 1 && fileId) {

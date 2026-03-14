@@ -327,12 +327,21 @@ export function CompositeGenerationForm({
                               onError={(e) => {
                                 const target = e.currentTarget
                                 const retry = parseInt(target.dataset.retry || '0')
-                                if (retry === 0 && shot.gdrive_file_id) {
+                                const fileId = shot.gdrive_file_id || (() => {
+                                  const url = shot.public_url || shot.storage_url || ''
+                                  const lh3 = url.match(/lh3\.googleusercontent\.com\/d\/([^=?/]+)/)
+                                  if (lh3) return lh3[1]
+                                  const drive = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
+                                  if (drive) return drive[1]
+                                  return null
+                                })()
+                                const isLh3 = (shot.public_url || shot.storage_url || '').includes('lh3.googleusercontent.com')
+                                if (retry === 0 && fileId && !isLh3) {
                                   target.dataset.retry = '1'
-                                  target.src = `https://lh3.googleusercontent.com/d/${shot.gdrive_file_id}=w200`
-                                } else if (retry <= 1 && shot.gdrive_file_id) {
+                                  target.src = `https://lh3.googleusercontent.com/d/${fileId}=w200`
+                                } else if (retry <= 1 && fileId) {
                                   target.dataset.retry = '2'
-                                  target.src = `https://drive.google.com/thumbnail?id=${shot.gdrive_file_id}&sz=w200`
+                                  target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w200`
                                 } else {
                                   target.style.display = 'none'
                                 }
