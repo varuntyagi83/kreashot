@@ -10,13 +10,11 @@ import { ProductList } from '@/components/products/ProductList'
 import { BackgroundGenerationWorkspace } from '@/components/backgrounds/BackgroundGenerationWorkspace'
 import { CompositeWorkspace } from '@/components/composites/CompositeWorkspace'
 import { CopyWorkspace } from '@/components/copy/CopyWorkspace'
-import { TemplateWorkspace } from '@/components/templates/TemplateWorkspace'
 import { FinalAssetsWorkspace } from '@/components/final-assets/FinalAssetsWorkspace'
 import { AdExportWorkspace } from '@/components/ad-export/AdExportWorkspace'
 import { CollageWorkspace } from '@/components/collage/CollageWorkspace'
 import { FormatSelector } from '@/components/format-selector'
-import { GuidelineUploadForm } from '@/components/templates/GuidelineUploadForm'
-import { GuidelinesList } from '@/components/templates/GuidelinesList'
+import { StylesWorkspace } from '@/components/styles/StylesWorkspace'
 import type { BrandVoiceProfile } from '@/lib/ai/brand-voice'
 
 interface CategoryDetailPageProps {
@@ -185,14 +183,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
         </TabsContent>
 
         <TabsContent value="styles">
-          <div className="space-y-6">
-            <GuidelineUploadForm
-              categoryId={category.id}
-              onUploadComplete={() => window.location.reload()}
-            />
-            <GuidelinesList categoryId={category.id} />
-            <TemplateWorkspace categoryId={category.id} format={selectedFormat} />
-          </div>
+          <StylesWorkspace categoryId={category.id} format={selectedFormat} />
         </TabsContent>
 
         <TabsContent value="photoshoots">
