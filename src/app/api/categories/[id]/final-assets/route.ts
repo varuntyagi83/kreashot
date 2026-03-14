@@ -293,6 +293,7 @@ export async function POST(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
+      .eq('user_id', user.id)
       .single()
 
     const categorySlug = category?.slug || 'unknown'

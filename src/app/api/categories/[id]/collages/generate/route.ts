@@ -7,6 +7,7 @@ import { uploadFile } from '@/lib/storage'
 import { spawn } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
+import crypto from 'crypto'
 
 // POST - Generate (render) a collage into a final image
 export async function POST(
@@ -108,7 +109,7 @@ export async function POST(
       }
     }
 
-    const outputPath = `/tmp/collage_${Date.now()}.png`
+    const outputPath = `/tmp/collage_${crypto.randomUUID()}.png`
 
     const inputData = {
       template_data: { layers: validatedLayers },
@@ -176,6 +177,7 @@ export async function POST(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
+      .eq('user_id', user.id)
       .single()
 
     const categorySlug = category?.slug || 'unknown'

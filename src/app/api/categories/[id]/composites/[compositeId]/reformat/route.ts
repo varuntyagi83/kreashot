@@ -89,12 +89,14 @@ export async function POST(
     for (const fmt of targetFormats) {
       console.log(`  Reformatting composite to ${fmt}...`)
       try {
+        const reformatStartTime = Date.now()
         const generated = await regenerateBackgroundInFormat(
           sourceBase64,
           sourceMimeType,
           fmt,
           '4K'
         )
+        const reformatTimeMs = Date.now() - reformatStartTime
 
         const folderName = formatToFolderName(fmt)
         const baseSlug = composite.slug || composite.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
@@ -128,6 +130,7 @@ export async function POST(
             width: fmtDims.width,
             height: fmtDims.height,
             aspect_ratio: fmt,
+            generation_time_ms: reformatTimeMs,
             storage_provider: 'gdrive',
             storage_path: storageFile.path,
             storage_url: storageFile.publicUrl,

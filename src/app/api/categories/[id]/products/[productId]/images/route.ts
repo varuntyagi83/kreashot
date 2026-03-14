@@ -200,9 +200,13 @@ export async function POST(
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
 
+      // Use magic-byte detected MIME type (detectedMime) in preference to browser-supplied
+      // file.type, which an attacker can spoof. Fall back to file.type if detection failed.
+      const resolvedMime = detectedMime || file.type
+
       // Upload to Google Drive
       const storageFile = await uploadFile(buffer, storagePath, {
-        contentType: file.type,
+        contentType: resolvedMime,
         provider: 'gdrive',
       })
 
@@ -216,7 +220,7 @@ export async function POST(
           file_name: file.name,
           file_path: storagePath,
           file_size: file.size,
-          mime_type: file.type,
+          mime_type: resolvedMime,
           is_primary: isFirstImage && i === 0, // First image of first upload is primary
           storage_provider: 'gdrive',
           storage_path: storagePath,
