@@ -31,6 +31,7 @@ interface Composite {
   slug: string
   description: string | null
   storage_url: string
+  gdrive_file_id: string | null
   created_at: string
   generation_time_ms: number | null
   aspect_ratio: string | null
@@ -162,8 +163,18 @@ export function CompositeGallery({
                 alt={composite.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  e.currentTarget.src =
-                    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23ddd" width="400" height="400"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage%3C/text%3E%3C/svg%3E'
+                  const target = e.currentTarget
+                  const retry = parseInt(target.dataset.retry || '0')
+                  const fileId = composite.gdrive_file_id
+                  if (retry === 0 && fileId) {
+                    target.dataset.retry = '1'
+                    target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
+                  } else if (retry <= 1 && fileId) {
+                    target.dataset.retry = '2'
+                    target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
+                  } else {
+                    target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
+                  }
                 }}
               />
 

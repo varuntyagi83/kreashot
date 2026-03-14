@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   Package,
@@ -29,6 +29,8 @@ const steps = [
 
 export function CategoryNav({ categoryId }: CategoryNavProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'products'
 
   return (
     <div className="space-y-1 px-3 py-2">
@@ -36,9 +38,7 @@ export function CategoryNav({ categoryId }: CategoryNavProps) {
         const href = `/categories/${categoryId}?tab=${step.id}`
         const isActive =
           pathname === `/categories/${categoryId}` &&
-          (typeof window !== 'undefined'
-            ? new URLSearchParams(window.location.search).get('tab') === step.id
-            : false)
+          activeTab === step.id
         const Icon = step.icon
 
         return (
