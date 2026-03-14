@@ -22,6 +22,7 @@ interface AngledShot {
   prompt_used: string | null
   storage_path: string
   storage_url: string
+  gdrive_file_id: string | null
   format?: string // e.g. '1:1', '16:9' — for single-angle regenerate
   created_at: string
   public_url: string
@@ -134,8 +135,8 @@ export function AngledShotsList({ categoryId, format }: AngledShotsListProps) {
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <div>
-          <h2 className="text-2xl font-bold">Angled Shots</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-lg font-semibold">Angled Shots</h2>
+          <p className="text-sm text-muted-foreground">
             AI-generated angle variations for {format || '1:1'} format
           </p>
         </div>

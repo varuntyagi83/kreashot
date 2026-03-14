@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { MoreVertical, Trash2, Download, Eye, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+import { driveImgSrc } from '@/lib/utils'
 
 interface AngledShotCardProps {
   angledShot: {
@@ -21,6 +22,7 @@ interface AngledShotCardProps {
     prompt_used: string | null
     storage_path: string
     storage_url: string
+    gdrive_file_id: string | null
     format?: string // e.g. '1:1', '16:9' — used for regenerate single angle
     created_at: string
     public_url: string
@@ -148,48 +150,44 @@ export function AngledShotCard({
   }
 
   return (
-    <Card className="group hover:shadow-md transition-shadow relative">
+    <Card className="group hover:shadow-md transition-shadow rounded-xl shadow-sm relative overflow-hidden">
       {regenerating && (
-        <div className="absolute inset-0 bg-background/80 z-10 flex items-center justify-center rounded-lg">
+        <div className="absolute inset-0 bg-background/80 z-10 flex items-center justify-center rounded-xl">
           <div className="flex flex-col items-center gap-2">
             <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="text-sm text-muted-foreground">Regenerating…</span>
           </div>
         </div>
       )}
-      <CardContent className="p-4">
-        <div
-          className="aspect-square mb-3 rounded-md bg-muted flex items-center justify-center overflow-hidden relative cursor-pointer"
-          onClick={handleView}
-        >
-          {imageError ? (
-            <div className="text-center text-muted-foreground">
-              <Eye className="h-12 w-12 mx-auto mb-2" />
-              <p className="text-xs">Failed to load</p>
-              <p className="text-xs mt-1 text-primary">Click to view</p>
-            </div>
-          ) : (
-            <>
-              <img
-                src={angledShot.public_url}
-                alt={angledShot.angle_description}
-                className="w-full h-full object-cover"
-                onError={() => {
-                  console.error('Failed to load image:', angledShot.public_url)
-                  setImageError(true)
-                }}
-              />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button size="sm" variant="secondary">
-                    <Eye className="h-4 w-4 mr-1" />
-                    View Full Size
-                  </Button>
-                </div>
+      <div
+        className="aspect-square relative cursor-pointer overflow-hidden bg-muted"
+        onClick={handleView}
+      >
+        {imageError ? (
+          <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+            <Eye className="h-10 w-10 mb-2 opacity-40" />
+            <p className="text-xs">Failed to load</p>
+          </div>
+        ) : (
+          <>
+            <img
+              src={driveImgSrc(angledShot.storage_url, angledShot.gdrive_file_id)}
+              alt={angledShot.angle_description}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setImageError(true)}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button size="sm" variant="secondary">
+                  <Eye className="h-4 w-4 mr-1" />
+                  View Full Size
+                </Button>
               </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
+      </div>
+      <CardContent className="p-3">
 
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-2">

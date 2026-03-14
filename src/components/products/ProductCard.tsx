@@ -9,12 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreVertical, Trash2, Image, ImagePlus, Edit } from 'lucide-react'
+import { MoreVertical, Trash2, Image, Edit } from 'lucide-react'
 import { toast } from 'sonner'
 import { ManageProductImagesDialog } from './ManageProductImagesDialog'
 import { EditProductDialog } from './EditProductDialog'
-import { ReferenceDisplay } from '@/components/ui/reference-display'
-import { createClient } from '@/lib/supabase/client'
+import { driveImgSrc } from '@/lib/utils'
 
 interface ProductCardProps {
   product: {
@@ -35,29 +34,23 @@ export function ProductCard({ product, categoryId, format, onDeleted }: ProductC
   const [editOpen, setEditOpen] = useState(false)
   const [primaryImage, setPrimaryImage] = useState<string | null>(null)
   const [imageCount, setImageCount] = useState(0)
-  const [refreshKey, setRefreshKey] = useState(0)
-  const supabase = createClient()
 
   useEffect(() => {
     fetchImages()
-  }, [product.id, refreshKey])
+  }, [product.id])
 
   const fetchImages = async () => {
     try {
-      // Use the API endpoint instead of direct database query
-      // This ensures we get the correct public_url (Google Drive or Supabase)
       const response = await fetch(
         `/api/categories/${categoryId}/products/${product.id}/images`
       )
-
       if (response.ok) {
         const data = await response.json()
         const images = data.images || []
-
         setImageCount(images.length)
-        const primary = images.find((img: any) => img.is_primary)
-        if (primary && primary.public_url) {
-          setPrimaryImage(primary.public_url)
+        const primary = images.find((img: any) => img.is_primary) || images[0]
+        if (primary) {
+          setPrimaryImage(driveImgSrc(primary.storage_url || primary.public_url, primary.gdrive_file_id))
         }
       }
     } catch (error) {
@@ -95,57 +88,47 @@ export function ProductCard({ product, categoryId, format, onDeleted }: ProductC
 
   return (
     <>
-      <Card className="group hover:shadow-md transition-shadow">
-        <CardContent className="p-4">
-          <div
-            className="aspect-square mb-3 rounded-md bg-muted flex items-center justify-center overflow-hidden relative cursor-pointer"
-            onClick={() => setManageImagesOpen(true)}
-          >
-            {primaryImage ? (
-              <img
-                src={primaryImage}
-                alt={product.name}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  // Fallback to placeholder on error
-                  console.error('Failed to load image:', primaryImage)
-                  setPrimaryImage(null) // Show the "No images yet" placeholder
-                }}
-              />
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <Image className="h-12 w-12 mx-auto mb-2" />
-                <p className="text-xs">No images yet</p>
-                <p className="text-xs mt-2 text-primary">Click to add</p>
-              </div>
-            )}
-            <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <Button size="sm" variant="secondary">
-                <ImagePlus className="h-4 w-4 mr-1" />
-                Manage
-              </Button>
+      <Card className="group hover:shadow-md transition-shadow rounded-xl shadow-sm overflow-hidden">
+        {/* Image area */}
+        <div
+          className="aspect-square relative cursor-pointer overflow-hidden bg-muted"
+          onClick={() => setManageImagesOpen(true)}
+        >
+          {primaryImage ? (
+            <img
+              src={primaryImage}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={() => setPrimaryImage(null)}
+            />
+          ) : (
+            <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+              <Image className="h-10 w-10 mb-2 opacity-40" />
+              <p className="text-xs">Click to add images</p>
             </div>
-          </div>
+          )}
+          {/* Image count badge */}
+          {imageCount > 0 && (
+            <span className="absolute top-2 right-2 text-xs bg-black/60 text-white rounded-full px-2 py-0.5 leading-none">
+              {imageCount}
+            </span>
+          )}
+          {/* Hover overlay */}
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+        </div>
 
-        <div className="space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-medium line-clamp-1">{product.name}</h3>
-              {product.description && (
-                <div className="mt-1 line-clamp-2">
-                  <ReferenceDisplay text={product.description} className="text-xs" />
-                </div>
-              )}
-            </div>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-1">
+            <h3 className="flex-1 font-medium text-sm line-clamp-1">{product.name}</h3>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-8 w-8 p-0"
+                  className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
                   disabled={deleting}
                 >
-                  <MoreVertical className="h-4 w-4" />
+                  <MoreVertical className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -164,16 +147,13 @@ export function ProductCard({ product, categoryId, format, onDeleted }: ProductC
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>
+          {imageCount > 0 && (
+            <p className="text-xs text-muted-foreground mt-0.5">
               {imageCount} image{imageCount !== 1 ? 's' : ''}
-            </span>
-            <span>{new Date(product.created_at).toLocaleDateString()}</span>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <ManageProductImagesDialog
         open={manageImagesOpen}
@@ -195,8 +175,8 @@ export function ProductCard({ product, categoryId, format, onDeleted }: ProductC
         categoryId={categoryId}
         product={product}
         onUpdated={() => {
-          setRefreshKey((prev) => prev + 1)
-          onDeleted() // Refresh the products list (misnomer - should be onChanged)
+          fetchImages()
+          onDeleted()
         }}
       />
     </>
