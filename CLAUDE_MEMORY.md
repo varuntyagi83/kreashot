@@ -217,7 +217,7 @@ Old → New: Assets→Products, Angled Shots→(removed, merged into Photoshoots
 - [x] Phase 12 — Photoshoots workspace: CompositeWorkspace redesign — commit `297b993`
 - [x] Phase 13 — Photoshoots full build: Show Controls toggle, modals (SceneLibraryModal + SelectProductImagesModal) — commit `5b28eac`
 - [x] Phase 14 — Composite Image Drawer: CompositeImageDrawer.tsx (Regenerate, Change Ratio, Generate Angles, Swap Product, Download) — commit `0c62b46`
-- [ ] Phase 15 — New API routes: composites/reformat, composites/swap-product, /api/download (Sharp)
+- [x] Phase 15 — New API routes: composites/reformat, composites/swap-product, /api/download (Sharp); fixed 429 download error — commit `70016d9`
 - [ ] Phase 15b — Ad Copy workspace: redesign CopyWorkspace
 - [ ] Phase 16 — Ads workspace: AdsWorkspace (Create Ad + Export tabs)
 - [ ] Phase 17 — Polish pass: hover states, empty states, loading skeletons, responsive
