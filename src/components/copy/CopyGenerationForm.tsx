@@ -164,27 +164,27 @@ export function CopyGenerationForm({
     <div className="space-y-5">
       {/* Section header */}
       <div className="flex items-center gap-2 pt-1">
-        <Sparkles className="h-4 w-4 text-[#7C5DFA]" />
-        <h3 className="text-sm font-semibold text-[#1A1A1A]">Generate Copy Kit</h3>
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Generate Copy Kit</h3>
       </div>
 
       {/* Style guide pill */}
       {lookAndFeel && (
-        <div className="bg-[#F5F5F3] rounded-lg px-3 py-2 text-xs text-[#555]">
-          <span className="font-medium text-[#1A1A1A]">Style:</span> {lookAndFeel}
+        <div className="bg-background rounded-lg px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Style:</span> {lookAndFeel}
         </div>
       )}
 
       {/* Brand Guidelines PDF */}
       <div className="space-y-1.5">
-        <Label className="text-xs font-medium text-[#555]">Brand Guidelines PDF</Label>
+        <Label className="text-xs font-medium text-muted-foreground">Brand Guidelines PDF</Label>
         {currentBrandDoc ? (
-          <div className="flex items-center gap-2 border border-[#E0E0E0] rounded-lg px-3 py-2 bg-white">
-            <FileText className="h-3.5 w-3.5 text-[#7C5DFA] shrink-0" />
-            <span className="text-xs flex-1 truncate text-[#333]">{currentBrandDoc}</span>
-            <Badge className="text-[10px] bg-[#7C5DFA]/10 text-[#7C5DFA] border-0 shrink-0 px-1.5">Active</Badge>
+          <div className="flex items-center gap-2 border border-input rounded-lg px-3 py-2 bg-card">
+            <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-xs flex-1 truncate text-foreground">{currentBrandDoc}</span>
+            <Badge className="text-[10px] bg-primary/10 text-primary border-0 shrink-0 px-1.5">Active</Badge>
             <button
-              className="text-[#999] hover:text-[#E63946] transition-colors shrink-0"
+              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
               onClick={handleRemoveBrandDoc}
               disabled={isGenerating}
             >
@@ -201,7 +201,7 @@ export function CopyGenerationForm({
               onChange={handlePdfUpload}
             />
             <button
-              className="w-full border border-dashed border-[#D0D0D0] rounded-lg py-2.5 text-xs text-[#777] hover:border-[#7C5DFA] hover:text-[#7C5DFA] transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+              className="w-full border border-dashed border rounded-lg py-2.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingPdf || isGenerating}
             >
@@ -216,8 +216,8 @@ export function CopyGenerationForm({
 
       {/* Brief */}
       <div className="space-y-1.5">
-        <Label htmlFor="brief" className="text-xs font-medium text-[#555]">
-          Product Brief <span className="text-[#E63946]">*</span>
+        <Label htmlFor="brief" className="text-xs font-medium text-muted-foreground">
+          Product Brief <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="brief"
@@ -227,15 +227,15 @@ export function CopyGenerationForm({
           rows={3}
           maxLength={500}
           disabled={isGenerating}
-          className="text-xs resize-none border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg bg-white"
+          className="text-xs resize-none border-input focus:border-primary rounded-lg bg-card"
         />
-        <p className="text-[10px] text-[#999] text-right">{brief.length}/500</p>
+        <p className="text-[10px] text-muted-foreground text-right">{brief.length}/500</p>
       </div>
 
       {/* Copy Types */}
       <div className="space-y-2">
-        <Label className="text-xs font-medium text-[#555]">
-          Copy Types <span className="text-[#E63946]">*</span>
+        <Label className="text-xs font-medium text-muted-foreground">
+          Copy Types <span className="text-destructive">*</span>
         </Label>
         <div className="grid grid-cols-2 gap-1.5">
           {COPY_TYPES.map((type) => {
@@ -248,12 +248,12 @@ export function CopyGenerationForm({
                 disabled={isGenerating}
                 className={`flex flex-col items-start px-3 py-2 rounded-lg border text-left transition-all text-xs ${
                   selected
-                    ? 'border-[#7C5DFA] bg-[#7C5DFA]/5 text-[#7C5DFA]'
-                    : 'border-[#E8E8E6] bg-white text-[#555] hover:border-[#C8C8C6]'
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border bg-card text-muted-foreground hover:border-[#C8C8C6]'
                 } disabled:opacity-50`}
               >
                 <span className="font-medium">{type.label}</span>
-                <span className={`text-[10px] leading-tight ${selected ? 'text-[#7C5DFA]/70' : 'text-[#999]'}`}>
+                <span className={`text-[10px] leading-tight ${selected ? 'text-primary/70' : 'text-muted-foreground'}`}>
                   {type.description}
                 </span>
               </button>
@@ -264,8 +264,8 @@ export function CopyGenerationForm({
 
       {/* Campaign Tone */}
       <div className="space-y-2">
-        <Label className="text-xs font-medium text-[#555]">
-          Campaign Tone <span className="text-[#E63946]">*</span>
+        <Label className="text-xs font-medium text-muted-foreground">
+          Campaign Tone <span className="text-destructive">*</span>
         </Label>
         <div className="flex flex-wrap gap-1.5">
           {TONES.map((tone) => {
@@ -278,8 +278,8 @@ export function CopyGenerationForm({
                 disabled={isGenerating}
                 className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
                   selected
-                    ? 'bg-[#7C5DFA] text-white border-[#7C5DFA]'
-                    : 'border-[#E0E0E0] bg-white text-[#555] hover:border-[#7C5DFA] hover:text-[#7C5DFA]'
+                    ? 'bg-primary text-white border-primary'
+                    : 'border-input bg-card text-muted-foreground hover:border-primary hover:text-primary'
                 } disabled:opacity-50`}
               >
                 {tone.label}
@@ -287,15 +287,15 @@ export function CopyGenerationForm({
             )
           })}
         </div>
-        <p className="text-[10px] text-[#999]">
+        <p className="text-[10px] text-muted-foreground">
           Each tone generates a separate version of every copy type.
         </p>
       </div>
 
       {/* Target Audience */}
       <div className="space-y-1.5">
-        <Label htmlFor="audience" className="text-xs font-medium text-[#555]">
-          Target Audience <span className="text-[10px] text-[#999] font-normal">(optional)</span>
+        <Label htmlFor="audience" className="text-xs font-medium text-muted-foreground">
+          Target Audience <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
         </Label>
         <Textarea
           id="audience"
@@ -305,15 +305,15 @@ export function CopyGenerationForm({
           rows={2}
           maxLength={200}
           disabled={isGenerating}
-          className="text-xs resize-none border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg bg-white"
+          className="text-xs resize-none border-input focus:border-primary rounded-lg bg-card"
         />
       </div>
 
       {/* Summary + Generate */}
-      <div className="pt-2 border-t border-[#F0EFEC] space-y-3">
-        <div className="flex items-center justify-between text-[11px] text-[#999]">
+      <div className="pt-2 border-t border space-y-3">
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>{selectedTypes.length} types × {selectedTones.length} tones</span>
-          <span className="font-semibold text-[#1A1A1A]">{totalCombinations} combinations</span>
+          <span className="font-semibold text-foreground">{totalCombinations} combinations</span>
         </div>
 
         <Button
@@ -324,7 +324,7 @@ export function CopyGenerationForm({
             selectedTypes.length === 0 ||
             selectedTones.length === 0
           }
-          className="w-full bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white rounded-lg h-9 text-sm font-medium"
+          className="w-full bg-primary hover:bg-primary/90 text-white rounded-lg h-9 text-sm font-medium"
         >
           {isGenerating ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating {totalCombinations}...</>

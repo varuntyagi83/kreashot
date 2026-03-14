@@ -86,7 +86,7 @@ export default function CategoriesPage() {
         </div>
         <button
           onClick={() => setCreateDialogOpen(true)}
-          className="inline-flex items-center gap-2 bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
         >
           <Plus className="h-4 w-4" />
           New Category
@@ -102,7 +102,7 @@ export default function CategoriesPage() {
           </p>
           <button
             onClick={() => setCreateDialogOpen(true)}
-            className="inline-flex items-center gap-2 bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             <Plus className="h-4 w-4" />
             Create Category

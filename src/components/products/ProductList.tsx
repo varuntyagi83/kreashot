@@ -77,7 +77,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
     <div className="flex gap-6">
       {/* Left panel: Add product form */}
       <div className="w-72 shrink-0">
-        <div className="bg-white rounded-xl shadow-sm border border-border/50 p-5 sticky top-4">
+        <div className="bg-card rounded-xl shadow-sm border border-border/50 p-5 sticky top-4">
           <h3 className="text-sm font-semibold text-foreground mb-4">Add Product</h3>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="space-y-1.5">
@@ -106,7 +106,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
             <Button
               type="submit"
               disabled={creating || !name.trim()}
-              className="w-full bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
+              className="w-full bg-primary hover:bg-primary/90 text-white"
             >
               {creating ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Creating...</>

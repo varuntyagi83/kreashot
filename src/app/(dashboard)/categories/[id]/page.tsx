@@ -120,55 +120,55 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
         onValueChange={(tab) => router.push(`/categories/${resolvedParams.id}?tab=${tab}`)}
       >
         <TabsList className="h-9 bg-muted/60 rounded-lg mb-6">
-          <TabsTrigger value="products" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="products" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Products
             {category.counts.products > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {category.counts.products}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="scenes" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="scenes" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Scenes
             {category.counts.backgrounds > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {category.counts.backgrounds}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="styles" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="styles" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Styles
             {category.counts.guidelines > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {category.counts.guidelines}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="photoshoots" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="photoshoots" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Photoshoots
             {category.counts.composites > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {category.counts.composites}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="ad-copy" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="ad-copy" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Ad Copy
             {category.counts.copy_docs > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {category.counts.copy_docs}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="ads" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="ads" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Ads
             {totalAds > 0 && (
-              <span className="ml-1.5 text-xs bg-black/10 rounded-full px-1.5 py-0.5 leading-none">
+              <span className="ml-1.5 text-xs bg-foreground/10 rounded-full px-1.5 py-0.5 leading-none">
                 {totalAds}
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="collage" className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm">
+          <TabsTrigger value="collage" className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm">
             Collage
           </TabsTrigger>
         </TabsList>

@@ -27,11 +27,11 @@ interface CopyPreviewGridProps {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
-  hook:     'bg-blue-100 text-blue-700',
-  headline: 'bg-purple-100 text-purple-700',
-  tagline:  'bg-emerald-100 text-emerald-700',
-  cta:      'bg-orange-100 text-orange-700',
-  body:     'bg-pink-100 text-pink-700',
+  hook:     'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  headline: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  tagline:  'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  cta:      'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  body:     'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -120,29 +120,29 @@ export function CopyPreviewGrid({
     const typeLabel = TYPE_LABELS[copy.copy_type || ''] || copy.copy_type || 'Copy'
 
     return (
-      <div className={`group bg-white rounded-xl shadow-sm border border-[#F0EFEC] p-4 space-y-3 transition-opacity ${isSaved ? 'opacity-60' : ''}`}>
+      <div className={`group bg-card rounded-xl shadow-sm border border p-4 space-y-3 transition-opacity ${isSaved ? 'opacity-60' : ''}`}>
         {/* Top row */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-1.5 flex-wrap">
             {copy.copy_type && (
-              <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${TYPE_COLORS[copy.copy_type] || 'bg-gray-100 text-gray-600'}`}>
+              <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${TYPE_COLORS[copy.copy_type] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                 {typeLabel}
               </Badge>
             )}
             {copy.tone && (
-              <Badge variant="outline" className="text-[10px] border-[#E8E8E6] text-[#777] px-2 py-0.5">
+              <Badge variant="outline" className="text-[10px] border text-muted-foreground px-2 py-0.5">
                 {copy.tone}
               </Badge>
             )}
             {isSaved && (
-              <Badge className="text-[10px] bg-emerald-100 text-emerald-700 border-0 px-2 py-0.5">
+              <Badge className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-0 px-2 py-0.5">
                 Saved ✓
               </Badge>
             )}
           </div>
           <button
             onClick={() => handleCopy(key, copy.generated_text)}
-            className="p-1.5 rounded-lg hover:bg-[#F5F5F3] text-[#999] hover:text-[#7C5DFA] transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+            className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-primary transition-colors shrink-0 opacity-0 group-hover:opacity-100"
           >
             {copiedKey === key
               ? <CheckCheck className="h-3.5 w-3.5 text-green-500" />
@@ -152,25 +152,25 @@ export function CopyPreviewGrid({
         </div>
 
         {/* Text */}
-        <p className="text-sm text-[#333] leading-relaxed whitespace-pre-wrap">
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
           {copy.generated_text}
         </p>
 
-        <p className="text-[10px] text-[#BBB]">{copy.generated_text.length} characters</p>
+        <p className="text-[10px] text-muted-foreground/60">{copy.generated_text.length} characters</p>
 
         {/* Save row */}
         {!isSaved && (
-          <div className="flex gap-2 pt-1 border-t border-[#F5F5F3]">
+          <div className="flex gap-2 pt-1 border-t border">
             <Input
               placeholder={`Name this ${typeLabel.toLowerCase()}...`}
               value={customNames[key] || ''}
               onChange={(e) => setCustomNames((prev) => ({ ...prev, [key]: e.target.value }))}
               disabled={isSaving}
-              className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+              className="h-7 text-xs border-input focus:border-primary rounded-lg"
             />
             <Button
               size="sm"
-              className="h-7 px-3 shrink-0 bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white text-xs rounded-lg"
+              className="h-7 px-3 shrink-0 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg"
               onClick={() => handleSave(key, copy)}
               disabled={isSaving || !customNames[key]?.trim()}
             >
@@ -188,8 +188,8 @@ export function CopyPreviewGrid({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-[#7C5DFA]" />
-          <h2 className="text-base font-semibold text-[#1A1A1A]">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold text-foreground">
             {isKitMode
               ? `Generated — ${generatedCopies.length} combinations`
               : `Generated ${TYPE_LABELS[copyType] || copyType}`}
@@ -197,7 +197,7 @@ export function CopyPreviewGrid({
         </div>
         <button
           onClick={onSaveComplete}
-          className="flex items-center gap-1 text-xs text-[#999] hover:text-[#555] transition-colors"
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           <X className="h-3.5 w-3.5" /> Clear
         </button>
@@ -209,10 +209,10 @@ export function CopyPreviewGrid({
           {Object.entries(groups).map(([type, copies]) => (
             <div key={type} className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge className={`text-xs border-0 ${TYPE_COLORS[type] || 'bg-gray-100 text-gray-600'}`}>
+                <Badge className={`text-xs border-0 ${TYPE_COLORS[type] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                   {TYPE_LABELS[type] || type}
                 </Badge>
-                <span className="text-xs text-[#999]">{copies.length} tone{copies.length > 1 ? 's' : ''}</span>
+                <span className="text-xs text-muted-foreground">{copies.length} tone{copies.length > 1 ? 's' : ''}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {copies.map((copy, idx) => (

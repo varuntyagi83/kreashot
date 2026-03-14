@@ -157,7 +157,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
             id="controls-toggle"
             checked={showControls}
             onCheckedChange={setShowControls}
-            className="data-[state=checked]:bg-[#7C5DFA]"
+            className="data-[state=checked]:bg-primary"
           />
         </div>
       </div>
@@ -185,7 +185,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-[#7C5DFA]"
+                    className="h-7 w-7 p-0 text-primary"
                     onClick={() => setSceneModalOpen(true)}
                   >
                     <Plus className="h-4 w-4" />
@@ -195,7 +195,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                 {selectedScenes.length === 0 ? (
                   <button
                     onClick={() => setSceneModalOpen(true)}
-                    className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
+                    className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
                   >
                     <ImageIcon className="h-5 w-5" />
                     <span className="text-xs">Choose a scene</span>
@@ -219,7 +219,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                     ))}
                     <button
                       onClick={() => setSceneModalOpen(true)}
-                      className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
+                      className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -262,7 +262,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 w-7 p-0 text-[#7C5DFA]"
+                    className="h-7 w-7 p-0 text-primary"
                     onClick={() => setProductModalOpen(true)}
                   >
                     <Plus className="h-4 w-4" />
@@ -272,7 +272,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                 {selectedProducts.length === 0 ? (
                   <button
                     onClick={() => setProductModalOpen(true)}
-                    className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
+                    className="w-full aspect-video rounded-lg border-2 border-dashed border-muted-foreground/20 flex flex-col items-center justify-center gap-1.5 text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
                   >
                     <Camera className="h-5 w-5" />
                     <span className="text-xs">Choose a product</span>
@@ -297,7 +297,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                     ))}
                     <button
                       onClick={() => setProductModalOpen(true)}
-                      className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-[#7C5DFA]/40 hover:text-[#7C5DFA] transition-colors"
+                      className="aspect-square rounded-md border-2 border-dashed border-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                     </button>
@@ -321,7 +321,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                   placeholder="e.g., Center the product, morning light atmosphere..."
                   rows={3}
                   maxLength={200}
-                  className="text-sm resize-none border-[#E0E0E0] focus:border-[#7C5DFA]"
+                  className="text-sm resize-none border-input focus:border-primary"
                 />
                 <p className="text-xs text-muted-foreground mt-1 text-right">{userPrompt.length}/200</p>
               </CardContent>
@@ -355,7 +355,7 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
                 onClick={handleGenerate}
                 disabled={isGenerating || selectedProducts.length === 0 || selectedScenes.length === 0}
                 size="sm"
-                className="bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white h-8 px-3 flex-shrink-0"
+                className="bg-primary hover:bg-primary/90 text-white h-8 px-3 flex-shrink-0"
               >
                 {isGenerating ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

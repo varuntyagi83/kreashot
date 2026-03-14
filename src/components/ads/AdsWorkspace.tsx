@@ -15,13 +15,13 @@ export function AdsWorkspace({ categoryId, format = '1:1' }: AdsWorkspaceProps) 
   return (
     <div className="space-y-0">
       {/* Tab bar */}
-      <div className="flex items-center gap-1 px-1 pb-4 border-b border-[#EEEEEC] mb-6">
+      <div className="flex items-center gap-1 px-1 pb-4 border-b border mb-6">
         <button
           onClick={() => setActiveTab('create')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
             activeTab === 'create'
-              ? 'bg-[#7C5DFA] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#333] hover:bg-[#F0EFEC]'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
         >
           Create Ad
@@ -30,8 +30,8 @@ export function AdsWorkspace({ categoryId, format = '1:1' }: AdsWorkspaceProps) 
           onClick={() => setActiveTab('export')}
           className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
             activeTab === 'export'
-              ? 'bg-[#7C5DFA] text-white shadow-sm'
-              : 'text-[#666] hover:text-[#333] hover:bg-[#F0EFEC]'
+              ? 'bg-primary text-white shadow-sm'
+              : 'text-muted-foreground hover:text-foreground hover:bg-muted'
           }`}
         >
           Export

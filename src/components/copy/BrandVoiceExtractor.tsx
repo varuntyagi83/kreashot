@@ -238,14 +238,14 @@ export function BrandVoiceExtractor({
 
   if (!profile && !expanded) {
     return (
-      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-[#D0D0D0] bg-white">
-        <div className="flex items-center gap-2 text-xs text-[#888]">
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border bg-card">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <Mic2 className="h-3.5 w-3.5" />
           <span>No brand voice set</span>
         </div>
         <button
           onClick={() => setExpanded(true)}
-          className="text-xs text-[#7C5DFA] font-medium hover:underline"
+          className="text-xs text-primary font-medium hover:underline"
         >
           Set up →
         </button>
@@ -523,7 +523,7 @@ export function BrandVoiceExtractor({
           <TabsContent value="qa" className="space-y-2.5 mt-3">
             {QA_QUESTIONS.map((q) => (
               <div key={q.id} className="space-y-1">
-                <Label className="text-[11px] font-medium text-[#555]">{q.question}</Label>
+                <Label className="text-[11px] font-medium text-muted-foreground">{q.question}</Label>
                 <input
                   type="text"
                   placeholder={q.placeholder}
@@ -531,7 +531,7 @@ export function BrandVoiceExtractor({
                   onChange={(e) =>
                     setQaAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))
                   }
-                  className="w-full h-8 px-2.5 text-xs rounded-lg border border-[#E0E0E0] bg-white focus:border-[#7C5DFA] focus:outline-none disabled:opacity-50 placeholder:text-[#BBBBBB]"
+                  className="w-full h-8 px-2.5 text-xs rounded-lg border border-input bg-card focus:border-primary focus:outline-none disabled:opacity-50 placeholder:text-muted-foreground/60"
                   disabled={extracting}
                 />
               </div>

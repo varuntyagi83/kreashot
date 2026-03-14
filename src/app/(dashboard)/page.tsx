@@ -129,7 +129,7 @@ export default function DashboardPage() {
         <h2 className="text-xl font-semibold text-foreground">Your Categories</h2>
         <Button
           onClick={() => setCreateDialogOpen(true)}
-          className="bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
           New Category
@@ -150,7 +150,7 @@ export default function DashboardPage() {
           </p>
           <Button
             onClick={() => setCreateDialogOpen(true)}
-            className="mt-2 bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
+            className="mt-2 bg-primary hover:bg-primary/90 text-white"
           >
             <Plus className="h-4 w-4 mr-2" />
             New Category
@@ -169,7 +169,7 @@ export default function DashboardPage() {
                   {cat.name}
                 </span>
                 {productCounts[cat.id] !== undefined && (
-                  <span className="bg-black/10 text-foreground text-xs rounded-full px-2 py-0.5 ml-2 shrink-0">
+                  <span className="bg-foreground/10 text-foreground text-xs rounded-full px-2 py-0.5 ml-2 shrink-0">
                     {productCounts[cat.id]} products
                   </span>
                 )}
@@ -179,7 +179,7 @@ export default function DashboardPage() {
               </span>
               <div className="mt-auto">
                 <button
-                  className="text-sm font-medium text-[#7C5DFA] hover:text-[#6A4FD8] transition-colors"
+                  className="text-sm font-medium text-primary hover:text-primary/90 transition-colors"
                   onClick={(e) => {
                     e.stopPropagation()
                     router.push(`/categories/${cat.id}`)

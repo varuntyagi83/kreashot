@@ -9,12 +9,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings } from 'lucide-react'
+import { LogOut, Settings, Sun, Moon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useTheme } from 'next-themes'
 
 export function TopBar() {
   const { user, signOut } = useAuth()
   const router = useRouter()
+  const { resolvedTheme, setTheme } = useTheme()
 
   const handleSignOut = async () => {
     await signOut()
@@ -30,6 +32,14 @@ export function TopBar() {
           </h1>
         </div>
         <div className="ml-auto flex items-center space-x-2">
+
+          {/* Theme toggle */}
+          <button
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
 
           {/* User menu */}
           <DropdownMenu>

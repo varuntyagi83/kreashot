@@ -28,14 +28,14 @@ export function StylesWorkspace({ categoryId, format = '1:1' }: StylesWorkspaceP
         <TabsList className="h-9 bg-muted/60 rounded-lg">
           <TabsTrigger
             value="guidelines"
-            className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm flex items-center gap-1.5"
+            className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm flex items-center gap-1.5"
           >
             <BookOpen className="h-3.5 w-3.5" />
             Guidelines
           </TabsTrigger>
           <TabsTrigger
             value="templates"
-            className="rounded-md text-sm data-[state=active]:bg-white data-[state=active]:text-[#7C5DFA] data-[state=active]:shadow-sm flex items-center gap-1.5"
+            className="rounded-md text-sm data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm flex items-center gap-1.5"
           >
             <Layout className="h-3.5 w-3.5" />
             Templates

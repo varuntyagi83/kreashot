@@ -54,7 +54,7 @@ export function CopyWorkspace({ category, format }: CopyWorkspaceProps) {
   return (
     <div className="flex gap-0 h-full min-h-[calc(100vh-160px)]">
       {/* ── Left panel: controls ─────────────────────────────────────────── */}
-      <div className="w-80 xl:w-96 shrink-0 border-r border-[#E8E8E6] bg-white overflow-y-auto">
+      <div className="w-80 xl:w-96 shrink-0 border-r border bg-card overflow-y-auto">
         <div className="p-5 space-y-4">
 
           {/* Brand Voice Extractor */}
@@ -88,7 +88,7 @@ export function CopyWorkspace({ category, format }: CopyWorkspaceProps) {
       </div>
 
       {/* ── Right panel: results ─────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto bg-[#F5F5F3]">
+      <div className="flex-1 overflow-y-auto bg-background">
         <div className="p-6 space-y-6">
           {/* Preview grid (newly generated) */}
           {generatedCopies.length > 0 && (

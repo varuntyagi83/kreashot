@@ -28,11 +28,11 @@ interface CopyGalleryProps {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  hook:     'bg-blue-100 text-blue-700',
-  headline: 'bg-purple-100 text-purple-700',
-  tagline:  'bg-emerald-100 text-emerald-700',
-  cta:      'bg-orange-100 text-orange-700',
-  body:     'bg-pink-100 text-pink-700',
+  hook:     'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  headline: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  tagline:  'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  cta:      'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  body:     'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400',
 }
 
 const TYPE_LABELS: Record<string, string> = {
@@ -95,11 +95,11 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold text-[#1A1A1A]">Saved Copy</h2>
+          <h2 className="text-base font-semibold text-foreground">Saved Copy</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-32 rounded-xl bg-white shadow-sm animate-pulse" />
+            <div key={i} className="h-32 rounded-xl bg-card shadow-sm animate-pulse" />
           ))}
         </div>
       </div>
@@ -109,11 +109,11 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
   if (copyDocs.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-base font-semibold text-[#1A1A1A]">Saved Copy</h2>
-        <div className="flex flex-col items-center justify-center py-16 border border-dashed border-[#D0D0D0] rounded-xl bg-white text-center">
-          <FileText className="h-10 w-10 text-[#C0C0C0] mb-3" />
-          <p className="text-sm font-medium text-[#555]">No saved copy yet</p>
-          <p className="text-xs text-[#999] mt-1">Generate and save your first copy kit using the panel on the left</p>
+        <h2 className="text-base font-semibold text-foreground">Saved Copy</h2>
+        <div className="flex flex-col items-center justify-center py-16 border border-dashed border rounded-xl bg-card text-center">
+          <FileText className="h-10 w-10 text-muted-foreground/60 mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">No saved copy yet</p>
+          <p className="text-xs text-muted-foreground mt-1">Generate and save your first copy kit using the panel on the left</p>
         </div>
       </div>
     )
@@ -122,24 +122,24 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#1A1A1A]">Saved Copy</h2>
-        <span className="text-xs text-[#999]">{copyDocs.length} items</span>
+        <h2 className="text-base font-semibold text-foreground">Saved Copy</h2>
+        <span className="text-xs text-muted-foreground">{copyDocs.length} items</span>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {copyDocs.map((doc) => (
           <div
             key={doc.id}
-            className="group bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-[#F0EFEC] p-4 space-y-3"
+            className="group bg-card rounded-xl shadow-sm hover:shadow-md transition-shadow border border p-4 space-y-3"
           >
             {/* Top row: badges + actions */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${TYPE_COLORS[doc.copy_type] || 'bg-gray-100 text-gray-600'}`}>
+                <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${TYPE_COLORS[doc.copy_type] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                   {TYPE_LABELS[doc.copy_type] || doc.copy_type}
                 </Badge>
                 {doc.tone && (
-                  <Badge variant="outline" className="text-[10px] border-[#E8E8E6] text-[#777] px-2 py-0.5">
+                  <Badge variant="outline" className="text-[10px] border text-muted-foreground px-2 py-0.5">
                     {doc.tone}
                   </Badge>
                 )}
@@ -147,7 +147,7 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
               <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => handleCopyToClipboard(doc.id, doc.generated_text)}
-                  className="p-1.5 rounded-lg hover:bg-[#F5F5F3] text-[#999] hover:text-[#7C5DFA] transition-colors"
+                  className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-primary transition-colors"
                   title="Copy to clipboard"
                 >
                   {copiedId === doc.id
@@ -158,7 +158,7 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="p-1.5 rounded-lg hover:bg-[#F5F5F3] text-[#999] hover:text-[#555] transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
                       disabled={deletingId === doc.id}
                     >
                       <MoreVertical className="h-3.5 w-3.5" />
@@ -167,7 +167,7 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
                   <DropdownMenuContent align="end" className="w-32">
                     <DropdownMenuItem
                       onClick={() => handleDelete(doc.id, doc.generated_text)}
-                      className="text-[#E63946] focus:text-[#E63946] text-xs"
+                      className="text-destructive focus:text-destructive text-xs"
                       disabled={deletingId === doc.id}
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-2" />
@@ -179,12 +179,12 @@ export function CopyGallery({ categoryId, refreshTrigger }: CopyGalleryProps) {
             </div>
 
             {/* Copy text */}
-            <p className="text-sm text-[#333] leading-relaxed whitespace-pre-wrap line-clamp-4">
+            <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap line-clamp-4">
               {doc.generated_text}
             </p>
 
             {/* Footer */}
-            <div className="flex items-center justify-between text-[10px] text-[#BBB] pt-1 border-t border-[#F5F5F3]">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 pt-1 border-t border">
               <span>{doc.generated_text.length} chars</span>
               <span>{new Date(doc.created_at).toLocaleDateString()}</span>
             </div>

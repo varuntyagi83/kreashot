@@ -655,7 +655,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   if (loading) {
     return (
       <div className="flex items-center justify-center p-12">
-        <Loader2 className="h-8 w-8 animate-spin text-[#7C5DFA]" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
   }
@@ -670,10 +670,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   return (
     <div className="space-y-6">
       {/* Generation Form */}
-      <Card className="rounded-xl shadow-sm border-[#F0EFEC]">
+      <Card className="rounded-xl shadow-sm border">
         <CardHeader>
-          <CardTitle className="text-sm font-semibold text-[#1A1A1A]">Generate Final Ad</CardTitle>
-          <CardDescription className="text-xs text-[#999]">
+          <CardTitle className="text-sm font-semibold text-foreground">Generate Final Ad</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
             Combines template, background, product, and copy into a complete ad creative
           </CardDescription>
         </CardHeader>
@@ -682,25 +682,25 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             {/* Left Column - Selectors */}
             <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name" className="text-xs font-medium text-[#555]">Ad Name</Label>
+              <Label htmlFor="name" className="text-xs font-medium text-muted-foreground">Ad Name</Label>
               <Input
                 id="name"
                 placeholder="Summer Campaign - Variant A"
                 value={assetName}
                 onChange={(e) => setAssetName(e.target.value)}
                 disabled={generating}
-                className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+                className="border-input focus:border-primary rounded-lg"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="template" className="text-xs font-medium text-[#555]">Layout Mode</Label>
+              <Label htmlFor="template" className="text-xs font-medium text-muted-foreground">Layout Mode</Label>
               <Select
                 value={selectedTemplateId || '__freeform__'}
                 onValueChange={(val) => setSelectedTemplateId(val === '__freeform__' ? '' : val)}
                 disabled={generating}
               >
-                <SelectTrigger id="template" className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
+                <SelectTrigger id="template" className="border-input focus:border-primary rounded-lg">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -712,19 +712,19 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[#999]">
+              <p className="text-xs text-muted-foreground">
                 {isFreeform ? 'Position logo and text manually below' : 'Uses template layer positions'}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-medium text-[#555]">Base Image *</Label>
+              <Label className="text-xs font-medium text-muted-foreground">Base Image *</Label>
               <Select
                 value={imageSource}
                 onValueChange={(val) => setImageSource(val as 'composite' | 'angled-shot')}
                 disabled={generating}
               >
-                <SelectTrigger className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="border-input focus:border-primary rounded-lg"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="composite">Composite (product + background)</SelectItem>
                   <SelectItem value="angled-shot">Angled Shot (standalone)</SelectItem>
@@ -734,13 +734,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
             {imageSource === 'composite' ? (
               <div className="space-y-2">
-                <Label htmlFor="composite" className="text-xs font-medium text-[#555]">Composite Image</Label>
+                <Label htmlFor="composite" className="text-xs font-medium text-muted-foreground">Composite Image</Label>
                 <Select
                   value={selectedCompositeId}
                   onValueChange={setSelectedCompositeId}
                   disabled={generating}
                 >
-                  <SelectTrigger id="composite" className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
+                  <SelectTrigger id="composite" className="border-input focus:border-primary rounded-lg">
                     <SelectValue placeholder="Select composite image" />
                   </SelectTrigger>
                   <SelectContent>
@@ -770,13 +770,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="angled-shot" className="text-xs font-medium text-[#555]">Angled Shot</Label>
+                <Label htmlFor="angled-shot" className="text-xs font-medium text-muted-foreground">Angled Shot</Label>
                 <Select
                   value={selectedAngledShotId}
                   onValueChange={setSelectedAngledShotId}
                   disabled={generating}
                 >
-                  <SelectTrigger id="angled-shot" className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
+                  <SelectTrigger id="angled-shot" className="border-input focus:border-primary rounded-lg">
                     <SelectValue placeholder="Select angled shot" />
                   </SelectTrigger>
                   <SelectContent>
@@ -800,13 +800,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="copy" className="text-xs font-medium text-[#555]">On-image tagline (optional)</Label>
+              <Label htmlFor="copy" className="text-xs font-medium text-muted-foreground">On-image tagline (optional)</Label>
               <Select
                 value={selectedCopyDocId || '__none__'}
                 onValueChange={(val) => setSelectedCopyDocId(val === '__none__' ? '' : val)}
                 disabled={generating}
               >
-                <SelectTrigger id="copy" className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
+                <SelectTrigger id="copy" className="border-input focus:border-primary rounded-lg">
                   <SelectValue placeholder="No on-image text" />
                 </SelectTrigger>
                 <SelectContent>
@@ -825,7 +825,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                   )}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-[#999]">
+              <p className="text-xs text-muted-foreground">
                 Only tagline copy is baked onto the image. Headline, hook, CTA, and body go in Ad Export.
               </p>
             </div>
@@ -833,18 +833,18 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             {/* Freeform controls — shown when no template selected */}
             {isFreeform && (
               <div className="space-y-4 border rounded-lg p-3 bg-muted/20">
-                <Label className="text-sm font-medium text-[#555]">Freeform Layout</Label>
+                <Label className="text-sm font-medium text-muted-foreground">Freeform Layout</Label>
 
                 {/* Logo positioning */}
                 {selectedLogoId && (
                   <div className="space-y-3">
-                    <Label className="text-xs font-medium text-[#555]">Logo Position</Label>
+                    <Label className="text-xs font-medium text-muted-foreground">Logo Position</Label>
                     <Select
                       value={logoPosition}
                       onValueChange={(v) => { setLogoPosition(v); setLogoXPx(null); setLogoYPx(null) }}
                       disabled={generating}
                     >
-                      <SelectTrigger className="h-8 text-sm border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-8 text-sm border-input focus:border-primary rounded-lg"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="top-left">Top Left</SelectItem>
                         <SelectItem value="top-center">Top Center</SelectItem>
@@ -859,29 +859,29 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       const { width: cw, height: ch } = getFormatDimensions(format)
                       return (
                         <div className="space-y-1">
-                          <Label className="text-xs text-[#555]">
+                          <Label className="text-xs text-muted-foreground">
                             Custom X/Y (px) — overrides preset above · canvas {cw}×{ch}
                           </Label>
                           <div className="grid grid-cols-2 gap-2">
                             <div>
-                              <Label className="text-[10px] text-[#555]">X (px)</Label>
+                              <Label className="text-[10px] text-muted-foreground">X (px)</Label>
                               <Input
                                 type="number"
                                 placeholder="—"
                                 value={logoXPx ?? ''}
                                 onChange={(e) => setLogoXPx(e.target.value === '' ? null : Number(e.target.value))}
-                                className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+                                className="h-7 text-xs border-input focus:border-primary rounded-lg"
                                 disabled={generating}
                               />
                             </div>
                             <div>
-                              <Label className="text-[10px] text-[#555]">Y (px)</Label>
+                              <Label className="text-[10px] text-muted-foreground">Y (px)</Label>
                               <Input
                                 type="number"
                                 placeholder="—"
                                 value={logoYPx ?? ''}
                                 onChange={(e) => setLogoYPx(e.target.value === '' ? null : Number(e.target.value))}
-                                className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+                                className="h-7 text-xs border-input focus:border-primary rounded-lg"
                                 disabled={generating}
                               />
                             </div>
@@ -890,7 +890,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       )
                     })()}
                     <div className="space-y-1">
-                      <Label className="text-xs text-[#555]">Logo Size: {logoSize}%</Label>
+                      <Label className="text-xs text-muted-foreground">Logo Size: {logoSize}%</Label>
                       <Slider
                         value={[logoSize]}
                         onValueChange={([v]) => setLogoSize(v)}
@@ -904,7 +904,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {/* Text layers — multiple allowed */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-medium text-[#555]">Text Layers ({freeformTexts.length})</Label>
+                    <Label className="text-xs font-medium text-muted-foreground">Text Layers ({freeformTexts.length})</Label>
                     <Button
                       type="button" variant="outline" size="sm"
                       className="h-7 text-xs"
@@ -915,7 +915,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     </Button>
                   </div>
                   {freeformTexts.map((tl) => (
-                    <div key={tl.id} className="space-y-2 pl-2 border-l-2 border-[#7C5DFA]/30 pb-2">
+                    <div key={tl.id} className="space-y-2 pl-2 border-l-2 border-primary/30 pb-2">
                       <div className="flex items-center gap-2">
                         <Input
                           value={tl.text}
@@ -935,31 +935,31 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">X: {tl.x}%</Label>
+                          <Label className="text-[10px] text-muted-foreground">X: {tl.x}%</Label>
                           <Slider value={[tl.x]} onValueChange={(v) => updateFreeformText(tl.id, { x: v[0] })} min={0} max={80} step={1} disabled={generating} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">Y: {tl.y}%</Label>
+                          <Label className="text-[10px] text-muted-foreground">Y: {tl.y}%</Label>
                           <Slider value={[tl.y]} onValueChange={(v) => updateFreeformText(tl.id, { y: v[0] })} min={0} max={95} step={1} disabled={generating} />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">W: {tl.width}%</Label>
+                          <Label className="text-[10px] text-muted-foreground">W: {tl.width}%</Label>
                           <Slider value={[tl.width]} onValueChange={(v) => updateFreeformText(tl.id, { width: v[0] })} min={20} max={100} step={5} disabled={generating} />
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">Size (px)</Label>
+                          <Label className="text-[10px] text-muted-foreground">Size (px)</Label>
                           <Input
                             type="number"
                             value={tl.fontSize}
                             onChange={(e) => updateFreeformText(tl.id, { fontSize: Math.max(8, Number(e.target.value) || 16) })}
-                            className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+                            className="h-7 text-xs border-input focus:border-primary rounded-lg"
                             disabled={generating}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">Color</Label>
+                          <Label className="text-[10px] text-muted-foreground">Color</Label>
                           <Input
                             type="color"
                             value={tl.color}
@@ -969,9 +969,9 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-[10px] text-[#555]">Align</Label>
+                          <Label className="text-[10px] text-muted-foreground">Align</Label>
                           <Select value={tl.align} onValueChange={(v) => updateFreeformText(tl.id, { align: v as 'left' | 'center' | 'right' })} disabled={generating}>
-                            <SelectTrigger className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="h-7 text-xs border-input focus:border-primary rounded-lg"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               <SelectItem value="left">Left</SelectItem>
                               <SelectItem value="center">Center</SelectItem>
@@ -981,7 +981,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         </div>
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-[10px] text-[#555]">Font</Label>
+                        <Label className="text-[10px] text-muted-foreground">Font</Label>
                         <Select
                           value={tl.fontUrl || tl.fontFamily}
                           onValueChange={(v) => {
@@ -1005,7 +1005,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           }}
                           disabled={generating}
                         >
-                          <SelectTrigger className="h-7 text-xs border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-7 text-xs border-input focus:border-primary rounded-lg"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="brandon-grotesque-regular">Brandon Grotesque Regular</SelectItem>
                             <SelectItem value="brandon-grotesque-medium">Brandon Grotesque Medium</SelectItem>
@@ -1032,8 +1032,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             {/* Per-layer text inputs — shown when template has text layers */}
             {!isFreeform && Object.keys(layerTexts).length > 0 && (
               <div className="space-y-3 border rounded-lg p-3 bg-muted/20">
-                <Label className="text-sm font-medium text-[#555]">Text Layers</Label>
-                <p className="text-xs text-[#999] -mt-1">
+                <Label className="text-sm font-medium text-muted-foreground">Text Layers</Label>
+                <p className="text-xs text-muted-foreground -mt-1">
                   Enter the text for each layer in your template
                 </p>
                 {templates.find(t => t.id === selectedTemplateId)?.template_data?.layers
@@ -1042,7 +1042,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     const key = layer.name || layer.id
                     return (
                       <div key={layer.id} className="space-y-1">
-                        <Label htmlFor={`layer-${key}`} className="text-xs font-medium capitalize text-[#555]">
+                        <Label htmlFor={`layer-${key}`} className="text-xs font-medium capitalize text-muted-foreground">
                           {key.replace(/_/g, ' ')}
                         </Label>
                         <Input
@@ -1051,7 +1051,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           onChange={e => setLayerTexts(prev => ({ ...prev, [key]: e.target.value }))}
                           placeholder={layer.sample_text || `Text for ${key}`}
                           disabled={generating}
-                          className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg"
+                          className="border-input focus:border-primary rounded-lg"
                         />
                       </div>
                     )
@@ -1061,14 +1061,14 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
             {/* Logo selector */}
             <div className="space-y-2">
-              <Label htmlFor="logo" className="text-xs font-medium text-[#555]">Logo (Optional)</Label>
+              <Label htmlFor="logo" className="text-xs font-medium text-muted-foreground">Logo (Optional)</Label>
               {logos.length > 0 ? (
                 <Select
                   value={selectedLogoId}
                   onValueChange={setSelectedLogoId}
                   disabled={generating}
                 >
-                  <SelectTrigger id="logo" className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
+                  <SelectTrigger id="logo" className="border-input focus:border-primary rounded-lg">
                     <SelectValue placeholder="Select a logo">
                       {selectedLogo && (
                         <div className="flex items-center gap-2">
@@ -1091,7 +1091,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           <img
                             src={logo.storage_url}
                             alt=""
-                            className="h-6 w-6 object-contain rounded border bg-white"
+                            className="h-6 w-6 object-contain rounded border bg-card"
                           />
                           <span>{logo.name}</span>
                         </div>
@@ -1109,7 +1109,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             <Button
               onClick={handleGenerate}
               disabled={generating || !assetName.trim() || (imageSource === 'composite' ? !selectedCompositeId : !selectedAngledShotId)}
-              className="w-full bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white rounded-lg"
+              className="w-full bg-primary hover:bg-primary/90 text-white rounded-lg"
             >
               {generating ? (
                 <>
@@ -1128,19 +1128,19 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             {/* Right Column - Previews */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs font-medium text-[#555]">Preview</Label>
+                <Label className="text-xs font-medium text-muted-foreground">Preview</Label>
 
                 {/* Layout Mode Info */}
-                <div className="border border-[#F0EFEC] rounded-lg p-3 bg-muted/20">
-                  <p className="text-xs font-medium mb-1 text-[#1A1A1A]">{isFreeform ? 'Freeform Layout' : 'Template'}</p>
-                  <p className="text-sm text-[#999]">
+                <div className="border border rounded-lg p-3 bg-muted/20">
+                  <p className="text-xs font-medium mb-1 text-foreground">{isFreeform ? 'Freeform Layout' : 'Template'}</p>
+                  <p className="text-sm text-muted-foreground">
                     {isFreeform ? 'Manual positioning — no template' : selectedTemplate?.name}
                   </p>
                 </div>
 
                 {/* Final Ad Preview */}
                 {previewImageUrl ? (
-                  <div className="border border-[#F0EFEC] rounded-lg p-3 space-y-2">
+                  <div className="border border rounded-lg p-3 space-y-2">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-medium">Final Ad Preview</p>
                       <Button
@@ -1192,13 +1192,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                         </div>
                       )}
                     </div>
-                    <p className="text-xs text-[#999]">
+                    <p className="text-xs text-muted-foreground">
                       {pilPreviewData ? 'Pixel-accurate preview — matches final output' : 'Rendering preview...'}
                     </p>
                   </div>
                 ) : (
-                  <div className="border border-[#F0EFEC] rounded-lg p-6 text-center bg-muted/10">
-                    <p className="text-sm text-[#999]">
+                  <div className="border border rounded-lg p-6 text-center bg-muted/10">
+                    <p className="text-sm text-muted-foreground">
                       No {imageSource === 'composite' ? 'composite' : 'angled shot'} selected
                     </p>
                   </div>
@@ -1206,18 +1206,18 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
                 {/* Copy Preview */}
                 {selectedCopyDoc ? (
-                  <div className="border border-[#F0EFEC] rounded-lg p-3 space-y-2">
-                    <p className="text-xs font-medium text-[#1A1A1A]">Copy Text</p>
+                  <div className="border border rounded-lg p-3 space-y-2">
+                    <p className="text-xs font-medium text-foreground">Copy Text</p>
                     <div className="bg-muted/20 rounded p-3 max-h-32 overflow-y-auto">
                       <p className="text-sm whitespace-pre-wrap">{selectedCopyDoc.generated_text}</p>
                     </div>
-                    <p className="text-xs text-[#999]">
+                    <p className="text-xs text-muted-foreground">
                       Type: {selectedCopyDoc.copy_type}
                     </p>
                   </div>
                 ) : (
-                  <div className="border border-[#F0EFEC] rounded-lg p-6 text-center bg-muted/10">
-                    <p className="text-sm text-[#999]">No copy text selected</p>
+                  <div className="border border rounded-lg p-6 text-center bg-muted/10">
+                    <p className="text-sm text-muted-foreground">No copy text selected</p>
                   </div>
                 )}
               </div>
@@ -1233,10 +1233,10 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         </h3>
 
         {finalAssets.length === 0 ? (
-          <Card className="rounded-xl shadow-sm border-[#F0EFEC]">
+          <Card className="rounded-xl shadow-sm border">
             <CardContent className="p-12 text-center">
-              <Sparkles className="h-12 w-12 mx-auto text-[#7C5DFA] mb-4" />
-              <p className="text-[#999]">
+              <Sparkles className="h-12 w-12 mx-auto text-primary mb-4" />
+              <p className="text-muted-foreground">
                 No final ads yet. Generate your first one above!
               </p>
             </CardContent>
@@ -1244,7 +1244,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {finalAssets.map((asset) => (
-              <Card key={asset.id} className="rounded-xl shadow-sm border-[#F0EFEC]">
+              <Card key={asset.id} className="rounded-xl shadow-sm border">
                 <CardContent className="p-4">
                   <div
                     className="relative rounded-lg overflow-hidden bg-gray-100 mb-3"
@@ -1278,7 +1278,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
 
                   <div className="space-y-2">
                     <h4 className="font-semibold truncate">{asset.name}</h4>
-                    <div className="flex items-center justify-between text-xs text-[#999]">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{asset.format} • {asset.width}x{asset.height}</span>
                       <span>{new Date(asset.created_at).toLocaleDateString()}</span>
                     </div>
