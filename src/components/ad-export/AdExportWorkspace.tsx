@@ -154,37 +154,47 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card className="border-[#F0EFEC] rounded-xl shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold text-[#1A1A1A]">
             <Package className="h-5 w-5" />
             Ad Export
           </CardTitle>
-          <CardDescription>
+          <p className="text-xs text-[#999]">
             Package your final assets with Meta copy fields (hook, headline, CTA, body) and export
             as a CSV for manual upload to Meta Ads Manager.
-          </CardDescription>
+          </p>
         </CardHeader>
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
         {/* Left: Final Asset Selection */}
-        <Card>
+        <Card className="border-[#F0EFEC] rounded-xl shadow-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle className="text-base">Final Assets</CardTitle>
+              <CardTitle className="text-sm font-semibold text-[#1A1A1A]">Final Assets</CardTitle>
               <div className="flex gap-2">
-                <Button variant="ghost" size="sm" onClick={selectAllAssets}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllAssets}
+                  className="text-xs text-[#7C5DFA] hover:bg-[#F5F5F3]"
+                >
                   Select all
                 </Button>
-                <Button variant="ghost" size="sm" onClick={clearAssetSelection}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearAssetSelection}
+                  className="text-xs text-[#7C5DFA] hover:bg-[#F5F5F3]"
+                >
                   Clear
                 </Button>
               </div>
             </div>
-            <CardDescription>
+            <p className="text-xs text-[#999]">
               {selectedAssetIds.size} of {finalAssets.length} selected
-            </CardDescription>
+            </p>
           </CardHeader>
           <CardContent>
             {finalAssets.length === 0 ? (
@@ -198,8 +208,8 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
                     key={asset.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedAssetIds.has(asset.id)
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-muted/50'
+                        ? 'border-[#7C5DFA] bg-[#7C5DFA]/5'
+                        : 'border-[#F0EFEC] hover:bg-[#F5F5F3]'
                     }`}
                     onClick={() => toggleAsset(asset.id)}
                   >
@@ -230,12 +240,12 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
         </Card>
 
         {/* Right: Meta Copy Selection */}
-        <Card>
+        <Card className="border-[#F0EFEC] rounded-xl shadow-sm">
           <CardHeader>
-            <CardTitle className="text-base">Meta Copy Fields</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-sm font-semibold text-[#1A1A1A]">Meta Copy Fields</CardTitle>
+            <p className="text-xs text-[#999]">
               Select the copy for each Meta field. These appear outside the image in the ad.
-            </CardDescription>
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             {META_COPY_TYPES.map((type) => {
@@ -249,7 +259,7 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
                       setSelectedCopy((prev) => ({ ...prev, [type]: val === '__none__' ? undefined : val }))
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="border-[#E0E0E0] focus:border-[#7C5DFA] rounded-lg">
                       <SelectValue placeholder={`No ${type} selected`} />
                     </SelectTrigger>
                     <SelectContent>
@@ -269,7 +279,7 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
                     </SelectContent>
                   </Select>
                   {selectedCopy[type] && (
-                    <p className="text-xs text-muted-foreground bg-muted p-2 rounded line-clamp-2">
+                    <p className="text-xs text-[#888] bg-[#F5F5F3] p-2 rounded-lg line-clamp-2">
                       {copyDocs.find((d) => d.id === selectedCopy[type])?.generated_text}
                     </p>
                   )}
@@ -281,35 +291,34 @@ export function AdExportWorkspace({ categoryId, format = '1:1' }: AdExportWorksp
       </div>
 
       {/* Export Button */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-1">
-              <p className="font-medium">Ready to export</p>
-              <p className="text-sm text-muted-foreground">
-                {selectedAssetIds.size} asset(s) × 1 copy set → {selectedAssetIds.size} CSV row(s)
-              </p>
-            </div>
-            <Button
-              onClick={handleExportCSV}
-              disabled={selectedAssetIds.size === 0}
-              size="lg"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              Export CSV
-            </Button>
+      <div className="bg-white rounded-xl shadow-sm border border-[#F0EFEC] p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-1">
+            <p className="font-medium text-[#1A1A1A]">Ready to export</p>
+            <p className="text-sm text-[#999]">
+              {selectedAssetIds.size} asset(s) × 1 copy set → {selectedAssetIds.size} CSV row(s)
+            </p>
           </div>
+          <Button
+            onClick={handleExportCSV}
+            disabled={selectedAssetIds.size === 0}
+            size="lg"
+            className="bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white rounded-lg"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
 
-          <div className="mt-4 p-3 bg-muted/50 rounded text-xs text-muted-foreground space-y-1">
-            <div className="flex items-center gap-1.5">
-              <FileText className="h-3.5 w-3.5" />
-              <span className="font-medium">CSV columns:</span>
-            </div>
-            <p>asset_name, image_url, format, hook, headline, cta, body</p>
-            <p>Upload the image_url column to Meta directly — all images are hosted on Google Drive CDN.</p>
+        <div className="mt-4 p-3 bg-[#F5F5F3] rounded-lg text-xs text-[#888] space-y-1">
+          <div className="flex items-center gap-1.5">
+            <FileText className="h-3.5 w-3.5" />
+            <span className="font-medium">CSV columns:</span>
           </div>
-        </CardContent>
-      </Card>
+          <p>asset_name, image_url, format, hook, headline, cta, body</p>
+          <p>Upload the image_url column to Meta directly — all images are hosted on Google Drive CDN.</p>
+        </div>
+      </div>
     </div>
   )
 }

@@ -10,8 +10,7 @@ import { ProductList } from '@/components/products/ProductList'
 import { BackgroundGenerationWorkspace } from '@/components/backgrounds/BackgroundGenerationWorkspace'
 import { CompositeWorkspace } from '@/components/composites/CompositeWorkspace'
 import { CopyWorkspace } from '@/components/copy/CopyWorkspace'
-import { FinalAssetsWorkspace } from '@/components/final-assets/FinalAssetsWorkspace'
-import { AdExportWorkspace } from '@/components/ad-export/AdExportWorkspace'
+import { AdsWorkspace } from '@/components/ads/AdsWorkspace'
 import { CollageWorkspace } from '@/components/collage/CollageWorkspace'
 import { FormatSelector } from '@/components/format-selector'
 import { StylesWorkspace } from '@/components/styles/StylesWorkspace'
@@ -195,10 +194,7 @@ export default function CategoryDetailPage({ params }: CategoryDetailPageProps) 
         </TabsContent>
 
         <TabsContent value="ads">
-          <div className="space-y-8">
-            <FinalAssetsWorkspace categoryId={category.id} format={selectedFormat} />
-            <AdExportWorkspace categoryId={category.id} format={selectedFormat} />
-          </div>
+          <AdsWorkspace categoryId={category.id} format={selectedFormat} />
         </TabsContent>
 
         <TabsContent value="collage">
