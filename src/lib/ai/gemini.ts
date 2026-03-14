@@ -849,12 +849,14 @@ WHAT YOU SHOULD DO:
 ✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
 ✓ Ensure color harmony: unified color temperature across product and scene, no color cast clashes
 ✓ Add subtle environmental interaction: gentle reflections on glossy surfaces, light wrap around product edges, micro-shadows at contact points
-✓ PRODUCT SCALE (HARD LIMIT — do not exceed):
-  - The product must occupy NO MORE THAN 45% of the total frame height.
-  - The product must be FULLY CONTAINED within the frame — no cropping at the top, bottom, or sides. The entire product silhouette, including the lid/cap, must be visible.
-  - Substantial scene must be visible ABOVE the product (at minimum 25% of frame height of background above the product's top edge) and BELOW (the surface/table the product rests on must be clearly visible).
-  - The background wall, surface texture, lighting, and any decorative elements (plants, props) must occupy at least HALF the visible frame area.
-  - Think: editorial magazine shot where the scene is the context and the product is the subject — not a pack shot where the product fills the frame. ${safeZones ? '(Keep within the safe zone while observing this scale guideline.)' : ''}
+✓ PRODUCT SCALE — CRITICAL SIZING RULE (read carefully, follow exactly):
+  - Canvas size: ${canvasWidth}x${canvasHeight} pixels.
+  - The product (bottle/package/container) must be NO TALLER THAN ${Math.round(canvasHeight * 0.40)} pixels — that is 40% of the canvas height. This is a hard ceiling.
+  - The product must be FULLY CONTAINED — every part of it (lid, cap, base) must be visible. No cropping anywhere.
+  - At least ${Math.round(canvasHeight * 0.30)} pixels of background scene must be visible ABOVE the top of the product.
+  - The surface/table/shelf the product rests on must be clearly visible BELOW the product base.
+  - CAMERA DISTANCE: Frame this as if the camera is 1.5–2 metres away from the product — a normal viewing distance for a table-top lifestyle shot. NOT a close-up. NOT a macro. The product should look small-to-medium in the frame, like it would in a real interior scene photograph.
+  - The background environment (wall, window, plants, shadows, surface) must fill at least 60% of the frame area. ${safeZones ? '(Keep within the safe zone while observing this scale guideline.)' : ''}
 ✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
 
 WHAT YOU MUST NOT DO:
