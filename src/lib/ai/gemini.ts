@@ -651,7 +651,7 @@ STRICT RULES:
       topP: 0.85,
       maxOutputTokens: 32768,
       responseModalities: ['IMAGE'],
-      imageConfig: { aspectRatio: '1:1', imageSize: '4K', outputMimeType: 'image/png' } // PNG required for alpha transparency
+      imageConfig: { aspectRatio: '1:1', imageSize: '4K' }
     }
   }
 
