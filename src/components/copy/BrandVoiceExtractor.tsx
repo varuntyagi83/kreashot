@@ -90,7 +90,7 @@ export function BrandVoiceExtractor({
   onSavedToLibrary,
 }: BrandVoiceExtractorProps) {
   const [profile, setProfile] = useState<BrandVoiceProfile | null>(initialProfile ?? null)
-  const [expanded, setExpanded] = useState(!initialProfile)
+  const [expanded, setExpanded] = useState(false)
   const [extracting, setExtracting] = useState(false)
 
   // Save to library state
@@ -233,6 +233,25 @@ export function BrandVoiceExtractor({
   }
 
   const methodLabel = (m: string) => ({ text: 'Text Samples', qa: 'Q&A', images: 'Images' }[m] || m)
+
+  // ── No profile, collapsed — compact prompt row ────────────────────────────
+
+  if (!profile && !expanded) {
+    return (
+      <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-dashed border-[#D0D0D0] bg-white">
+        <div className="flex items-center gap-2 text-xs text-[#888]">
+          <Mic2 className="h-3.5 w-3.5" />
+          <span>No brand voice set</span>
+        </div>
+        <button
+          onClick={() => setExpanded(true)}
+          className="text-xs text-[#7C5DFA] font-medium hover:underline"
+        >
+          Set up →
+        </button>
+      </div>
+    )
+  }
 
   // ── Profile summary card ───────────────────────────────────────────────────
 
@@ -482,8 +501,7 @@ export function BrandVoiceExtractor({
             <Mic2 className="h-4 w-4 text-primary" />
             <CardTitle className="text-sm font-semibold">Extract Brand Voice</CardTitle>
           </div>
-          {profile && (
-            <Button
+          <Button
               variant="ghost"
               size="sm"
               className="h-7 w-7 p-0"
@@ -491,7 +509,6 @@ export function BrandVoiceExtractor({
             >
               <ChevronUp className="h-4 w-4" />
             </Button>
-          )}
         </div>
         <p className="text-xs text-muted-foreground">
           The AI analyses your inputs and builds a brand voice profile that guides every piece of copy generated.
