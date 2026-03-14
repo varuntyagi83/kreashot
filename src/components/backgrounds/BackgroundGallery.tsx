@@ -30,10 +30,12 @@ import {
   Copy,
   Loader2,
   Upload,
+  Search,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMATS } from '@/lib/formats'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { driveImgSrc } from '@/lib/utils'
 
 interface Background {
   id: string
@@ -67,6 +69,7 @@ export function BackgroundGallery({
   const [backgrounds, setBackgrounds] = useState<Background[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
 
   // Rename state
   const [renameDialogOpen, setRenameDialogOpen] = useState(false)
@@ -327,11 +330,15 @@ export function BackgroundGallery({
     }
   }
 
+  const filteredBackgrounds = backgrounds.filter(
+    (b) => !search || b.name.toLowerCase().includes(search.toLowerCase())
+  )
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="aspect-video animate-pulse bg-muted" />
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="aspect-video bg-muted rounded-xl animate-pulse" />
         ))}
       </div>
     )
@@ -340,15 +347,15 @@ export function BackgroundGallery({
   if (backgrounds.length === 0) {
     return (
       <>
-        <div className="text-center py-12 border border-dashed rounded-lg">
-          <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No backgrounds yet</h3>
-          <p className="text-muted-foreground mb-4">
-            Generate your first background above or upload one
+        <div className="text-center py-12 border border-dashed rounded-xl">
+          <ImageIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4 opacity-40" />
+          <h3 className="text-base font-medium mb-1">No scenes yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Generate your first scene using the form, or upload one
           </p>
-          <Button variant="outline" onClick={() => setUploadDialogOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(true)}>
             <Upload className="h-4 w-4 mr-2" />
-            Upload Background
+            Upload Scene
           </Button>
         </div>
         {renderUploadDialog()}
@@ -468,40 +475,40 @@ export function BackgroundGallery({
 
   return (
     <>
-      {/* Upload button above grid */}
-      <div className="flex justify-end mb-4">
+      {/* Toolbar: search + upload */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search scenes..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 h-9 text-sm"
+          />
+        </div>
         <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(true)}>
           <Upload className="h-4 w-4 mr-2" />
-          Upload Background
+          Upload
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {backgrounds.map((background) => (
-          <Card key={background.id} className="group overflow-hidden">
+      {filteredBackgrounds.length === 0 && search && (
+        <div className="text-center py-8 text-sm text-muted-foreground">
+          No scenes match &quot;{search}&quot;
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        {filteredBackgrounds.map((background) => (
+          <Card key={background.id} className="group overflow-hidden rounded-xl shadow-sm hover:shadow-md transition-shadow">
             <div className="relative aspect-video bg-muted">
               <img
-                src={background.storage_url}
+                src={driveImgSrc(background.storage_url, background.gdrive_file_id)}
                 alt={background.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
                 onError={(e) => {
-                  const target = e.currentTarget
-                  const retryCount = parseInt(target.dataset.retryCount || '0')
-                  const fileId = background.gdrive_file_id
-                  const isLh3 = (background.storage_url || '').includes('lh3.googleusercontent.com')
-
-                  if (retryCount === 0 && fileId && !isLh3) {
-                    target.dataset.retryCount = '1'
-                    target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
-                  } else if (retryCount <= 1 && fileId) {
-                    target.dataset.retryCount = '2'
-                    target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
-                  } else {
-                    target.dataset.retryCount = '3'
-                    target.src =
-                      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f1f5f9" width="400" height="300"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
-                  }
+                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="300"%3E%3Crect fill="%23f1f5f9" width="400" height="300"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
                 }}
               />
 
@@ -566,19 +573,12 @@ export function BackgroundGallery({
               </div>
             </div>
 
-            <div className="p-4 space-y-1">
-              <h3 className="font-medium line-clamp-1">{background.name}</h3>
-              {background.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {background.description}
-                </p>
-              )}
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span>{new Date(background.created_at).toLocaleDateString()}</span>
-                {background.width && background.height && (
-                  <span>&middot; {background.width}x{background.height}</span>
-                )}
-              </div>
+            <div className="p-3 space-y-0.5">
+              <h3 className="font-medium text-sm line-clamp-1">{background.name}</h3>
+              <p className="text-xs text-muted-foreground">
+                {new Date(background.created_at).toLocaleDateString()}
+                {background.format && <span className="ml-1">· {background.format}</span>}
+              </p>
             </div>
           </Card>
         ))}

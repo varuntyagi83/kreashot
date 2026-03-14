@@ -1,10 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Card } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BackgroundGenerationForm } from './BackgroundGenerationForm'
-import { BrandGuidelinesManager } from '@/components/brand-guidelines/BrandGuidelinesManager'
 import { BackgroundPreviewGrid } from './BackgroundPreviewGrid'
 import { BackgroundGallery } from './BackgroundGallery'
 
@@ -24,79 +21,51 @@ interface GeneratedBackground {
 
 interface BackgroundGenerationWorkspaceProps {
   category: Category
-  format?: string // NEW: Format filter
+  format?: string
 }
 
 export function BackgroundGenerationWorkspace({
   category,
-  format = '1:1', // NEW: Default to 1:1
+  format = '1:1',
 }: BackgroundGenerationWorkspaceProps) {
-  const [generatedBackgrounds, setGeneratedBackgrounds] = useState<
-    GeneratedBackground[]
-  >([])
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatedBackgrounds, setGeneratedBackgrounds] = useState<GeneratedBackground[]>([])
   const [refreshKey, setRefreshKey] = useState(0)
 
-  const handleBackgroundsGenerated = (backgrounds: GeneratedBackground[]) => {
-    setGeneratedBackgrounds(backgrounds)
-  }
-
-  const handleBackgroundSaved = () => {
-    // Refresh the gallery
-    setRefreshKey((prev) => prev + 1)
-  }
-
-  const handleClearPreviews = () => {
-    setGeneratedBackgrounds([])
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">
-          Background Generation
-        </h1>
-        <p className="text-muted-foreground mt-2">
-          Generate AI backgrounds for {category.name} using Gemini AI
-        </p>
+    <div className="flex gap-6">
+      {/* Left panel: Generation form */}
+      <div className="w-80 shrink-0">
+        <div className="sticky top-4">
+          <BackgroundGenerationForm
+            category={category}
+            format={format}
+            onBackgroundsGenerated={setGeneratedBackgrounds}
+            onGeneratingChange={() => {}}
+          />
+        </div>
       </div>
 
-      {/* Brand Guidelines Library */}
-      <BrandGuidelinesManager />
+      {/* Right panel: preview + gallery */}
+      <div className="flex-1 min-w-0 space-y-6">
+        {generatedBackgrounds.length > 0 && (
+          <BackgroundPreviewGrid
+            backgrounds={generatedBackgrounds}
+            categoryId={category.id}
+            categorySlug={category.slug}
+            format={format}
+            onBackgroundSaved={() => setRefreshKey((k) => k + 1)}
+            onClearAll={() => setGeneratedBackgrounds([])}
+          />
+        )}
 
-      {/* Generation Form */}
-      <BackgroundGenerationForm
-        category={category}
-        format={format}
-        onBackgroundsGenerated={handleBackgroundsGenerated}
-        onGeneratingChange={setIsGenerating}
-      />
-
-      {/* Preview Grid */}
-      {generatedBackgrounds.length > 0 && (
-        <BackgroundPreviewGrid
-          backgrounds={generatedBackgrounds}
-          categoryId={category.id}
-          categorySlug={category.slug}
-          format={format}
-          onBackgroundSaved={handleBackgroundSaved}
-          onClearAll={handleClearPreviews}
-        />
-      )}
-
-      {/* Saved Backgrounds — show all formats */}
-      <Tabs defaultValue="gallery" className="w-full">
-        <TabsList>
-          <TabsTrigger value="gallery">Saved Backgrounds</TabsTrigger>
-        </TabsList>
-        <TabsContent value="gallery" className="mt-6">
+        <div>
+          <h2 className="text-lg font-semibold mb-4">Scenes Library</h2>
           <BackgroundGallery
             categoryId={category.id}
             refreshTrigger={refreshKey}
           />
-        </TabsContent>
-      </Tabs>
+        </div>
+      </div>
     </div>
   )
 }
