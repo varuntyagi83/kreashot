@@ -18,6 +18,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import {
   SlidersHorizontal,
   Plus,
@@ -203,15 +205,18 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
             Compose product images into scene backgrounds
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowControls(!showControls)}
-          className={showControls ? 'border-[#7C5DFA] text-[#7C5DFA]' : ''}
-        >
-          <SlidersHorizontal className="h-4 w-4 mr-2" />
-          {showControls ? 'Hide Controls' : 'Show Controls'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+          <Label htmlFor="controls-toggle" className="text-sm text-muted-foreground cursor-pointer select-none">
+            Controls
+          </Label>
+          <Switch
+            id="controls-toggle"
+            checked={showControls}
+            onCheckedChange={setShowControls}
+            className="data-[state=checked]:bg-[#7C5DFA]"
+          />
+        </div>
       </div>
 
       {/* Main layout */}
