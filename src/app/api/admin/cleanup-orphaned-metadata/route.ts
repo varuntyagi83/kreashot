@@ -13,6 +13,7 @@ interface TableStats {
   valid: number
   orphaned: number
   deleted: number
+  skipped: number
 }
 
 async function checkTableForOrphans(
@@ -43,12 +44,13 @@ async function checkTableForOrphans(
 
   if (!records || records.length === 0) {
     return {
-      stats: { total: 0, valid: 0, orphaned: 0, deleted: 0 },
+      stats: { total: 0, valid: 0, orphaned: 0, deleted: 0, skipped: 0 },
       orphanedRecords: [],
     }
   }
 
   const orphanedRecords: OrphanedRecord[] = []
+  let skippedCount = 0
 
   // Check each file
   for (const record of records) {
@@ -77,21 +79,17 @@ async function checkTableForOrphans(
         })
       } else {
         console.error(`Error checking file ${record.gdrive_file_id}:`, error.message)
-        // For other errors, also mark as orphaned to be safe
-        orphanedRecords.push({
-          id: record.id,
-          gdrive_file_id: record.gdrive_file_id,
-          display_name: record[displayNameField] || 'Unknown',
-        })
+        skippedCount++
       }
     }
   }
 
   const stats: TableStats = {
     total: records.length,
-    valid: records.length - orphanedRecords.length,
+    valid: records.length - orphanedRecords.length - skippedCount,
     orphaned: orphanedRecords.length,
     deleted: 0,
+    skipped: skippedCount,
   }
 
   // Delete orphaned records if not dry run
@@ -194,6 +192,11 @@ export async function POST(request: NextRequest) {
       productImagesResult.stats.deleted +
       backgroundsResult.stats.deleted +
       compositesResult.stats.deleted
+    const totalSkipped =
+      angledShotsResult.stats.skipped +
+      productImagesResult.stats.skipped +
+      backgroundsResult.stats.skipped +
+      compositesResult.stats.skipped
 
     return NextResponse.json({
       message: dryRun
@@ -203,6 +206,7 @@ export async function POST(request: NextRequest) {
       summary: {
         totalOrphaned,
         totalDeleted,
+        totalSkipped,
       },
       tables: {
         angled_shots: {

@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
       .from('deletion_queue')
       .select('id, resource_type, storage_path, created_at')
       .order('created_at', { ascending: false })
+      .limit(200)
 
     if (error) {
       console.error('[process-deletions GET] error:', error)

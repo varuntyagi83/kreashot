@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { Resvg } from '@resvg/resvg-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // Each overlay is a transparent PNG generated from an SVG via Resvg (Rust/WASM renderer).
 // Stored as data:image/png;base64,… so Python/PIL can composite them directly.
@@ -141,6 +142,14 @@ export async function POST() {
     } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const rateLimit = checkRateLimit(`seed-overlays:${user.id}`, 10, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please wait before seeding more overlays.' },
+        { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
     }
 
     const results: { name: string; status: 'created' | 'updated' | 'skipped' | 'error'; error?: string }[] = []

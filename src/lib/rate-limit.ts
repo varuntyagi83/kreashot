@@ -9,6 +9,7 @@ interface RateLimitEntry {
   resetAt: number
 }
 
+// TODO: replace with Redis for persistence across restarts (in-memory resets on Railway deploy)
 const store = new Map<string, RateLimitEntry>()
 
 // Clean up expired entries every 5 minutes to prevent memory leaks

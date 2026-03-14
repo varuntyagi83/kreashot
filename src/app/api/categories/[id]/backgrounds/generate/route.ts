@@ -6,6 +6,7 @@ import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/re
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 import { parseReferenceTokens } from '@/lib/references'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
 /**
  * POST /api/categories/[id]/backgrounds/generate
@@ -130,10 +131,14 @@ export async function POST(
     }
 
     // Parse @[name](type:id) reference tokens from both prompt and lookAndFeel
-    const { cleanText: cleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
-    const { cleanText: cleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
+    const { cleanText: rawCleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
+    const { cleanText: rawCleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
       (lookAndFeel && lookAndFeel.trim()) || ''
     )
+
+    // Sanitize user-supplied text against prompt injection before sending to AI
+    const cleanPrompt = sanitizeForPrompt(rawCleanPrompt)
+    const cleanLookAndFeel = sanitizeForPrompt(rawCleanLookAndFeel)
 
     // Collect unique guideline IDs from both fields
     const allRefs = [...promptRefs, ...lafRefs]

@@ -4,6 +4,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 import sharp from 'sharp'
 import { spawn } from 'child_process'
 import path from 'path'
@@ -92,6 +93,8 @@ export async function POST(
     if (userPrompt && typeof userPrompt === 'string' && userPrompt.length > 20000) {
       return NextResponse.json({ error: 'userPrompt must be 20000 characters or fewer' }, { status: 400 })
     }
+
+    const safeUserPrompt = userPrompt ? sanitizeForPrompt(userPrompt) : undefined
 
     // Validate format
     if (format && !Object.keys(FORMATS).includes(format)) {
@@ -382,7 +385,7 @@ export async function POST(
           angledShotMimeType,
           `data:${backgroundMimeType};base64,${backgroundBase64}`,
           backgroundMimeType,
-          userPrompt,
+          safeUserPrompt,
           category.look_and_feel || undefined,
           safeZones.length > 0 ? safeZones : undefined,
           formatDimensions.width,
