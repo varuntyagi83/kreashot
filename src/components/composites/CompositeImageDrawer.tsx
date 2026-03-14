@@ -207,11 +207,21 @@ export function CompositeImageDrawer({
 
   const handleDownload = () => {
     if (!composite) return
+    if (!composite.gdrive_file_id) {
+      window.open(composite.storage_url, '_blank')
+      return
+    }
+    const params = new URLSearchParams({
+      fileId: composite.gdrive_file_id,
+      filename: composite.slug,
+      resolution: selectedResolution,
+      format: selectedFormat,
+    })
     const link = document.createElement('a')
-    link.href = composite.storage_url
-    link.download = `${composite.slug}.${selectedFormat.toLowerCase()}`
-    link.target = '_blank'
+    link.href = `/api/download?${params}`
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
     toast.success('Download started')
   }
 
@@ -489,9 +499,6 @@ export function CompositeImageDrawer({
                   </div>
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground mb-2">
-                Note: Resolution conversion requires Phase 15 API. Currently downloads original.
-              </p>
               <Button
                 onClick={handleDownload}
                 size="sm"

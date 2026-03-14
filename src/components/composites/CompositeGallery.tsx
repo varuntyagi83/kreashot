@@ -116,11 +116,21 @@ export function CompositeGallery({
   }
 
   const handleDownload = (composite: Composite) => {
+    if (!composite.gdrive_file_id) {
+      window.open(composite.storage_url, '_blank')
+      return
+    }
+    const params = new URLSearchParams({
+      fileId: composite.gdrive_file_id,
+      filename: composite.slug,
+      resolution: 'Original',
+      format: 'JPEG',
+    })
     const link = document.createElement('a')
-    link.href = composite.storage_url
-    link.download = `${composite.slug}.jpg`
-    link.target = '_blank'
+    link.href = `/api/download?${params}`
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
     toast.success('Download started')
   }
 
