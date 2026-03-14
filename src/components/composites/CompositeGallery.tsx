@@ -52,12 +52,21 @@ interface CompositeGalleryProps {
   categoryId: string
   format: string
   refreshTrigger?: number
+  columns?: 2 | 3 | 4 | 5
+}
+
+const GRID_COLS: Record<number, string> = {
+  2: 'grid-cols-2',
+  3: 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3',
+  4: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+  5: 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5',
 }
 
 export function CompositeGallery({
   categoryId,
   format,
   refreshTrigger,
+  columns = 3,
 }: CompositeGalleryProps) {
   const [composites, setComposites] = useState<Composite[]>([])
   const [loading, setLoading] = useState(true)
@@ -126,9 +135,11 @@ export function CompositeGallery({
     toast.success('Download started')
   }
 
+  const gridClass = GRID_COLS[columns] ?? GRID_COLS[3]
+
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`grid ${gridClass} gap-4`}>
         {[1, 2, 3].map((i) => (
           <Card key={i} className="aspect-square animate-pulse bg-muted" />
         ))}
@@ -152,7 +163,7 @@ export function CompositeGallery({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className={`grid ${gridClass} gap-4`}>
         {composites.map((composite, index) => (
           <Card key={composite.id} className="group overflow-hidden">
             <div
