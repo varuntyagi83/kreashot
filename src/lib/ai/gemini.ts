@@ -808,8 +808,8 @@ The following areas are restricted - do NOT place the product in these zones:\n`
     type PlacementContext = { label: string; maxHeightPct: number; minSceneAbovePct: number; cameraNote: string }
     const placementContext: PlacementContext = (() => {
       if (/\b(hand|palm|holding|hold|finger|grasp|grip|arm)\b/.test(rawPromptLower)) {
-        return { label: 'hand-held', maxHeightPct: 25, minSceneAbovePct: 35,
-          cameraNote: 'The product is held in a person\'s hand — scale it to realistically fit a human hand. A typical supplement bottle held in a hand occupies roughly 15–25% of the frame height when the full person is visible.' }
+        return { label: 'hand-held', maxHeightPct: 20, minSceneAbovePct: 40,
+          cameraNote: 'The product is held in a person\'s hand. CRITICAL SCALE RULE: the bottle must be sized so the person\'s fingers visibly wrap all the way around it — the bottle diameter must be smaller than the person\'s fist. The bottle height should be roughly equal to the distance from the person\'s palm to their fingertips. If the person is visible from head to knee, the bottle should occupy NO MORE than 15–20% of the frame height. Do NOT make the bottle giant — a real supplement bottle fits in one hand.' }
       }
       if (/\b(floor|ground|mat|rug|carpet|grass|grass)\b/.test(rawPromptLower)) {
         return { label: 'floor-placed', maxHeightPct: 30, minSceneAbovePct: 40,
@@ -838,9 +838,9 @@ COMPOSITING INSTRUCTIONS:
 WHAT YOU SHOULD DO:
 ✓ STEP 1 — COMPOSITION FIRST (do this before anything else):
   Placement: ${placementContext.label}. ${placementContext.cameraNote}
-  Product height = maximum ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on a ${canvasHeight}px canvas (${placementContext.maxHeightPct}% ceiling).
-  At least ${Math.round(canvasHeight * placementContext.minSceneAbovePct / 100)}px of background scene visible ABOVE the product.
-  Product fully contained — no cropping of lid, cap, or base. Background fills 60%+ of frame.
+  Hard size ceiling: product height ≤ ${placementContext.maxHeightPct}% of canvas (≤ ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on ${canvasHeight}px canvas). If you are tempted to make it larger, make it smaller instead.
+  At least ${placementContext.minSceneAbovePct}% of frame (${Math.round(canvasHeight * placementContext.minSceneAbovePct / 100)}px) of background scene visible ABOVE the product — the person's face/upper body must be clearly visible.
+  Product fully contained — no cropping of lid, cap, or base.
 
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE' : 'Place the product naturally in the background scene'}
 ✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
