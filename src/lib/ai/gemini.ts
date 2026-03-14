@@ -847,7 +847,7 @@ Product height ≤ ${placementContext.maxHeightPct}% of frame (≤ ${Math.round(
 RULE 2 — PLACEMENT:
 ${safeUserPrompt ? `User instruction: ${safeUserPrompt}` : 'Place the product naturally in the scene.'}${handPlacementEscapeHatch}
 ${safeZones && safeZones.length > 0 ? safeZoneInstructions : ''}
-${personInteraction ? `Person's face/upper body must remain clearly visible — at least ${placementContext.minSceneAbovePct}% of frame above the product.` : `At least ${placementContext.minSceneAbovePct}% of the background scene must remain visible — do not let the product dominate or crop the environment.`}
+At least ${placementContext.minSceneAbovePct}% of the background scene must remain visible — do not let the product dominate or crop the environment.
 ${lookAndFeel ? `Style: ${lookAndFeel}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
