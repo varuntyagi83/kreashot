@@ -190,3 +190,34 @@ Meta Ads Manager upload
 - `isFlatColor` detection in `src/lib/ai/gemini.ts`: regex on `solid|flat|plain|no texture|no shadow|no gradient|uniform`
 - When matched: uses a stripped prompt (no DSLR, no lighting, no shadows) + flat-color-swatch system instruction
 - Use keywords like "solid flat sage green #8a9e8e" or "flat uniform #8a9e8e" to get a clean solid fill
+
+---
+
+## UI Redesign — RiverFlow-Inspired (branch: `ui-redesign`)
+
+**DO NOT merge to `main` until user confirms localhost testing passes.**
+
+Design language: cream bg `#F5F5F3`, white cards `rounded-xl shadow-sm`, purple CTA `#7C5DFA`, `hover:bg-[#6A4FD8]`
+
+### Tab renames (category detail page)
+Old → New: Assets→Products, Angled Shots→(removed, merged into Photoshoots click panel), Backgrounds→Scenes, Guidelines+Templates→Styles, Composites→Photoshoots, Copy→Ad Copy, Final Assets+Ad Export→Ads
+
+### Phase Progress
+- [ ] Phase 1 — Create branch `ui-redesign`
+- [ ] Phase 2 — Design tokens: tailwind.config.ts + globals.css
+- [ ] Phase 3 — Layout shell: Sidebar + TopBar + CategoryNav
+- [ ] Phase 4 — Dashboard + Category list pages
+- [ ] Phase 5 — Category detail page: tab renames + structural cleanup
+- [ ] Phase 6 — DB migrations: `generation_time_ms` + `aspect_ratio` columns
+- [ ] Phase 7 — Image metadata badges on generated image cards
+- [ ] Phase 8 — Products workspace: redesign + unified gallery
+- [ ] Phase 9 — Scenes workspace: redesign (split pane, filter tabs)
+- [x] Phase 10 — Styles workspace: StylesWorkspace (Guidelines + Templates tabs) — commit `5704ef8`
+- [x] Phase 11 — Brand Kit page: Logos/Fonts/Overlays sections — commit `a4e77e7`
+- [x] Phase 12 — Photoshoots workspace: CompositeWorkspace redesign — commit `297b993`
+- [x] Phase 13 — Photoshoots full build: Show Controls toggle, modals (SceneLibraryModal + SelectProductImagesModal) — commit `5b28eac`
+- [ ] Phase 14 — Composite Image Drawer: CompositeImageDrawer.tsx (Regenerate, Change Ratio, Generate Angles, Swap Product, Download)
+- [ ] Phase 15 — New API routes: composites/reformat, composites/swap-product, /api/download (Sharp)
+- [ ] Phase 15b — Ad Copy workspace: redesign CopyWorkspace
+- [ ] Phase 16 — Ads workspace: AdsWorkspace (Create Ad + Export tabs)
+- [ ] Phase 17 — Polish pass: hover states, empty states, loading skeletons, responsive
