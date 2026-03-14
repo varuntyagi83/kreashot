@@ -514,18 +514,9 @@ export function BrandVoiceExtractor({
       <CardContent className="space-y-3">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList className="w-full grid grid-cols-3">
-            <TabsTrigger value="qa" className="text-xs">
-              <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-              Answer Questions
-            </TabsTrigger>
-            <TabsTrigger value="text" className="text-xs">
-              <FileText className="h-3.5 w-3.5 mr-1.5" />
-              Paste Text
-            </TabsTrigger>
-            <TabsTrigger value="images" className="text-xs">
-              <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
-              Upload Ads
-            </TabsTrigger>
+            <TabsTrigger value="qa" className="text-xs">Q&amp;A</TabsTrigger>
+            <TabsTrigger value="text" className="text-xs">Paste Text</TabsTrigger>
+            <TabsTrigger value="images" className="text-xs">Upload Ads</TabsTrigger>
           </TabsList>
 
           {/* ── Q&A tab ─────────────────────────────────────────────────── */}
