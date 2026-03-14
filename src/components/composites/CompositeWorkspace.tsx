@@ -21,7 +21,6 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import {
-  SlidersHorizontal,
   Plus,
   X,
   Sparkles,
@@ -206,9 +205,8 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
           <Label htmlFor="controls-toggle" className="text-sm text-muted-foreground cursor-pointer select-none">
-            Controls
+            Show Controls
           </Label>
           <Switch
             id="controls-toggle"
