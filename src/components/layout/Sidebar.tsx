@@ -9,7 +9,6 @@ import { CategoryNav } from './CategoryNav'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Badge } from '@/components/ui/badge'
 import {
   ChevronRight,
   ChevronDown,
@@ -75,7 +74,7 @@ export function Sidebar() {
   const isCategoriesActive = pathname === '/categories'
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-background">
+    <div className="flex h-full w-[220px] flex-col border-r bg-sidebar">
       <ScrollArea className="flex-1">
         <div className="space-y-4 py-4">
           {/* Categories Overview */}
@@ -85,7 +84,7 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                 isCategoriesActive
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
@@ -103,15 +102,12 @@ export function Sidebar() {
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                 isBrandAssetsActive
-                  ? 'bg-primary text-primary-foreground'
+                  ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
                   : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
               <Palette className="h-4 w-4" />
-              <span className="flex-1 font-medium">Brand Assets</span>
-              <Badge variant="secondary" className="text-xs">
-                Global
-              </Badge>
+              <span className="flex-1 font-medium">Brand Kit</span>
             </Link>
           </div>
 
@@ -156,7 +152,7 @@ export function Sidebar() {
                         className={cn(
                           'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
                           isSelected
-                            ? 'bg-accent text-accent-foreground'
+                            ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
                             : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                         )}
                       >
@@ -177,6 +173,15 @@ export function Sidebar() {
           </div>
         </div>
       </ScrollArea>
+      {/* Bottom: User/workspace selector */}
+      <div className="border-t p-3">
+        <div className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-accent cursor-pointer transition-colors">
+          <div className="h-7 w-7 rounded-full bg-[#B3D9E8] flex items-center justify-center text-xs font-semibold text-gray-700 shrink-0">
+            A
+          </div>
+          <span className="text-sm font-medium truncate flex-1">AdForge</span>
+        </div>
+      </div>
     </div>
   )
 }
