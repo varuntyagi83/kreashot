@@ -800,8 +800,11 @@ The following areas are restricted - do NOT place the product in these zones:\n`
       safeZoneInstructions += '\nThese zones are defined by brand guidelines and MUST be respected for compliance.\n'
     }
 
-    // Detect placement context from user instruction to derive appropriate product scale
+    // Detect whether the user instruction involves person-product interaction.
+    // When true, the "do not change person" rule is relaxed so the model can
+    // adapt hands, arms, gaze, and expression to naturally hold/interact with the product.
     const rawPromptLower = (userPrompt || '').toLowerCase()
+    const personInteraction = /\b(hand|palm|hold|holding|held|grab|grasp|arm|finger|point|pointing|face|look|looking|eye|eyes|gaze|pose|gesture|hug|carry|reach|extend)\b/.test(rawPromptLower)
     type PlacementContext = { label: string; maxHeightPct: number; minSceneAbovePct: number; cameraNote: string }
     const placementContext: PlacementContext = (() => {
       if (/\b(hand|palm|holding|hold|finger|grasp|grip|arm)\b/.test(rawPromptLower)) {
@@ -879,7 +882,10 @@ WHAT YOU SHOULD DO:
 ✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
 
 WHAT YOU MUST NOT DO:
-✗ Do NOT change the background model/person's appearance
+${personInteraction
+  ? `✓ The user instruction requires the person to interact with the product. You MAY adapt their hands, arms, gaze, and facial expression to naturally hold, point at, or look at the product. Preserve the person's face, identity, clothing, hair, and overall body — only the specific interaction gesture may change.
+✗ Do NOT change the background model/person's appearance for any reason NOT required by the user's interaction instruction.`
+  : `✗ Do NOT change the background model/person's appearance`}
 ✗ Do NOT modify the product's colors, design, or any text/labels on the product
 ✗ Do NOT change the core elements of either image
 ✗ Do NOT add any NEW text that does not already exist on the product — no headlines, taglines, CTAs, slogans, watermarks, captions, or any overlaid copy whatsoever
