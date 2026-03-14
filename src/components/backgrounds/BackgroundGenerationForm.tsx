@@ -11,6 +11,7 @@ import { Loader2, Sparkles, ImageIcon, Check, Palette } from 'lucide-react'
 import { toast } from 'sonner'
 import { FORMATS } from '@/lib/formats'
 import { ReferencePicker } from '@/components/ui/reference-picker'
+import { driveImgSrc } from '@/lib/utils'
 
 interface ColorWorld {
   label: string   // e.g. "World of Green"
@@ -41,6 +42,7 @@ interface BrandAsset {
   name: string
   asset_type: string
   storage_url: string
+  gdrive_file_id: string | null
   metadata?: { file_type?: string }
 }
 
@@ -301,33 +303,33 @@ export function BackgroundGenerationForm({
 
         {/* Format Selection */}
         <div className="space-y-2">
-          <Label>Formats to Generate</Label>
-          <div className="grid grid-cols-2 gap-3">
-            {Object.values(FORMATS).map((f) => (
-              <div key={f.format} className="flex items-center gap-2">
-                <Checkbox
-                  id={`format-${f.format}`}
-                  checked={selectedFormats.includes(f.format)}
-                  onCheckedChange={(checked) => {
-                    if (checked) {
-                      setSelectedFormats((prev) => [...prev, f.format])
+          <Label className="text-xs">Formats to Generate</Label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {Object.values(FORMATS).map((f) => {
+              const isSelected = selectedFormats.includes(f.format)
+              return (
+                <button
+                  key={f.format}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedFormats((prev) => prev.filter((fmt) => fmt !== f.format))
                     } else {
-                      setSelectedFormats((prev) =>
-                        prev.filter((fmt) => fmt !== f.format)
-                      )
+                      setSelectedFormats((prev) => [...prev, f.format])
                     }
                   }}
                   disabled={isGenerating}
-                />
-                <label
-                  htmlFor={`format-${f.format}`}
-                  className="text-sm cursor-pointer flex items-center gap-2"
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-left transition-colors text-xs ${
+                    isSelected
+                      ? 'border-[#7C5DFA] bg-[#7C5DFA]/5 text-[#7C5DFA]'
+                      : 'border-border hover:border-muted-foreground/50 text-foreground'
+                  }`}
                 >
                   <span className="font-mono font-semibold">{f.format}</span>
-                  <span className="text-xs text-muted-foreground">{f.description}</span>
-                </label>
-              </div>
-            ))}
+                  <span className="text-muted-foreground truncate">{f.platform}</span>
+                </button>
+              )
+            })}
           </div>
           <p className="text-xs text-muted-foreground">
             {selectedFormats.length} format{selectedFormats.length !== 1 ? 's' : ''} selected
@@ -373,7 +375,7 @@ export function BackgroundGenerationForm({
                     title={asset.name}
                   >
                     <img
-                      src={asset.storage_url}
+                      src={driveImgSrc(asset.storage_url, asset.gdrive_file_id)}
                       alt={asset.name}
                       className="w-full h-full object-cover"
                     />
@@ -398,7 +400,7 @@ export function BackgroundGenerationForm({
         <Button
           onClick={handleGenerate}
           disabled={isGenerating || !userPrompt.trim() || selectedFormats.length === 0 || totalGenerations > 20}
-          className="w-full"
+          className="w-full bg-[#7C5DFA] hover:bg-[#6A4FD8] text-white"
           size="lg"
         >
           {isGenerating ? (
