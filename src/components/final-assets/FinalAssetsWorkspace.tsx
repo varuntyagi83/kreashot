@@ -20,6 +20,8 @@ interface FinalAsset {
   width: number
   height: number
   created_at: string
+  generation_time_ms: number | null
+  aspect_ratio: string | null
 }
 
 interface TemplateLayer {
@@ -1255,6 +1257,18 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                       fill
                       className="object-contain"
                     />
+                    {/* Generation time badge — bottom-left */}
+                    {asset.generation_time_ms != null && (
+                      <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
+                        {(asset.generation_time_ms / 1000).toFixed(1)}s
+                      </div>
+                    )}
+                    {/* Aspect ratio badge — bottom-right */}
+                    {(asset.aspect_ratio || asset.format) && (
+                      <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
+                        {asset.aspect_ratio || asset.format}
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-2">

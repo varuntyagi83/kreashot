@@ -32,6 +32,8 @@ interface Composite {
   description: string | null
   storage_url: string
   created_at: string
+  generation_time_ms: number | null
+  aspect_ratio: string | null
   angled_shot: {
     id: string
     angle_name: string
@@ -197,6 +199,20 @@ export function CompositeGallery({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+
+              {/* Generation time badge — bottom-left */}
+              {composite.generation_time_ms != null && (
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
+                  {(composite.generation_time_ms / 1000).toFixed(1)}s
+                </div>
+              )}
+
+              {/* Aspect ratio badge — bottom-right */}
+              {composite.aspect_ratio && (
+                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full pointer-events-none">
+                  {composite.aspect_ratio}
+                </div>
+              )}
             </div>
 
             <div className="p-4 space-y-1">

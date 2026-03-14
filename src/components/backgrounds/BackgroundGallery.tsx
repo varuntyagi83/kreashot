@@ -47,6 +47,8 @@ interface Background {
   gdrive_file_id: string | null
   prompt_used: string | null
   created_at: string
+  generation_time_ms: number | null
+  aspect_ratio: string | null
 }
 
 interface BackgroundGalleryProps {
@@ -508,6 +510,20 @@ export function BackgroundGallery({
               {background.format && (
                 <div className="absolute top-2 left-2 bg-black/70 text-white text-xs font-mono font-semibold px-2 py-0.5 rounded">
                   {background.format}
+                </div>
+              )}
+
+              {/* Generation time badge — bottom-left */}
+              {background.generation_time_ms != null && (
+                <div className="absolute bottom-2 left-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full">
+                  {(background.generation_time_ms / 1000).toFixed(1)}s
+                </div>
+              )}
+
+              {/* Aspect ratio badge — bottom-right */}
+              {background.aspect_ratio && (
+                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-mono px-2 py-0.5 rounded-full">
+                  {background.aspect_ratio}
                 </div>
               )}
 
