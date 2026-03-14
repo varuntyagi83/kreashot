@@ -46,11 +46,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'fileId is required' }, { status: 400 })
     }
 
+    // C-01: Verify ownership — fileId must belong to the authenticated user
+    const tables = ['backgrounds', 'composites', 'angled_shots', 'final_assets'] as const
+    let owned = false
+    for (const table of tables) {
+      const { data } = await supabase
+        .from(table)
+        .select('id')
+        .eq('gdrive_file_id', fileId)
+        .eq('user_id', user.id)
+        .limit(1)
+        .maybeSingle()
+      if (data) { owned = true; break }
+    }
+    if (!owned) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const fmtConfig = FORMAT_CONFIG[format] ?? FORMAT_CONFIG['JPEG']
     const maxPx     = RESOLUTION_MAP[resolution] ?? null
 
     // Fetch from Google Drive via API (bypasses CDN rate limits)
     const buffer = await downloadFile(fileId, { provider: 'gdrive' })
+
+    // M-02: Guard against oversized files before passing to Sharp
+    if (buffer.length > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large to process' }, { status: 413 })
+    }
 
     // Apply Sharp transformations
     let pipeline = sharp(buffer)
@@ -78,6 +100,6 @@ export async function GET(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Download error:', error)
-    return NextResponse.json({ error: error.message || 'Download failed' }, { status: 500 })
+    return NextResponse.json({ error: 'Download failed' }, { status: 500 })
   }
 }

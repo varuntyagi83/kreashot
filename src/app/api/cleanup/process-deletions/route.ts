@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
 
     const drive = google.drive({ version: 'v3', auth })
 
-    // Get all queued deletions
+    // Get all queued deletions (pending only, to avoid re-processing completed/failed entries)
     const { data: queuedFiles, error: fetchError } = await supabase
       .from('deletion_queue')
       .select('*')
+      .eq('status', 'pending')
       .eq('storage_provider', 'gdrive')
       .not('gdrive_file_id', 'is', null)
       .order('created_at', { ascending: true })

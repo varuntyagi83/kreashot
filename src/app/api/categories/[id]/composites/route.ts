@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { uploadFile } from '@/lib/storage'
+import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
 
 // Helper to generate slug from name
@@ -289,6 +289,14 @@ export async function POST(
 
     if (dbError) {
       console.error('Database error:', dbError)
+      // Clean up the orphaned GDrive file since DB insert failed
+      try {
+        const fileIdOrPath = storageFile.fileId || storageFile.path
+        console.log(`Cleaning up orphaned GDrive file: ${fileIdOrPath}`)
+        await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+      } catch (cleanupError) {
+        console.error('Failed to clean up orphaned GDrive file:', cleanupError)
+      }
       return NextResponse.json(
         { error: 'Failed to save composite record' },
         { status: 500 }

@@ -82,6 +82,7 @@ export async function POST(
       .select('id, display_name, angle_name, product_id, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', newAngledShotId)
       .eq('category_id', categoryId)
+      .eq('user_id', user.id)
       .single()
 
     if (!newShot) {
@@ -94,6 +95,7 @@ export async function POST(
       .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', composite.background_id)
       .eq('category_id', categoryId)
+      .eq('user_id', user.id)
       .single()
 
     if (!background) {
