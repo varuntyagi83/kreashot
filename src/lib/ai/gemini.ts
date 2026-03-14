@@ -826,82 +826,59 @@ The following areas are restricted - do NOT place the product in these zones:\n`
 
     // Build the composite generation prompt
     const safeUserPrompt = sanitizeForPrompt(userPrompt || '')
-    const prompt = `Compose these two images into a single professional product photograph:
 
-Image 1 (Product — pre-extracted cutout): This is the product, already isolated on a clean white background. Place it naturally in the scene with full lighting integration.
-Image 2 (Background): This is the background scene/environment.
+    // Escape hatch for hand-held placement: give Gemini two explicit options
+    // so it doesn't silently fall back to "place it nearby on the floor."
+    const handPlacementEscapeHatch = placementContext.label === 'hand-held' ? `
+PLACEMENT OPTIONS — pick whichever looks most natural in this specific scene:
+  Option A: Place the product on the nearest surface (mat/floor/table) directly in front of or beside the person, as if they just set it down.
+  Option B: Gently adapt one of the person's hands so it rests palm-up, and place the product resting in that open palm.
+  → Choose the option that requires the least change to the background scene.
+  → Do NOT place the product floating mid-air, awkwardly leaning against the person, or off to the side with no connection to them.` : ''
 
-${safeUserPrompt ? `USER INSTRUCTION: ${safeUserPrompt}\n\n` : ''}${lookAndFeel ? `STYLE GUIDELINE: ${lookAndFeel}\n\n` : ''}${safeZoneInstructions}
+    const prompt = `Image 1: product cutout (shown large for detail — IGNORE THIS SIZE when compositing, scale it down).
+Image 2: background scene.
 
-COMPOSITING INSTRUCTIONS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 1 — SIZE (the only unbreakable rule):
+Product height ≤ ${placementContext.maxHeightPct}% of frame (≤ ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on ${canvasHeight}px). When in doubt, go smaller.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-WHAT YOU SHOULD DO:
-✓ STEP 1 — COMPOSITION FIRST (do this before anything else):
-  ⚠️ Image 1 (the product) is shown large for clarity — scale it DOWN when placing it. Do not use the cutout image size as a guide for placement size.
-  Placement: ${placementContext.label}. ${placementContext.cameraNote}
-  Hard size ceiling: product height ≤ ${placementContext.maxHeightPct}% of canvas (≤ ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on ${canvasHeight}px canvas). If you are tempted to make it larger, make it smaller instead.
-  At least ${placementContext.minSceneAbovePct}% of frame (${Math.round(canvasHeight * placementContext.minSceneAbovePct / 100)}px) of background scene visible ABOVE the product — the person's face/upper body must be clearly visible.
-  Product fully contained — no cropping of lid, cap, or base.
+RULE 2 — PLACEMENT:
+${safeUserPrompt ? `User instruction: ${safeUserPrompt}` : 'Place the product naturally in the scene.'}${handPlacementEscapeHatch}
+${safeZones && safeZones.length > 0 ? safeZoneInstructions : ''}
+Person's face/upper body must remain clearly visible — at least ${placementContext.minSceneAbovePct}% of frame above the product.
+${lookAndFeel ? `Style: ${lookAndFeel}` : ''}
 
-✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE' : 'Place the product naturally in the background scene'}
-✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
-✓ Match the product's lighting direction, color temperature, and intensity to the background's lighting
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 3 — PHOTOGRAPHIC QUALITY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Make it look like the product was physically present in this scene when the photo was taken — not pasted in afterward.
 
-✓ SCENE SHADOW CONTINUATION (critical lighting task): Identify the dominant
-  light source in the background (window, sun angle, direction). The SAME shadows
-  and light patterns that fall across the background surface MUST also fall across
-  the product — the product is physically present in this scene, so all
-  environmental shadow patterns wrap over it. If the background has dappled leaf
-  shadows, they fall on the bottle too. If there are window-frame shadow bars,
-  they cross the product too. The product casts its own ground shadow onto the
-  surface consistent with that exact light source direction and angle.
+Lighting: Match the product's lighting direction, color temperature, and intensity exactly to the background's light source. Identify the dominant light source direction and apply it to the product — same angle, same warmth/coolness.
 
-✓ LIGHT SOURCE ANALYSIS: Before compositing, identify: (a) the light source
-  direction in the background image, (b) the color temperature of that light
-  (warm golden-hour, neutral window, cool overcast), (c) any structured shadow
-  patterns on the surface (leaf dappling, window bars, architectural lines).
-  Apply ALL THREE consistently to the product — same direction, same color
-  temperature, same shadow patterns landing on the product's geometry.
+Shadows: The same shadow patterns that fall across the background surface also fall across the product. Dappled leaf shadows, window-bar shadows, directional ground shadows — they all continue over the product's surface. The product also casts its own ground shadow consistent with the scene's light direction.
 
-✓ SHADOW WRAPPING: Environmental shadows are not blocked by the product — they
-  wrap around its form following surface curvature. A shadow bar crossing the
-  background surface continues up the side of the bottle, bending to follow its
-  cylindrical curve. This is physically correct and is what makes a composite
-  look real.
+Shadow wrapping: Environmental shadows wrap around the product's form following its surface curvature — a shadow bar crossing the background continues up the side of the bottle, bending with its cylindrical curve.
 
-✓ AMBIENT COLOR MODULATION: The product's label picks up color from the scene's
-  ambient light — slightly warmer in golden-hour scenes, slightly cooler in
-  north-window scenes. A perfectly white label in isolation becomes a warm-white
-  label in warm light. This subtle shift is what separates a real photograph
-  from a paste-in.
+Ambient color: The product's label picks up subtle color from the scene's ambient light — slightly warmer in golden light, slightly cooler in window light.
 
-✓ Make it look like the product was photographed IN that background by a professional commercial photographer, not pasted on
-✓ Use shallow depth of field (f/1.4–f/2.8): product tack-sharp, background with gentle natural bokeh
-✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
-✓ Ensure color harmony: unified color temperature across product and scene, no color cast clashes
-✓ Add subtle environmental interaction: gentle reflections on glossy surfaces, light wrap around product edges, micro-shadows at contact points
-✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
+Depth of field: Product tack-sharp, background with gentle natural bokeh (f/1.4–f/2.8). Color harmony: unified color temperature, no color cast clashes. Environmental interaction: subtle reflections on glossy surfaces, light wrap around edges, micro-shadows at contact points.
 
-WHAT YOU MUST NOT DO:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 4 — DO NOT:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${personInteraction
-  ? `✓ The user instruction requires the person to interact with the product. You MAY adapt their hands, arms, gaze, and facial expression to naturally hold, point at, or look at the product. Preserve the person's face, identity, clothing, hair, and overall body — only the specific interaction gesture may change.
-✗ Do NOT change the background model/person's appearance for any reason NOT required by the user's interaction instruction.`
-  : `✗ Do NOT change the background model/person's appearance`}
-✗ Do NOT modify the product's colors, design, or any text/labels on the product
-✗ Do NOT change the core elements of either image
-✗ Do NOT add any NEW text that does not already exist on the product — no headlines, taglines, CTAs, slogans, watermarks, captions, or any overlaid copy whatsoever
-✗ Do NOT add any typographic elements, titles, or editorial text to the image
+  ? `✓ You MAY adapt the person's hands, arms, gaze, or expression to naturally interact with the product — only the specific gesture needed. Preserve their face, identity, clothing, and body.
+✗ Do NOT change the person's appearance for any reason beyond what the placement requires.`
+  : `✗ Do NOT change the background model/person's appearance.`}
+✗ Do NOT modify the product's colors, design, or any text/labels on the product.
+✗ Do NOT add any text, headlines, taglines, watermarks, or typographic elements. This image is a visual foundation — copy is added later.
 
-NOTE ON ADDED TEXT: This composite is the visual foundation of an ad. Headlines, hooks, and CTAs will be added in a later production stage. Do NOT bake any overlay text into this image.
-
-⚠️ HIGHEST PRIORITY — PRODUCT FIDELITY (READ THIS LAST, REMEMBER IT FIRST):
-The product in Image 1 has text printed on its packaging — brand name, product name, ingredient lists, certifications, and other label text. This text is PART OF THE PHYSICAL PRODUCT. It is NOT overlay text. It is NOT a headline or caption.
-
-You MUST reproduce every word, letter, and character visible on the product packaging EXACTLY as shown in Image 1. Do not alter, rearrange, blur, simplify, omit, or re-render any text that is part of the product surface. The label must be pixel-faithful to the input.
-
-If you are unsure whether something is "product text" or "overlay text" — if it appears in Image 1 on the product surface, it is product text and MUST be preserved exactly.
-
-Return a cinematic, editorial-quality composite photograph — the kind you would see in a premium lifestyle magazine or a high-end brand campaign. Dramatic yet natural lighting, rich tonal depth, and flawless integration between product and scene.`
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+RULE 5 — PRODUCT LABEL FIDELITY (remember this first, read it last):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Every word, letter, logo, and mark on the product packaging in Image 1 is PART OF THE PHYSICAL PRODUCT — not overlay text. Reproduce it exactly. Do not alter, blur, simplify, or omit any label text. If it's on the product surface in Image 1, it must be identical in the output.`
 
     // Prepare content parts with both images
     // NOTE: Step 2 uses the cutout from Step 1 (not the raw product image).
@@ -935,41 +912,22 @@ Return a cinematic, editorial-quality composite photograph — the kind you woul
     const requestBody = {
       systemInstruction: {
         parts: [{
-          text: `You are an elite commercial product photographer and photo compositor — the kind hired by luxury brands for editorial campaigns in Vogue, Kinfolk, and Cereal Magazine.
+          text: `You are an elite commercial product photographer and photo compositor.
 
-YOUR JOB: Take a product and a background scene and composite them into a single, cinematic photograph — as if the product was physically placed and photographed in that scene by a world-class photographer with premium lighting equipment.
+NON-NEGOTIABLE SIZE RULE:
+Image 1 (the product cutout) is shown large for detail clarity ONLY. Do NOT use that size as your placement size. Scale it down significantly. Product height ≤ ${placementContext.maxHeightPct}% of frame. When in doubt, go smaller.
 
-COMPOSITION RULE — NON-NEGOTIABLE:
-⚠️ IMAGE 1 (THE PRODUCT CUTOUT) IS SHOWN LARGE FOR DETAIL CLARITY ONLY. This does NOT mean you should place it at that scale. You MUST scale it down significantly when compositing.
-Placement context: ${placementContext.label}. ${placementContext.cameraNote}
-The product must occupy NO MORE THAN ${placementContext.maxHeightPct}% of the frame height — this is a hard ceiling. The background scene must fill the majority of the frame. If you are tempted to make the product larger, make it smaller instead.
+YOUR JOB:
+Composite Image 1 (product) into Image 2 (background scene) so it looks like the product was physically present in the scene when the photo was taken. Placement context: ${placementContext.label}.
 
-YOUR PHOTOGRAPHIC EYE:
-- You think in terms of light direction, color temperature, and tonal range
-- You create images with rich depth: a sharp subject against a softly defocused environment
-- You understand how materials interact with light: how glass catches highlights, how matte surfaces absorb, how metallic elements reflect
-- Your composites have the warmth and intention of an editorial spread — never flat, never clinical
-- You use subtle color grading to unify the scene: coherent warm or cool tones that tie product and background together
+PRODUCT LABEL FIDELITY:
+Every label, word, letter, logo, and mark on the product packaging in Image 1 is part of the physical product — reproduce it exactly. Apply the scene's lighting to the product surface freely, but preserve all underlying design information.
 
-ABSOLUTE RULES:
-- The product is SACRED. Every label, every word, every letter, every logo, every color on the product packaging MUST appear in the final composite EXACTLY as it appears in the input image. This includes ingredient lists, brand names, product names, taglines printed on the packaging, barcodes, certification marks — every single visual element on the product surface.
-- NOTE: "Faithful" means the label TEXT, COLORS, and DESIGN are preserved — not that the label is immune to environmental lighting. In a real photograph, the same label looks different under warm afternoon light vs cool window light. Apply the scene's light to the product's surfaces freely; preserve only the underlying design information, not the studio-lit appearance of the input image.
-- You are NOT a graphic designer. You do NOT add any text, headlines, captions, watermarks, or typographic elements to the image. Your output is purely photographic — a product sitting in a scene, nothing more.
-- The background scene is also fixed. Do not alter people, hands, props, or environmental elements in the background.
+NO ADDED TEXT:
+You are a photographer, not a graphic designer. Add zero text, headlines, watermarks, or typographic elements. The output is purely photographic.
 
-Think of yourself as operating a camera with a 50mm f/1.4 lens from 1.5–2 metres away, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.
-
-LIGHTING INTEGRATION IS YOUR SECOND TASK (after composition). A composite fails not when the
-product looks wrong in isolation, but when it looks like it was photographed
-separately from its environment. The single strongest signal of a fake composite
-is mismatched lighting: the background has directional window light casting shadow
-bars, but the product sits in it with flat, even studio illumination. Before
-compositing anything, read the light: direction, color temperature, and shadow
-geometry. Every one of those qualities must be applied to the product — including
-environmental shadow patterns (leaves, window frames, architectural elements) that
-cross the background surface. Those shadows do not stop at the product's edge;
-they continue across it, following its form. Photographic realism lives entirely
-in this detail.`
+LIGHTING (your primary creative task):
+Before placing the product, read the background's light: direction, color temperature, and shadow geometry. Apply all three to the product. Environmental shadows (leaves, window bars, architectural lines) do not stop at the product's edge — they continue across its surface following its form. The product also casts its own ground shadow consistent with the scene's light source.`
         }]
       },
       contents: [{
