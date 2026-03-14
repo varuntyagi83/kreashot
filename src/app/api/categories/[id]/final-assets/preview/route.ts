@@ -40,6 +40,14 @@ const PREVIEW_DIMENSIONS: Record<string, { width: number; height: number }> = {
   '4:5':  { width: 540,  height: 675  },
 }
 
+// Full-resolution reference dimensions (what font_size values are authored against)
+const REFERENCE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  '1:1':  { width: 1080, height: 1080 },
+  '16:9': { width: 1920, height: 1080 },
+  '9:16': { width: 1080, height: 1920 },
+  '4:5':  { width: 1080, height: 1350 },
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -259,10 +267,24 @@ export async function POST(
       }
     }
 
+    // Scale font_size values from full-resolution to preview resolution.
+    // font_size is authored in pixels for the full canvas (e.g. 54px on 1080px tall).
+    // The preview canvas is half that size — font sizes must be halved or text
+    // appears twice as large relative to the canvas.
+    const refDims = REFERENCE_DIMENSIONS[format] ?? REFERENCE_DIMENSIONS['1:1']
+    const fontScale = height / refDims.height
+    const scaledLayers = (template.template_data.layers || []).map((layer: any) => {
+      if (layer.type === 'text' && typeof layer.font_size === 'number') {
+        return { ...layer, font_size: Math.max(1, Math.round(layer.font_size * fontScale)) }
+      }
+      return layer
+    })
+    const scaledTemplateData = { ...template.template_data, layers: scaledLayers }
+
     // Call Python compositor at half resolution
     const outputPath = `/tmp/preview_${crypto.randomUUID()}.png`
     const inputData = {
-      template_data: template.template_data,
+      template_data: scaledTemplateData,
       composite_url: compositeUrl,
       copy_text: copyText,
       logo_url: logoUrl,
