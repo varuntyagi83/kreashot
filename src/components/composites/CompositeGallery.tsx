@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { driveImgSrc } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -159,32 +160,11 @@ export function CompositeGallery({
               onClick={() => setPreviewIndex(index)}
             >
               <img
-                src={composite.storage_url}
+                src={driveImgSrc(composite.storage_url, composite.gdrive_file_id)}
                 alt={composite.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  const target = e.currentTarget
-                  const retry = parseInt(target.dataset.retry || '0')
-                  // Extract file ID from gdrive_file_id or from any known Drive URL format
-                  const fileId = composite.gdrive_file_id || (() => {
-                    const url = composite.storage_url || ''
-                    const lh3 = url.match(/lh3\.googleusercontent\.com\/d\/([^=?/]+)/)
-                    if (lh3) return lh3[1]
-                    const drive = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
-                    if (drive) return drive[1]
-                    return null
-                  })()
-                  // If primary URL was already lh3, skip straight to drive thumbnail
-                  const isLh3 = (composite.storage_url || '').includes('lh3.googleusercontent.com')
-                  if (retry === 0 && fileId && !isLh3) {
-                    target.dataset.retry = '1'
-                    target.src = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
-                  } else if (retry <= 1 && fileId) {
-                    target.dataset.retry = '2'
-                    target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`
-                  } else {
-                    target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
-                  }
+                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
                 }}
               />
 
@@ -272,7 +252,7 @@ export function CompositeGallery({
             <div className="relative">
               <div className="flex items-center justify-center bg-muted/30 p-4">
                 <img
-                  src={previewComposite.storage_url}
+                  src={driveImgSrc(previewComposite.storage_url, previewComposite.gdrive_file_id)}
                   alt={previewComposite.name}
                   className="max-h-[70vh] w-auto object-contain rounded-lg"
                 />

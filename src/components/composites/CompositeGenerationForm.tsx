@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { driveImgSrc } from '@/lib/utils'
 import { GeneratedComposite } from './CompositeWorkspace'
 
 interface Category {
@@ -319,35 +320,12 @@ export function CompositeGenerationForm({
                               </div>
                             )}
                           </label>
-                          {(shot.public_url || shot.storage_url) && (
-                            <img
-                              src={shot.public_url || shot.storage_url}
-                              alt={shot.display_name || shot.angle_name}
-                              className="w-10 h-10 rounded object-cover flex-shrink-0"
-                              onError={(e) => {
-                                const target = e.currentTarget
-                                const retry = parseInt(target.dataset.retry || '0')
-                                const fileId = shot.gdrive_file_id || (() => {
-                                  const url = shot.public_url || shot.storage_url || ''
-                                  const lh3 = url.match(/lh3\.googleusercontent\.com\/d\/([^=?/]+)/)
-                                  if (lh3) return lh3[1]
-                                  const drive = url.match(/drive\.google\.com\/file\/d\/([^/?]+)/)
-                                  if (drive) return drive[1]
-                                  return null
-                                })()
-                                const isLh3 = (shot.public_url || shot.storage_url || '').includes('lh3.googleusercontent.com')
-                                if (retry === 0 && fileId && !isLh3) {
-                                  target.dataset.retry = '1'
-                                  target.src = `https://lh3.googleusercontent.com/d/${fileId}=w200`
-                                } else if (retry <= 1 && fileId) {
-                                  target.dataset.retry = '2'
-                                  target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w200`
-                                } else {
-                                  target.style.display = 'none'
-                                }
-                              }}
-                            />
-                          )}
+                          <img
+                            src={driveImgSrc(shot.public_url || shot.storage_url, shot.gdrive_file_id)}
+                            alt={shot.display_name || shot.angle_name}
+                            className="w-10 h-10 rounded object-cover flex-shrink-0"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
                         </div>
                       ))
                     )}
