@@ -473,6 +473,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
             ...(t.fontUrl && { font_url: t.fontUrl }),
             color: t.color ?? '#000000',
             text_align: t.align ?? 'center',
+            vertical_align: 'top',
           })
           textMap[layerName] = t.text
         })

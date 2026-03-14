@@ -515,8 +515,15 @@ def composite_final_asset(
             else:  # left
                 text_x = x
 
-            # Vertically center the text block within the layer height
-            text_y = y + max(0, (lh - block_height) // 2)
+            # Vertical position:
+            # - freeform layers (vertical_align='top'): text starts at y, matching CSS `top: y%`
+            # - template layers (default): text is centered within the layer height,
+            #   matching CSS `alignItems: center` on a div with explicit height
+            vertical_align = layer.get('vertical_align', 'center')
+            if vertical_align == 'top':
+                text_y = y
+            else:
+                text_y = y + max(0, (lh - block_height) // 2)
             # Clamp so text doesn't overflow below canvas
             if text_y + block_height > canvas_height:
                 text_y = max(0, canvas_height - block_height - 4)
