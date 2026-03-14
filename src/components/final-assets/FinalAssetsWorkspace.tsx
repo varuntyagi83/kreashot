@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
-import { Loader2, Download, Sparkles, Plus, Trash2 } from 'lucide-react'
+import { Loader2, Download, Sparkles, Plus, Trash2, Eye } from 'lucide-react'
 import { toast } from 'sonner'
 import Image from 'next/image'
 import { getFormatDimensions } from '@/lib/formats'
@@ -164,6 +164,11 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const previewDivRef = useRef<HTMLDivElement>(null)
   const [previewDivWidth, setPreviewDivWidth] = useState(400)
 
+  // PIL-rendered preview state (replaces CSS preview when available)
+  const [pilPreviewData, setPilPreviewData] = useState<string | null>(null)
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false)
+  const isGeneratingPreviewRef = useRef(false)
+
   // Stable list of brand font URLs for @font-face injection (preview) — same order => same family name
   const freeformBrandFontUrls = useMemo(
     () => [...new Set(freeformTexts.filter(t => t.fontUrl?.startsWith('http')).map(t => t.fontUrl as string))],
@@ -175,6 +180,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   )
 
   const updateFreeformText = (id: string, updates: Partial<FreeformTextLayer>) => {
+    setPilPreviewData(null)
     setFreeformTexts(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
   }
   const removeFreeformText = (id: string) => {
@@ -511,6 +517,99 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     } finally {
       setGenerating(false)
       generatingRef.current = false
+    }
+  }
+
+  const handleRefreshPreview = async () => {
+    if (isGeneratingPreviewRef.current) return
+    isGeneratingPreviewRef.current = true
+
+    const selectedAngledShot = angledShots.find(s => s.id === selectedAngledShotId)
+    if (imageSource === 'composite' && !selectedCompositeId) {
+      toast.error('Please select a composite image first')
+      isGeneratingPreviewRef.current = false
+      return
+    }
+    if (imageSource === 'angled-shot' && !selectedAngledShot) {
+      toast.error('Please select an angled shot first')
+      isGeneratingPreviewRef.current = false
+      return
+    }
+
+    const logo = logos.find(l => l.id === selectedLogoId) || null
+    setIsGeneratingPreview(true)
+
+    try {
+      const requestBody: any = {
+        format,
+        ...(imageSource === 'composite'
+          ? { compositeId: selectedCompositeId }
+          : { baseImageUrl: selectedAngledShot!.public_url }),
+        ...(logo && { logoUrl: logo.storage_url }),
+      }
+
+      if (isFreeform) {
+        const layers: any[] = [
+          { id: 'bg', type: 'background', x: 0, y: 0, width: 100, height: 100, z_index: 0 },
+        ]
+        if (logo) {
+          const { width: cw, height: ch } = getFormatDimensions(format)
+          const margin = 3
+          let lx = margin, ly = margin
+          if (logoPosition === 'top-center')    { lx = (100 - logoSize) / 2; ly = margin }
+          if (logoPosition === 'top-right')     { lx = 100 - logoSize - margin; ly = margin }
+          if (logoPosition === 'bottom-left')   { lx = margin; ly = 100 - logoSize - margin }
+          if (logoPosition === 'bottom-center') { lx = (100 - logoSize) / 2; ly = 100 - logoSize - margin }
+          if (logoPosition === 'bottom-right')  { lx = 100 - logoSize - margin; ly = 100 - logoSize - margin }
+          if (logoXPx != null) lx = Math.max(0, Math.min(100, (Number(logoXPx) || 0) / cw * 100))
+          if (logoYPx != null) ly = Math.max(0, Math.min(100, (Number(logoYPx) || 0) / ch * 100))
+          const sz = Math.max(1, Math.min(100, Number(logoSize) || 12))
+          layers.push({ id: 'logo', type: 'logo', x: lx, y: ly, width: sz, height: sz, z_index: 3 })
+        }
+        const textMap: Record<string, string> = {}
+        freeformTexts.forEach((t, idx) => {
+          if (!t.text.trim()) return
+          const layerName = `text_${idx}`
+          const nx = Math.max(0, Math.min(100, Number(t.x) || 0))
+          const ny = Math.max(0, Math.min(100, Number(t.y) || 0))
+          const nw = Math.max(1, Math.min(100, Number(t.width) || 90))
+          const layerHeight = Math.max(1, Math.min(20, 100 - ny))
+          layers.push({
+            id: t.id, type: 'text', name: layerName,
+            x: nx, y: ny, width: nw, height: layerHeight, z_index: 2 + idx,
+            font_size: Math.max(8, Number(t.fontSize) || 24),
+            font_family: t.fontFamily ?? 'Arial',
+            ...(t.fontUrl && { font_url: t.fontUrl }),
+            color: t.color ?? '#000000',
+            text_align: t.align ?? 'center',
+            vertical_align: 'top',
+          })
+          textMap[layerName] = t.text
+        })
+        if (Object.keys(textMap).length > 0) requestBody.layerTexts = textMap
+        requestBody.customLayers = layers
+      } else {
+        if (selectedTemplateId) requestBody.templateId = selectedTemplateId
+        if (selectedCopyDocId) requestBody.copyDocId = selectedCopyDocId
+        if (Object.keys(layerTexts).length > 0) requestBody.layerTexts = layerTexts
+      }
+
+      const response = await fetch(`/api/categories/${categoryId}/final-assets/preview`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      })
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      if (!data.previewData) throw new Error('No preview data returned')
+      setPilPreviewData(data.previewData)
+      toast.success('Preview updated')
+    } catch (error: any) {
+      console.error('Error generating PIL preview:', error)
+      toast.error(error.message || 'Preview generation failed')
+    } finally {
+      setIsGeneratingPreview(false)
+      isGeneratingPreviewRef.current = false
     }
   }
 
@@ -1004,7 +1103,22 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 {/* Final Ad Preview */}
                 {previewImageUrl ? (
                   <div className="border rounded-lg p-3 space-y-2">
-                    <p className="text-xs font-medium">Final Ad Preview</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-medium">Final Ad Preview</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRefreshPreview}
+                        disabled={isGeneratingPreview || generating}
+                        className="h-7 text-xs gap-1 px-2"
+                      >
+                        {isGeneratingPreview
+                          ? <Loader2 className="h-3 w-3 animate-spin" />
+                          : <Eye className="h-3 w-3" />}
+                        {isGeneratingPreview ? 'Rendering...' : 'Refresh Preview'}
+                      </Button>
+                    </div>
                     {/* Inject @font-face via same-origin proxy so CORS never blocks (Supabase/GDrive often block @font-face from other origins) */}
                     {isFreeform && freeformBrandFontUrls.length > 0 && (
                       <style dangerouslySetInnerHTML={{
@@ -1085,7 +1199,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                               color: tl.color,
                               fontSize: `${scaledFontSize}px`,
                               fontFamily: cssFontFamily,
-                              lineHeight: 1.1,
+                              lineHeight: 1.3,
                               margin: 0,
                               textAlign: tl.align,
                             }}>
@@ -1274,9 +1388,28 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                           <span>Text Layer</span>
                         </div>
                       </div>
+
+                      {/* PIL Preview Overlay — covers CSS approximation when PIL image is available */}
+                      {(pilPreviewData || isGeneratingPreview) && (
+                        <div className="absolute inset-0 z-50">
+                          {pilPreviewData && !isGeneratingPreview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={pilPreviewData} alt="PIL-rendered preview" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                              <div className="bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 flex items-center gap-2">
+                                <Loader2 className="h-4 w-4 animate-spin text-white" />
+                                <span className="text-white text-sm">Rendering preview...</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Template zones and layers preview
+                      {pilPreviewData
+                        ? 'PIL-rendered — matches final output'
+                        : 'CSS approximation — click Refresh Preview'}
                     </p>
                   </div>
                 ) : (

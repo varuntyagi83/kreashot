@@ -530,6 +530,15 @@ def composite_final_asset(
 
             sys.stderr.write(f"    Rendering text at ({text_x}, {text_y}), block {block_width}x{block_height}, "
                              f"font_size={font_size}, lines={len(lines)}\n")
+            # Diagnostic output for preview/final-asset parity debugging
+            sys.stderr.write(f"  [DIAG] Text layer '{layer_name}':\n")
+            sys.stderr.write(f"    canvas: {canvas_width}x{canvas_height}\n")
+            sys.stderr.write(f"    font_file: {getattr(font, 'path', 'default/unknown')}\n")
+            sys.stderr.write(f"    font_size: {font_size}px\n")
+            sys.stderr.write(f"    layer_box: x={x} y={y} w={lw} h={lh} (pixels)\n")
+            sys.stderr.write(f"    text_xy: ({text_x}, {text_y})\n")
+            sys.stderr.write(f"    lines: {lines}\n")
+            sys.stderr.write(f"    block: {block_width}x{block_height}px\n")
 
             # Draw background rectangle if specified
             bg_color = layer.get('background_color')
