@@ -800,6 +800,27 @@ The following areas are restricted - do NOT place the product in these zones:\n`
       safeZoneInstructions += '\nThese zones are defined by brand guidelines and MUST be respected for compliance.\n'
     }
 
+    // Detect placement context from user instruction to derive appropriate product scale
+    const rawPromptLower = (userPrompt || '').toLowerCase()
+    type PlacementContext = { label: string; maxHeightPct: number; minSceneAbovePct: number; cameraNote: string }
+    const placementContext: PlacementContext = (() => {
+      if (/\b(hand|palm|holding|hold|finger|grasp|grip|arm)\b/.test(rawPromptLower)) {
+        return { label: 'hand-held', maxHeightPct: 25, minSceneAbovePct: 35,
+          cameraNote: 'The product is held in a person\'s hand — scale it to realistically fit a human hand. A typical supplement bottle held in a hand occupies roughly 15–25% of the frame height when the full person is visible.' }
+      }
+      if (/\b(floor|ground|mat|rug|carpet|grass|grass)\b/.test(rawPromptLower)) {
+        return { label: 'floor-placed', maxHeightPct: 30, minSceneAbovePct: 40,
+          cameraNote: 'Product placed on the floor — photographed from standing height, product appears small in the frame.' }
+      }
+      if (/\b(table|shelf|counter|surface|desk|tray|basket|bowl|windowsill|sill|bench)\b/.test(rawPromptLower)) {
+        return { label: 'surface-placed', maxHeightPct: 40, minSceneAbovePct: 25,
+          cameraNote: 'Product on a surface — camera at 1.5–2 metres, table-top lifestyle shot, product is a clear subject but not dominating.' }
+      }
+      // Default: surface/scene placement
+      return { label: 'scene-placed', maxHeightPct: 40, minSceneAbovePct: 25,
+        cameraNote: 'Camera at 1.5–2 metres — normal table-top lifestyle shot, NOT a close-up or macro.' }
+    })()
+
     // Build the composite generation prompt
     const safeUserPrompt = sanitizeForPrompt(userPrompt || '')
     const prompt = `Compose these two images into a single professional product photograph:
@@ -813,10 +834,10 @@ COMPOSITING INSTRUCTIONS:
 
 WHAT YOU SHOULD DO:
 ✓ STEP 1 — COMPOSITION FIRST (do this before anything else):
-  Wide establishing shot. Product height = maximum ${Math.round(canvasHeight * 0.40)}px on a ${canvasHeight}px canvas.
-  At least ${Math.round(canvasHeight * 0.30)}px of empty background ABOVE the product's top edge.
-  Surface below the product clearly visible. Product fully contained — no cropping.
-  Background fills 60%+ of the frame. Small product in a big scene. Do NOT zoom in.
+  Placement: ${placementContext.label}. ${placementContext.cameraNote}
+  Product height = maximum ${Math.round(canvasHeight * placementContext.maxHeightPct / 100)}px on a ${canvasHeight}px canvas (${placementContext.maxHeightPct}% ceiling).
+  At least ${Math.round(canvasHeight * placementContext.minSceneAbovePct / 100)}px of background scene visible ABOVE the product.
+  Product fully contained — no cropping of lid, cap, or base. Background fills 60%+ of frame.
 
 ✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE' : 'Place the product naturally in the background scene'}
 ✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
@@ -912,7 +933,8 @@ Return a cinematic, editorial-quality composite photograph — the kind you woul
 YOUR JOB: Take a product and a background scene and composite them into a single, cinematic photograph — as if the product was physically placed and photographed in that scene by a world-class photographer with premium lighting equipment.
 
 COMPOSITION RULE — NON-NEGOTIABLE:
-This is a WIDE ESTABLISHING SHOT, not a close-up. The product is a small-to-medium sized object placed in a large scene. Think of a bottle sitting on a kitchen counter photographed from across the room — the bottle is clearly visible but the room fills most of the frame. The product must occupy NO MORE THAN 40% of the frame height. The background scene — walls, surfaces, lighting, props — must fill the majority of the frame. If you are tempted to make the product larger, make it smaller instead.
+Placement context: ${placementContext.label}. ${placementContext.cameraNote}
+The product must occupy NO MORE THAN ${placementContext.maxHeightPct}% of the frame height — this is a hard ceiling. The background scene must fill the majority of the frame. If you are tempted to make the product larger, make it smaller instead.
 
 YOUR PHOTOGRAPHIC EYE:
 - You think in terms of light direction, color temperature, and tonal range
