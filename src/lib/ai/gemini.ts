@@ -812,11 +812,17 @@ ${safeUserPrompt ? `USER INSTRUCTION: ${safeUserPrompt}\n\n` : ''}${lookAndFeel 
 COMPOSITING INSTRUCTIONS:
 
 WHAT YOU SHOULD DO:
-✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE - This is the most important requirement!' : 'Place the product NATURALLY in the background scene'}
+✓ STEP 1 — COMPOSITION FIRST (do this before anything else):
+  Wide establishing shot. Product height = maximum ${Math.round(canvasHeight * 0.40)}px on a ${canvasHeight}px canvas.
+  At least ${Math.round(canvasHeight * 0.30)}px of empty background ABOVE the product's top edge.
+  Surface below the product clearly visible. Product fully contained — no cropping.
+  Background fills 60%+ of the frame. Small product in a big scene. Do NOT zoom in.
+
+✓ ${safeZones && safeZones.length > 0 ? 'POSITION THE PRODUCT WITHIN THE SPECIFIED SAFE ZONE' : 'Place the product naturally in the background scene'}
 ✓ ${safeUserPrompt ? `Follow user instruction: ${safeUserPrompt}` : 'Position the product naturally in the scene'}
 ✓ Match the product's lighting direction, color temperature, and intensity to the background's lighting
 
-✓ SCENE SHADOW CONTINUATION (most critical lighting task): Identify the dominant
+✓ SCENE SHADOW CONTINUATION (critical lighting task): Identify the dominant
   light source in the background (window, sun angle, direction). The SAME shadows
   and light patterns that fall across the background surface MUST also fall across
   the product — the product is physically present in this scene, so all
@@ -849,14 +855,6 @@ WHAT YOU SHOULD DO:
 ✓ Apply directional key lighting that creates dimension — soft shadows on one side, subtle fill on the other
 ✓ Ensure color harmony: unified color temperature across product and scene, no color cast clashes
 ✓ Add subtle environmental interaction: gentle reflections on glossy surfaces, light wrap around product edges, micro-shadows at contact points
-✓ PRODUCT SCALE — CRITICAL SIZING RULE (read carefully, follow exactly):
-  - Canvas size: ${canvasWidth}x${canvasHeight} pixels.
-  - The product (bottle/package/container) must be NO TALLER THAN ${Math.round(canvasHeight * 0.40)} pixels — that is 40% of the canvas height. This is a hard ceiling.
-  - The product must be FULLY CONTAINED — every part of it (lid, cap, base) must be visible. No cropping anywhere.
-  - At least ${Math.round(canvasHeight * 0.30)} pixels of background scene must be visible ABOVE the top of the product.
-  - The surface/table/shelf the product rests on must be clearly visible BELOW the product base.
-  - CAMERA DISTANCE: Frame this as if the camera is 1.5–2 metres away from the product — a normal viewing distance for a table-top lifestyle shot. NOT a close-up. NOT a macro. The product should look small-to-medium in the frame, like it would in a real interior scene photograph.
-  - The background environment (wall, window, plants, shadows, surface) must fill at least 60% of the frame area. ${safeZones ? '(Keep within the safe zone while observing this scale guideline.)' : ''}
 ✓ The final image must look like a high-end editorial product photograph — cinematic, aspirational, magazine-quality
 
 WHAT YOU MUST NOT DO:
@@ -913,6 +911,9 @@ Return a cinematic, editorial-quality composite photograph — the kind you woul
 
 YOUR JOB: Take a product and a background scene and composite them into a single, cinematic photograph — as if the product was physically placed and photographed in that scene by a world-class photographer with premium lighting equipment.
 
+COMPOSITION RULE — NON-NEGOTIABLE:
+This is a WIDE ESTABLISHING SHOT, not a close-up. The product is a small-to-medium sized object placed in a large scene. Think of a bottle sitting on a kitchen counter photographed from across the room — the bottle is clearly visible but the room fills most of the frame. The product must occupy NO MORE THAN 40% of the frame height. The background scene — walls, surfaces, lighting, props — must fill the majority of the frame. If you are tempted to make the product larger, make it smaller instead.
+
 YOUR PHOTOGRAPHIC EYE:
 - You think in terms of light direction, color temperature, and tonal range
 - You create images with rich depth: a sharp subject against a softly defocused environment
@@ -926,9 +927,9 @@ ABSOLUTE RULES:
 - You are NOT a graphic designer. You do NOT add any text, headlines, captions, watermarks, or typographic elements to the image. Your output is purely photographic — a product sitting in a scene, nothing more.
 - The background scene is also fixed. Do not alter people, hands, props, or environmental elements in the background.
 
-Think of yourself as operating a camera with a 50mm f/1.4 lens, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.
+Think of yourself as operating a camera with a 50mm f/1.4 lens from 1.5–2 metres away, not Photoshop. You photograph what exists — you do not create or destroy visual information on the product.
 
-LIGHTING INTEGRATION IS YOUR PRIMARY TASK. A composite fails not when the
+LIGHTING INTEGRATION IS YOUR SECOND TASK (after composition). A composite fails not when the
 product looks wrong in isolation, but when it looks like it was photographed
 separately from its environment. The single strongest signal of a fake composite
 is mismatched lighting: the background has directional window light casting shadow
