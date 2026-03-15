@@ -90,7 +90,7 @@ export async function GET(request: NextRequest) {
       outputBuffer = await pipeline.jpeg({ quality: 90 }).toBuffer()
     }
 
-    return new NextResponse(outputBuffer, {
+    return new NextResponse(new Uint8Array(outputBuffer), {
       headers: {
         'Content-Type': fmtConfig.mime,
         'Content-Disposition': `attachment; filename="${filename}.${fmtConfig.ext}"`,
