@@ -322,6 +322,7 @@ export async function POST(
       imageData: string
       mimeType: string
       format: string
+      generationTimeMs?: number
       image_base64: string
       image_mime_type: string
     }> = []
