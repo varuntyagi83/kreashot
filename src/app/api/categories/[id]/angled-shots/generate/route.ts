@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
-import { downloadFile, uploadFile } from '@/lib/storage'
+import { deleteFile, downloadFile, uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
@@ -90,6 +90,7 @@ export async function POST(
       .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', productImageId)
       .eq('product_id', productId)
+      .eq('user_id', user.id)
       .single()
 
     if (!productImage) {
@@ -227,6 +228,13 @@ export async function POST(
 
           if (dbError) {
             console.error(`DB insert failed for ${shot.angleName}:`, dbError)
+            try {
+              const fileIdOrPath = storageFile.fileId || storageFile.path
+              console.log(`Cleaning up orphaned GDrive file: ${fileIdOrPath}`)
+              await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+            } catch (cleanupError) {
+              console.error('Failed to clean up orphaned GDrive file:', cleanupError)
+            }
             return null
           }
 

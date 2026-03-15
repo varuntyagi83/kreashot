@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 function verifyAuth(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
-  const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+  const expectedToken = process.env.CRON_SECRET
   if (!expectedToken) return false
   return authHeader === `Bearer ${expectedToken}`
 }
@@ -156,6 +156,7 @@ export async function GET(request: NextRequest) {
     const { data: queuedFiles, error } = await supabase
       .from('deletion_queue')
       .select('id, resource_type, storage_path, created_at')
+      .eq('status', 'pending')
       .order('created_at', { ascending: false })
       .limit(200)
 
