@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 function verifyAuth(request: NextRequest): boolean {
   const authHeader = request.headers.get('authorization')
-  const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+  const expectedToken = process.env.CRON_SECRET
   if (!expectedToken) return false
   return authHeader === `Bearer ${expectedToken}`
 }
@@ -43,10 +43,11 @@ export async function POST(request: NextRequest) {
 
     const drive = google.drive({ version: 'v3', auth })
 
-    // Get all queued deletions
+    // Get all queued deletions (pending only, to avoid re-processing completed/failed entries)
     const { data: queuedFiles, error: fetchError } = await supabase
       .from('deletion_queue')
       .select('*')
+      .eq('status', 'pending')
       .eq('storage_provider', 'gdrive')
       .not('gdrive_file_id', 'is', null)
       .order('created_at', { ascending: true })
@@ -155,7 +156,9 @@ export async function GET(request: NextRequest) {
     const { data: queuedFiles, error } = await supabase
       .from('deletion_queue')
       .select('id, resource_type, storage_path, created_at')
+      .eq('status', 'pending')
       .order('created_at', { ascending: false })
+      .limit(200)
 
     if (error) {
       console.error('[process-deletions GET] error:', error)

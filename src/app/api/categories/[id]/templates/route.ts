@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
+import { FORMATS } from '@/lib/formats'
 
 export async function GET(
   request: NextRequest,
@@ -77,9 +78,8 @@ export async function POST(
       template_data,
     } = body
 
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (!format || !VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    if (!format || !Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     if (name && name.length > 100) {

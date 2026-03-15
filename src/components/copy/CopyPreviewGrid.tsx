@@ -2,12 +2,10 @@
 
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { Card } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Save, X, FileText } from 'lucide-react'
+import { Save, X, Sparkles, Copy, CheckCheck } from 'lucide-react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,26 +27,17 @@ interface CopyPreviewGridProps {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const TYPE_COLORS: Record<string, string> = {
-  hook:     'bg-blue-500',
-  headline: 'bg-purple-500',
-  tagline:  'bg-green-500',
-  cta:      'bg-orange-500',
-  body:     'bg-pink-500',
-}
-
-const TONE_COLORS: Record<string, string> = {
-  professional: 'bg-blue-100 text-blue-800',
-  casual:       'bg-green-100 text-green-800',
-  playful:      'bg-yellow-100 text-yellow-800',
-  urgent:       'bg-red-100 text-red-800',
-  empathetic:   'bg-purple-100 text-purple-800',
+  hook:     'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+  headline: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400',
+  tagline:  'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+  cta:      'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400',
+  body:     'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-400',
 }
 
 const TYPE_LABELS: Record<string, string> = {
   hook: 'Hook', headline: 'Headline', tagline: 'Tagline', cta: 'CTA', body: 'Body',
 }
 
-// Group copies by type for kit mode
 function groupByType(copies: GeneratedCopy[]): Record<string, GeneratedCopy[]> {
   const groups: Record<string, GeneratedCopy[]> = {}
   for (const copy of copies) {
@@ -71,11 +60,11 @@ export function CopyPreviewGrid({
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [savedKeys, setSavedKeys] = useState<Set<string>>(new Set())
   const [customNames, setCustomNames] = useState<Record<string, string>>({})
+  const [copiedKey, setCopiedKey] = useState<string | null>(null)
 
   const isKitMode = copyType === 'kit'
   const groups = isKitMode ? groupByType(generatedCopies) : null
 
-  // Unique key per card (type+tone combo or index)
   const cardKey = (copy: GeneratedCopy, idx: number) =>
     copy.copy_type && copy.tone ? `${copy.copy_type}-${copy.tone}` : String(idx)
 
@@ -108,7 +97,6 @@ export function CopyPreviewGrid({
       toast.success('Saved!')
       setSavedKeys((prev) => new Set([...prev, key]))
 
-      // If all saved, clear the preview
       if (savedKeys.size + 1 === generatedCopies.length) {
         onSaveComplete()
       }
@@ -119,6 +107,12 @@ export function CopyPreviewGrid({
     }
   }
 
+  const handleCopy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(key)
+    setTimeout(() => setCopiedKey(null), 2000)
+  }
+
   const CopyCard = ({ copy, idx }: { copy: GeneratedCopy; idx: number }) => {
     const key = cardKey(copy, idx)
     const isSaved = savedKeys.has(key)
@@ -126,43 +120,57 @@ export function CopyPreviewGrid({
     const typeLabel = TYPE_LABELS[copy.copy_type || ''] || copy.copy_type || 'Copy'
 
     return (
-      <Card className={`p-4 space-y-3 transition-opacity ${isSaved ? 'opacity-50' : ''}`}>
-        {/* Badges */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {copy.copy_type && (
-            <Badge className={`${TYPE_COLORS[copy.copy_type] || 'bg-gray-500'} text-white text-xs`}>
-              {typeLabel}
-            </Badge>
-          )}
-          {copy.tone && (
-            <Badge variant="outline" className={`text-xs ${TONE_COLORS[copy.tone] || ''}`}>
-              {copy.tone}
-            </Badge>
-          )}
-          {isSaved && (
-            <Badge variant="secondary" className="text-xs ml-auto">Saved ✓</Badge>
-          )}
+      <div className={`group bg-card rounded-xl shadow-sm border border p-4 space-y-3 transition-opacity ${isSaved ? 'opacity-60' : ''}`}>
+        {/* Top row */}
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {copy.copy_type && (
+              <Badge className={`text-[10px] font-medium border-0 px-2 py-0.5 ${TYPE_COLORS[copy.copy_type] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
+                {typeLabel}
+              </Badge>
+            )}
+            {copy.tone && (
+              <Badge variant="outline" className="text-[10px] border text-muted-foreground px-2 py-0.5">
+                {copy.tone}
+              </Badge>
+            )}
+            {isSaved && (
+              <Badge className="text-[10px] bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-0 px-2 py-0.5">
+                Saved ✓
+              </Badge>
+            )}
+          </div>
+          <button
+            onClick={() => handleCopy(key, copy.generated_text)}
+            className="p-1.5 rounded-lg hover:bg-muted/50 text-muted-foreground hover:text-primary transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+          >
+            {copiedKey === key
+              ? <CheckCheck className="h-3.5 w-3.5 text-green-500" />
+              : <Copy className="h-3.5 w-3.5" />
+            }
+          </button>
         </div>
 
         {/* Text */}
-        <div className="bg-muted/50 rounded-md p-3">
-          <p className="text-sm whitespace-pre-wrap">{copy.generated_text}</p>
-        </div>
-        <p className="text-xs text-muted-foreground">{copy.generated_text.length} characters</p>
+        <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
+          {copy.generated_text}
+        </p>
+
+        <p className="text-[10px] text-muted-foreground/60">{copy.generated_text.length} characters</p>
 
         {/* Save row */}
         {!isSaved && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 pt-1 border-t border">
             <Input
               placeholder={`Name this ${typeLabel.toLowerCase()}...`}
               value={customNames[key] || ''}
               onChange={(e) => setCustomNames((prev) => ({ ...prev, [key]: e.target.value }))}
               disabled={isSaving}
-              className="h-8 text-sm"
+              className="h-7 text-xs border-input focus:border-primary rounded-lg"
             />
             <Button
               size="sm"
-              className="h-8 shrink-0"
+              className="h-7 px-3 shrink-0 bg-primary hover:bg-primary/90 text-white text-xs rounded-lg"
               onClick={() => handleSave(key, copy)}
               disabled={isSaving || !customNames[key]?.trim()}
             >
@@ -171,35 +179,40 @@ export function CopyPreviewGrid({
             </Button>
           </div>
         )}
-      </Card>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">
-            {isKitMode ? `Copy Kit — ${generatedCopies.length} combinations` : `Generated ${TYPE_LABELS[copyType] || copyType}`}
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold text-foreground">
+            {isKitMode
+              ? `Generated — ${generatedCopies.length} combinations`
+              : `Generated ${TYPE_LABELS[copyType] || copyType}`}
           </h2>
         </div>
-        <Button variant="ghost" size="sm" onClick={onSaveComplete}>
-          <X className="h-4 w-4 mr-1" /> Clear All
-        </Button>
+        <button
+          onClick={onSaveComplete}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <X className="h-3.5 w-3.5" /> Clear
+        </button>
       </div>
 
       {/* Kit mode: group by type */}
       {isKitMode && groups ? (
-        <div className="space-y-8">
+        <div className="space-y-6">
           {Object.entries(groups).map(([type, copies]) => (
             <div key={type} className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge className={`${TYPE_COLORS[type] || 'bg-gray-500'} text-white`}>
+                <Badge className={`text-xs border-0 ${TYPE_COLORS[type] || 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'}`}>
                   {TYPE_LABELS[type] || type}
                 </Badge>
-                <span className="text-sm text-muted-foreground">{copies.length} tone{copies.length > 1 ? 's' : ''}</span>
+                <span className="text-xs text-muted-foreground">{copies.length} tone{copies.length > 1 ? 's' : ''}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {copies.map((copy, idx) => (
@@ -214,8 +227,7 @@ export function CopyPreviewGrid({
           ))}
         </div>
       ) : (
-        // Single mode: flat list
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           {generatedCopies.map((copy, idx) => (
             <CopyCard key={idx} copy={copy} idx={idx} />
           ))}

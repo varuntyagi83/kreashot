@@ -47,13 +47,7 @@ const nextConfig: NextConfig = {
     ]
   },
   async redirects() {
-    return [
-      {
-        source: '/',
-        destination: '/categories',
-        permanent: false,
-      },
-    ]
+    return []
   },
   images: {
     remotePatterns: [

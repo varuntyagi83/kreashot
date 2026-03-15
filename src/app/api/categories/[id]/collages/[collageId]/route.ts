@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { FORMATS } from '@/lib/formats'
 
 // GET - Fetch a single collage
 export async function GET(
@@ -84,9 +85,8 @@ export async function PUT(
       updateData.collage_data = body.collage_data
     }
     if (body.format !== undefined) {
-      const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-      if (!VALID_FORMATS.includes(body.format)) {
-        return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+      if (!Object.keys(FORMATS).includes(body.format)) {
+        return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
       }
       const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
         '1:1':  { width: 1080, height: 1080 },

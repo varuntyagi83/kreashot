@@ -150,11 +150,6 @@ export async function POST(
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
 
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        continue
-      }
-
       const MAX_IMAGE_SIZE = 20 * 1024 * 1024 // 20MB
       if (file.size > MAX_IMAGE_SIZE) {
         return NextResponse.json({ error: 'Image too large (max 20MB)' }, { status: 400 })
@@ -163,12 +158,17 @@ export async function POST(
       // Convert file to buffer
       const buffer = Buffer.from(await file.arrayBuffer())
 
+      // Magic-byte detection is authoritative — never fall back to browser-supplied file.type,
+      // which an attacker can spoof. Reject immediately if detection fails or yields a non-image type.
       const detectedMime = detectImageMime(buffer)
-      if (detectedMime && !['image/jpeg','image/png','image/webp','image/gif'].includes(detectedMime)) {
-        return NextResponse.json({ error: 'Invalid image file content' }, { status: 400 })
+      if (!detectedMime) {
+        return NextResponse.json({ error: 'Invalid image file: could not detect format' }, { status: 400 })
       }
-      if (!detectedMime && !file.type.startsWith('image/')) {
-        return NextResponse.json({ error: 'Invalid image file' }, { status: 400 })
+      if (!detectedMime.startsWith('image/')) {
+        return NextResponse.json({ error: 'Invalid image file: unsupported format' }, { status: 400 })
+      }
+      if (!['image/jpeg','image/png','image/webp','image/gif'].includes(detectedMime)) {
+        return NextResponse.json({ error: 'Invalid image file content' }, { status: 400 })
       }
 
       // Detect actual image dimensions and determine the correct format
@@ -200,9 +200,13 @@ export async function POST(
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
 
+      // Use exclusively the magic-byte detected MIME type. At this point detectedMime is
+      // guaranteed non-null because the checks above would have returned a 400 otherwise.
+      const resolvedMime = detectedMime
+
       // Upload to Google Drive
       const storageFile = await uploadFile(buffer, storagePath, {
-        contentType: file.type,
+        contentType: resolvedMime,
         provider: 'gdrive',
       })
 
@@ -216,7 +220,7 @@ export async function POST(
           file_name: file.name,
           file_path: storagePath,
           file_size: file.size,
-          mime_type: file.type,
+          mime_type: resolvedMime,
           is_primary: isFirstImage && i === 0, // First image of first upload is primary
           storage_provider: 'gdrive',
           storage_path: storagePath,

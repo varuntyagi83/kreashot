@@ -1,9 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, FolderOpen } from 'lucide-react'
 import { CategoryCard } from '@/components/categories/CategoryCard'
 import { CreateCategoryDialog } from '@/components/categories/CreateCategoryDialog'
 import { toast } from 'sonner'
@@ -25,7 +23,6 @@ export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const supabase = createClient()
 
   const fetchCategories = async () => {
     try {
@@ -61,48 +58,58 @@ export default function CategoriesPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto p-6">
-        <div className="animate-pulse">
-          <div className="h-8 w-48 bg-muted rounded mb-2" />
-          <div className="h-4 w-96 bg-muted rounded mb-6" />
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-48 bg-muted rounded" />
-            ))}
+      <div className="p-6 max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="h-7 w-44 bg-muted rounded-lg animate-pulse mb-2" />
+            <div className="h-4 w-72 bg-muted rounded animate-pulse" />
           </div>
+          <div className="h-9 w-36 bg-muted rounded-lg animate-pulse" />
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="h-48 bg-muted rounded-xl animate-pulse" />
+          ))}
         </div>
       </div>
     )
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-          <p className="text-muted-foreground mt-1">
-            Organize your ad campaigns by product category
+          <h1 className="text-2xl font-semibold">All Categories</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage your ad campaigns by category
           </p>
         </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
+        <button
+          onClick={() => setCreateDialogOpen(true)}
+          className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+        >
+          <Plus className="h-4 w-4" />
           New Category
-        </Button>
+        </button>
       </div>
 
       {categories.length === 0 ? (
-        <div className="text-center py-12 border border-dashed rounded-lg">
-          <h3 className="text-lg font-medium mb-2">No categories yet</h3>
-          <p className="text-muted-foreground mb-4">
-            Get started by creating your first category
+        <div className="flex flex-col items-center justify-center border-2 border-dashed border-muted-foreground/20 rounded-xl p-12 text-center">
+          <FolderOpen className="h-12 w-12 text-muted-foreground/40 mb-4" />
+          <h3 className="text-lg font-semibold mb-1">No categories yet</h3>
+          <p className="text-sm text-muted-foreground mb-6">
+            Get started by creating your first category to organize your ad campaigns
           </p>
-          <Button onClick={() => setCreateDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
+          <button
+            onClick={() => setCreateDialogOpen(true)}
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4" />
             Create Category
-          </Button>
+          </button>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {categories.map((category) => (
             <CategoryCard
               key={category.id}

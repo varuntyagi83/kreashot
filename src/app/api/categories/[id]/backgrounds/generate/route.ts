@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateBackgrounds } from '@/lib/ai/gemini'
+import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/replicate'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
 import { parseReferenceTokens } from '@/lib/references'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
 /**
  * POST /api/categories/[id]/backgrounds/generate
@@ -75,10 +77,9 @@ export async function POST(
       colorWorld,         // NEW: Selected color world (e.g. "World of Green palette")
     } = body
 
-    // Validate format whitelist
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (format && !VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    // Validate format
+    if (format && !Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
@@ -130,10 +131,14 @@ export async function POST(
     }
 
     // Parse @[name](type:id) reference tokens from both prompt and lookAndFeel
-    const { cleanText: cleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
-    const { cleanText: cleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
+    const { cleanText: rawCleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
+    const { cleanText: rawCleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
       (lookAndFeel && lookAndFeel.trim()) || ''
     )
+
+    // Sanitize user-supplied text against prompt injection before sending to AI
+    const cleanPrompt = sanitizeForPrompt(rawCleanPrompt)
+    const cleanLookAndFeel = sanitizeForPrompt(rawCleanLookAndFeel)
 
     // Collect unique guideline IDs from both fields
     const allRefs = [...promptRefs, ...lafRefs]
@@ -335,16 +340,27 @@ export async function POST(
       }
 
       try {
-        const generatedBackgrounds = await generateBackgrounds(
-          cleanPrompt,
-          resolvedLookAndFeel,
-          count,
-          styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
-          fmt,
-          '4K',
-          finalGuidelines,
-          resolvedColorDescription || undefined
-        )
+        // Route to Replicate (FLUX) for formats Gemini doesn't support natively
+        const fmtStartMs = Date.now()
+        const generatedBackgrounds = REPLICATE_FORMATS.has(fmt)
+          ? await generateBackgroundsWithReplicate(
+              cleanPrompt,
+              resolvedLookAndFeel,
+              count,
+              fmt,
+              finalGuidelines
+            )
+          : await generateBackgrounds(
+              cleanPrompt,
+              resolvedLookAndFeel,
+              count,
+              styleReferenceImages.length > 0 ? styleReferenceImages : undefined,
+              fmt,
+              '4K',
+              finalGuidelines,
+              resolvedColorDescription || undefined
+            )
+        const perBgMs = Math.round((Date.now() - fmtStartMs) / (generatedBackgrounds.length || 1))
 
         for (const bg of generatedBackgrounds) {
           allMappedBackgrounds.push({
@@ -352,6 +368,7 @@ export async function POST(
             imageData: bg.imageData,
             mimeType: bg.mimeType,
             format: fmt,
+            generationTimeMs: perBgMs,
             // Legacy field names for backwards compatibility
             image_base64: bg.imageData,
             image_mime_type: bg.mimeType,

@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     const ALLOWED_TYPES = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
       'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
       'application/x-font-ttf', 'application/x-font-opentype',
       'application/font-woff', 'application/font-woff2',
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
     const isFontByExt = fontExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
     if (!ALLOWED_TYPES.includes(file.type) && !isFontByExt) {
       return NextResponse.json(
-        { error: `Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, SVG, PDF, TTF, OTF, WOFF, WOFF2` },
+        { error: `Invalid file type: ${file.type}. Allowed: JPEG, PNG, WebP, PDF, TTF, OTF, WOFF, WOFF2` },
         { status: 400 }
       )
     }
@@ -140,9 +140,24 @@ export async function POST(request: NextRequest) {
     // Validate file content via magic bytes
     const detectedMime = detectMimeFromBytes(buffer)
     const ALLOWED_MIME_BYTES = [
-      'image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'application/pdf',
+      'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
       'font/woff', 'font/woff2', 'font/otf', 'font/ttf',
     ]
+
+    // Reject SVG uploads explicitly — SVG can contain <script> tags and execute
+    // JavaScript when served with Content-Type: image/svg+xml. No sanitiser is
+    // present, so rejection is the correct defence (L-NEW-02).
+    if (
+      detectedMime === 'image/svg+xml' ||
+      file.type === 'image/svg+xml' ||
+      file.name.toLowerCase().endsWith('.svg')
+    ) {
+      return NextResponse.json(
+        { error: 'SVG files are not allowed. Please upload PNG, JPEG, or WebP.' },
+        { status: 400 }
+      )
+    }
+
     if (!detectedMime || !ALLOWED_MIME_BYTES.includes(detectedMime)) {
       return NextResponse.json({ error: 'File content does not match an allowed type' }, { status: 400 })
     }

@@ -6,7 +6,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient()
     const searchParams = request.nextUrl.searchParams
-    const query = (searchParams.get('q') || '').slice(0, 200)
+    const rawQuery = (searchParams.get('q') || '').slice(0, 200)
+    // Escape Postgres LIKE metacharacters so % and _ in user input are treated as literals
+    const query = rawQuery.replace(/[%_\\]/g, '\\$&')
 
     // Check authentication
     const {

@@ -33,28 +33,35 @@ export async function GET() {
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    // Get counts for each category
-    const categoriesWithCounts = await Promise.all(
-      (categories || []).map(async (category) => {
-        const { count: productsCount } = await supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('category_id', category.id)
+    // Get counts for each category — two batched queries instead of 2N
+    const categoryIds = (categories || []).map((c) => c.id)
 
-        const { count: angledShotsCount } = await supabase
-          .from('angled_shots')
-          .select('*', { count: 'exact', head: true })
-          .eq('category_id', category.id)
+    const [{ data: productRows }, { data: angledShotRows }] = await Promise.all([
+      categoryIds.length > 0
+        ? supabase.from('products').select('category_id').in('category_id', categoryIds)
+        : Promise.resolve({ data: [] }),
+      categoryIds.length > 0
+        ? supabase.from('angled_shots').select('category_id').in('category_id', categoryIds)
+        : Promise.resolve({ data: [] }),
+    ])
 
-        return {
-          ...category,
-          counts: {
-            products: productsCount || 0,
-            angled_shots: angledShotsCount || 0,
-          },
-        }
-      })
-    )
+    const productCountMap: Record<string, number> = {}
+    for (const row of productRows || []) {
+      productCountMap[row.category_id] = (productCountMap[row.category_id] || 0) + 1
+    }
+
+    const angledShotCountMap: Record<string, number> = {}
+    for (const row of angledShotRows || []) {
+      angledShotCountMap[row.category_id] = (angledShotCountMap[row.category_id] || 0) + 1
+    }
+
+    const categoriesWithCounts = (categories || []).map((category) => ({
+      ...category,
+      counts: {
+        products: productCountMap[category.id] || 0,
+        angled_shots: angledShotCountMap[category.id] || 0,
+      },
+    }))
 
     return NextResponse.json({ categories: categoriesWithCounts })
   } catch (error: any) {

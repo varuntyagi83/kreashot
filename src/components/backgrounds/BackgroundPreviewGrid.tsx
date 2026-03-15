@@ -21,6 +21,7 @@ interface GeneratedBackground {
   imageData: string
   mimeType: string
   format: string
+  generationTimeMs?: number
 }
 
 interface BackgroundPreviewGridProps {
@@ -75,6 +76,7 @@ export function BackgroundPreviewGrid({
           imageData: background.imageData,
           mimeType: background.mimeType,
           format: background.format,
+          generationTimeMs: background.generationTimeMs,
         }),
       })
 
@@ -127,6 +129,7 @@ export function BackgroundPreviewGrid({
             imageData: background.imageData,
             mimeType: background.mimeType,
             format: background.format,
+            generationTimeMs: background.generationTimeMs,
           }),
         })
       } catch (error) {

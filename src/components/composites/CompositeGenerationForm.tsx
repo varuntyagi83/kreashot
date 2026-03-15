@@ -15,6 +15,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Loader2, AlertTriangle, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
+import { driveImgSrc } from '@/lib/utils'
 import { GeneratedComposite } from './CompositeWorkspace'
 
 interface Category {
@@ -29,6 +30,8 @@ interface AngledShot {
   display_name: string
   angle_name: string
   storage_url: string
+  public_url?: string
+  gdrive_file_id?: string
   product?: { id: string; name: string; slug: string }
 }
 
@@ -317,13 +320,12 @@ export function CompositeGenerationForm({
                               </div>
                             )}
                           </label>
-                          {shot.storage_url && (
-                            <img
-                              src={shot.storage_url}
-                              alt={shot.display_name || shot.angle_name}
-                              className="w-10 h-10 rounded object-cover flex-shrink-0"
-                            />
-                          )}
+                          <img
+                            src={driveImgSrc(shot.public_url || shot.storage_url, shot.gdrive_file_id)}
+                            alt={shot.display_name || shot.angle_name}
+                            className="w-10 h-10 rounded object-cover flex-shrink-0"
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
                         </div>
                       ))
                     )}

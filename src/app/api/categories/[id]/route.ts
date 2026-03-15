@@ -48,53 +48,58 @@ export async function GET(
     }
 
     // Get counts for various assets (filtered by format when provided)
-    // Products don't have a format column
-    const { count: productsCount } = await supabase
-      .from('products')
-      .select('*', { count: 'exact', head: true })
-      .eq('category_id', id)
-
-    // Angled shots — format-filterable
-    let angledShotsQuery = supabase
+    // Build format-filterable queries before passing to Promise.all
+    const angledShotsQuery = supabase
       .from('angled_shots')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
-    if (format) angledShotsQuery = angledShotsQuery.eq('format', format)
-    const { count: angledShotsCount } = await angledShotsQuery
-
-    // Backgrounds — format-filterable
-    let backgroundsQuery = supabase
+    const backgroundsQuery = supabase
       .from('backgrounds')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
-    if (format) backgroundsQuery = backgroundsQuery.eq('format', format)
-    const { count: backgroundsCount } = await backgroundsQuery
-
-    // Composites — format-filterable
-    let compositesQuery = supabase
+    const compositesQuery = supabase
       .from('composites')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
-    if (format) compositesQuery = compositesQuery.eq('format', format)
-    const { count: compositesCount } = await compositesQuery
-
-    const { count: copyDocsCount } = await supabase
-      .from('copy_docs')
-      .select('*', { count: 'exact', head: true })
-      .eq('category_id', id)
-
-    const { count: guidelinesCount } = await supabase
-      .from('guidelines')
-      .select('*', { count: 'exact', head: true })
-      .eq('category_id', id)
-
-    // Final assets — format-filterable
-    let finalAssetsQuery = supabase
+    const finalAssetsQuery = supabase
       .from('final_assets')
       .select('*', { count: 'exact', head: true })
       .eq('category_id', id)
-    if (format) finalAssetsQuery = finalAssetsQuery.eq('format', format)
-    const { count: finalAssetsCount } = await finalAssetsQuery
+
+    if (format) {
+      angledShotsQuery.eq('format', format)   // builder is mutable; chain appends filter in place
+      backgroundsQuery.eq('format', format)
+      compositesQuery.eq('format', format)
+      finalAssetsQuery.eq('format', format)
+    }
+
+    // Run all 7 count queries concurrently instead of sequentially
+    const [
+      { count: productsCount },
+      { count: angledShotsCount },
+      { count: backgroundsCount },
+      { count: compositesCount },
+      { count: copyDocsCount },
+      { count: guidelinesCount },
+      { count: finalAssetsCount },
+    ] = await Promise.all([
+      supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('category_id', id),
+      angledShotsQuery,
+      backgroundsQuery,
+      compositesQuery,
+      supabase
+        .from('copy_docs')
+        .select('*', { count: 'exact', head: true })
+        .eq('category_id', id),
+      supabase
+        .from('guidelines')
+        .select('*', { count: 'exact', head: true })
+        .eq('category_id', id),
+      finalAssetsQuery,
+    ])
 
     return NextResponse.json({
       category: {

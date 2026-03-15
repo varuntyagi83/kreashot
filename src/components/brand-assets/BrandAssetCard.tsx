@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Trash2, Download, Eye } from 'lucide-react'
 import { toast } from 'sonner'
+import { driveImgSrc } from '@/lib/utils'
 
 interface BrandAssetCardProps {
   asset: {
@@ -14,6 +15,7 @@ interface BrandAssetCardProps {
     name: string
     asset_type: string
     storage_url: string
+    gdrive_file_id?: string | null
     metadata: {
       file_name: string
       file_size: number
@@ -59,7 +61,7 @@ export function BrandAssetCard({ asset, onDeleted }: BrandAssetCardProps) {
         <div className="aspect-square mb-3 rounded-md bg-muted flex items-center justify-center overflow-hidden relative">
           {isImage ? (
             <Image
-              src={asset.storage_url}
+              src={driveImgSrc(asset.storage_url, asset.gdrive_file_id)}
               alt={asset.name}
               fill
               className="object-contain"

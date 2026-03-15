@@ -9,18 +9,18 @@ import { deleteFile } from '@/lib/storage'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Verify authorization (can be enhanced with API key or admin check)
+    // Verify authorization before creating any privileged clients
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+    const expectedToken = process.env.CRON_SECRET
 
     if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     console.log('🔄 Processing deletion queue...')
 
@@ -138,18 +138,18 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Verify authorization
+    // Verify authorization before creating any privileged clients
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+    const expectedToken = process.env.CRON_SECRET
 
     if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
 
     // Get queue statistics
     const [

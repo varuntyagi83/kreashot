@@ -4,7 +4,6 @@ import { useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Sparkles, Upload, X, FileText, Loader2 } from 'lucide-react'
@@ -20,14 +19,14 @@ const COPY_TYPES = [
 ]
 
 const TONES = [
-  { id: 'professional', label: 'Professional', color: 'bg-blue-500' },
-  { id: 'casual',       label: 'Casual',       color: 'bg-green-500' },
-  { id: 'playful',      label: 'Playful',      color: 'bg-yellow-500' },
-  { id: 'urgent',       label: 'Urgent',       color: 'bg-red-500' },
-  { id: 'empathetic',   label: 'Empathetic',   color: 'bg-purple-500' },
-  { id: 'educational',  label: 'Educational',  color: 'bg-teal-500' },
-  { id: 'promotional',  label: 'Promotional',  color: 'bg-orange-500' },
-  { id: 'seasonal',     label: 'Seasonal',     color: 'bg-emerald-500' },
+  { id: 'professional', label: 'Professional' },
+  { id: 'casual',       label: 'Casual' },
+  { id: 'playful',      label: 'Playful' },
+  { id: 'urgent',       label: 'Urgent' },
+  { id: 'empathetic',   label: 'Empathetic' },
+  { id: 'educational',  label: 'Educational' },
+  { id: 'promotional',  label: 'Promotional' },
+  { id: 'seasonal',     label: 'Seasonal' },
 ]
 
 // ── Props ────────────────────────────────────────────────────────────────────
@@ -162,38 +161,35 @@ export function CopyGenerationForm({
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="border rounded-lg p-6 space-y-6">
-
-      {/* Header */}
-      <div className="flex items-center gap-2">
-        <Sparkles className="h-5 w-5 text-primary" />
-        <h2 className="text-xl font-semibold">Generate Copy Kit</h2>
+    <div className="space-y-5">
+      {/* Section header */}
+      <div className="flex items-center gap-2 pt-1">
+        <Sparkles className="h-4 w-4 text-primary" />
+        <h3 className="text-sm font-semibold text-foreground">Generate Copy Kit</h3>
       </div>
 
       {/* Style guide pill */}
       {lookAndFeel && (
-        <div className="bg-muted/50 rounded-md p-3 text-sm">
-          <span className="text-muted-foreground"><strong>Style:</strong> {lookAndFeel}</span>
+        <div className="bg-background rounded-lg px-3 py-2 text-xs text-muted-foreground">
+          <span className="font-medium text-foreground">Style:</span> {lookAndFeel}
         </div>
       )}
 
       {/* Brand Guidelines PDF */}
-      <div className="space-y-2">
-        <Label>Brand Guidelines PDF (Optional)</Label>
+      <div className="space-y-1.5">
+        <Label className="text-xs font-medium text-muted-foreground">Brand Guidelines PDF</Label>
         {currentBrandDoc ? (
-          <div className="flex items-center gap-2 border rounded-md px-3 py-2 bg-muted/30">
-            <FileText className="h-4 w-4 text-primary shrink-0" />
-            <span className="text-sm flex-1 truncate">{currentBrandDoc}</span>
-            <Badge variant="secondary" className="text-xs shrink-0">Active</Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 shrink-0"
+          <div className="flex items-center gap-2 border border-input rounded-lg px-3 py-2 bg-card">
+            <FileText className="h-3.5 w-3.5 text-primary shrink-0" />
+            <span className="text-xs flex-1 truncate text-foreground">{currentBrandDoc}</span>
+            <Badge className="text-[10px] bg-primary/10 text-primary border-0 shrink-0 px-1.5">Active</Badge>
+            <button
+              className="text-muted-foreground hover:text-destructive transition-colors shrink-0"
               onClick={handleRemoveBrandDoc}
               disabled={isGenerating}
             >
               <X className="h-3 w-3" />
-            </Button>
+            </button>
           </div>
         ) : (
           <div>
@@ -204,105 +200,103 @@ export function CopyGenerationForm({
               className="hidden"
               onChange={handlePdfUpload}
             />
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full border-dashed"
+            <button
+              className="w-full border border-dashed border rounded-lg py-2.5 text-xs text-muted-foreground hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingPdf || isGenerating}
             >
               {uploadingPdf
-                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Parsing PDF...</>
-                : <><Upload className="h-4 w-4 mr-2" />Upload Brand Guidelines PDF</>
+                ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Parsing PDF...</>
+                : <><Upload className="h-3.5 w-3.5" />Upload Brand Guidelines PDF</>
               }
-            </Button>
-            <p className="text-xs text-muted-foreground mt-1">
-              Upload your brand PDF so the AI stays on-brand. Text is extracted and used as context. Max 10MB.
-            </p>
+            </button>
           </div>
         )}
       </div>
 
       {/* Brief */}
-      <div className="space-y-2">
-        <Label htmlFor="brief">
+      <div className="space-y-1.5">
+        <Label htmlFor="brief" className="text-xs font-medium text-muted-foreground">
           Product Brief <span className="text-destructive">*</span>
         </Label>
         <Textarea
           id="brief"
-          placeholder="e.g., Vitamin C Gummies for daily immunity boost — fun, chewable, 1000mg per serving, for adults who hate swallowing pills"
+          placeholder="e.g., Vitamin C Gummies — fun, chewable, 1000mg, for adults who hate swallowing pills"
           value={brief}
           onChange={(e) => setBrief(e.target.value)}
           rows={3}
           maxLength={500}
           disabled={isGenerating}
+          className="text-xs resize-none border-input focus:border-primary rounded-lg bg-card"
         />
-        <p className="text-xs text-muted-foreground">{brief.length}/500 characters</p>
+        <p className="text-[10px] text-muted-foreground text-right">{brief.length}/500</p>
       </div>
 
-      {/* Copy Types checklist */}
-      <div className="space-y-3">
-        <Label>
+      {/* Copy Types */}
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground">
           Copy Types <span className="text-destructive">*</span>
         </Label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {COPY_TYPES.map((type) => (
-            <div
-              key={type.id}
-              onClick={() => !isGenerating && toggleType(type.id)}
-              className={`flex items-start gap-2 border rounded-md p-3 cursor-pointer transition-colors select-none ${
-                selectedTypes.includes(type.id)
-                  ? 'border-primary bg-primary/5'
-                  : 'border-border hover:bg-muted/30'
-              } ${isGenerating ? 'opacity-50 cursor-not-allowed' : ''}`}
-            >
-              <Checkbox
-                checked={selectedTypes.includes(type.id)}
-                className="mt-0.5 pointer-events-none"
-                onCheckedChange={() => {}}
-              />
-              <div>
-                <p className="text-sm font-medium leading-none">{type.label}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{type.description}</p>
-              </div>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-1.5">
+          {COPY_TYPES.map((type) => {
+            const selected = selectedTypes.includes(type.id)
+            return (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => !isGenerating && toggleType(type.id)}
+                disabled={isGenerating}
+                className={`flex flex-col items-start px-3 py-2 rounded-lg border text-left transition-all text-xs ${
+                  selected
+                    ? 'border-primary bg-primary/5 text-primary'
+                    : 'border bg-card text-muted-foreground hover:border-[#C8C8C6]'
+                } disabled:opacity-50`}
+              >
+                <span className="font-medium">{type.label}</span>
+                <span className={`text-[10px] leading-tight ${selected ? 'text-primary/70' : 'text-muted-foreground'}`}>
+                  {type.description}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
       {/* Campaign Tone */}
-      <div className="space-y-3">
-        <Label>
+      <div className="space-y-2">
+        <Label className="text-xs font-medium text-muted-foreground">
           Campaign Tone <span className="text-destructive">*</span>
         </Label>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {TONES.map((tone) => {
-            const isSelected = selectedTones.includes(tone.id)
+            const selected = selectedTones.includes(tone.id)
             return (
               <button
                 key={tone.id}
                 type="button"
                 onClick={() => !isGenerating && toggleTone(tone.id)}
                 disabled={isGenerating}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-all ${
-                  isSelected
-                    ? `${tone.color} text-white border-transparent`
-                    : 'border-border bg-transparent hover:bg-muted/30 text-foreground'
-                }`}
+                className={`px-2.5 py-1 rounded-full text-[11px] font-medium border transition-all ${
+                  selected
+                    ? 'bg-primary text-white border-primary'
+                    : 'border-input bg-card text-muted-foreground hover:border-primary hover:text-primary'
+                } disabled:opacity-50`}
               >
                 {tone.label}
               </button>
             )
           })}
         </div>
-        <p className="text-xs text-muted-foreground">
-          Each selected campaign tone generates a separate version of every copy type.
+        <p className="text-[10px] text-muted-foreground">
+          Each tone generates a separate version of every copy type.
         </p>
       </div>
 
       {/* Target Audience */}
-      <div className="space-y-2">
-        <Label htmlFor="audience">Target Audience (Optional)</Label>
+      <div className="space-y-1.5">
+        <Label htmlFor="audience" className="text-xs font-medium text-muted-foreground">
+          Target Audience <span className="text-[10px] text-muted-foreground font-normal">(optional)</span>
+        </Label>
         <Textarea
           id="audience"
           placeholder="e.g., Health-conscious adults 25–45 who want convenient daily supplements"
@@ -311,18 +305,15 @@ export function CopyGenerationForm({
           rows={2}
           maxLength={200}
           disabled={isGenerating}
+          className="text-xs resize-none border-input focus:border-primary rounded-lg bg-card"
         />
       </div>
 
       {/* Summary + Generate */}
-      <div className="space-y-3 pt-2 border-t">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">
-            {selectedTypes.length} types × {selectedTones.length} campaign tones
-          </span>
-          <span className="font-semibold">
-            {totalCombinations} combinations
-          </span>
+      <div className="pt-2 border-t border space-y-3">
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+          <span>{selectedTypes.length} types × {selectedTones.length} tones</span>
+          <span className="font-semibold text-foreground">{totalCombinations} combinations</span>
         </div>
 
         <Button
@@ -333,11 +324,10 @@ export function CopyGenerationForm({
             selectedTypes.length === 0 ||
             selectedTones.length === 0
           }
-          className="w-full"
-          size="lg"
+          className="w-full bg-primary hover:bg-primary/90 text-white rounded-lg h-9 text-sm font-medium"
         >
           {isGenerating ? (
-            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating {totalCombinations} combinations...</>
+            <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating {totalCombinations}...</>
           ) : (
             <><Sparkles className="h-4 w-4 mr-2" />Generate {totalCombinations} Combinations</>
           )}

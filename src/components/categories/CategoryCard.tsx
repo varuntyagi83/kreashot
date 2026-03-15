@@ -1,16 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import { MoreVertical, Trash2, Edit, Eye } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useState } from 'react'
 
@@ -28,6 +20,22 @@ interface CategoryCardProps {
     }
   }
   onDeleted: () => void
+}
+
+const GRADIENTS = [
+  'from-violet-400 to-purple-600',
+  'from-sky-400 to-blue-600',
+  'from-emerald-400 to-teal-600',
+  'from-rose-400 to-pink-600',
+  'from-amber-400 to-orange-500',
+]
+
+function pickGradient(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length]
 }
 
 export function CategoryCard({ category, onDeleted }: CategoryCardProps) {
@@ -57,68 +65,45 @@ export function CategoryCard({ category, onDeleted }: CategoryCardProps) {
     }
   }
 
+  const gradient = pickGradient(category.name)
+  const initial = category.name.charAt(0).toUpperCase()
+  const productCount = category.counts?.products || 0
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="line-clamp-1">{category.name}</CardTitle>
-            <CardDescription className="mt-1">
-              <code className="text-xs bg-muted px-1 py-0.5 rounded">
-                @{category.slug}
-              </code>
-            </CardDescription>
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem asChild>
-                <Link href={`/categories/${category.id}`} className="cursor-pointer">
-                  <Eye className="h-4 w-4 mr-2" />
-                  View
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleDelete} disabled={deleting} className="text-red-600">
-                <Trash2 className="h-4 w-4 mr-2" />
-                {deleting ? 'Deleting...' : 'Delete'}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-          {category.description}
-        </p>
+    <div className="bg-card rounded-xl shadow-sm hover:shadow-md transition-shadow border-0 cursor-pointer overflow-hidden">
+      {/* Thumbnail */}
+      <div className={`h-28 bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+        <span className="text-4xl font-bold text-white opacity-20 select-none">{initial}</span>
+      </div>
 
-        {category.look_and_feel && (
-          <div className="mb-3">
-            <p className="text-xs font-medium mb-1">Look & Feel:</p>
-            <p className="text-xs text-muted-foreground line-clamp-2">
-              {category.look_and_feel}
-            </p>
-          </div>
-        )}
+      {/* Body */}
+      <div className="p-4">
+        <p className="text-sm font-semibold text-foreground line-clamp-1">{category.name}</p>
+        <p className="text-xs text-muted-foreground mt-0.5">@{category.slug}</p>
+        <span className="bg-muted text-muted-foreground text-xs rounded-full px-2 py-0.5 mt-2 inline-block">
+          {productCount} product{productCount !== 1 ? 's' : ''}
+        </span>
+      </div>
 
-        <div className="flex flex-wrap gap-2 mt-3">
-          <Badge variant="secondary" className="text-xs">
-            {category.counts?.products || 0} product{category.counts?.products !== 1 ? 's' : ''}
-          </Badge>
-          <Badge variant="secondary" className="text-xs">
-            {category.counts?.angled_shots || 0} angled shot{category.counts?.angled_shots !== 1 ? 's' : ''}
-          </Badge>
-        </div>
-
-        <Link href={`/categories/${category.id}`}>
-          <Button variant="outline" size="sm" className="w-full mt-4">
-            Open Category
-          </Button>
+      {/* Actions row */}
+      <div className="px-4 pb-4 flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50"
+          onClick={handleDelete}
+          disabled={deleting}
+          aria-label="Delete category"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+        <Link
+          href={`/categories/${category.id}`}
+          className="text-[#7C5DFA] text-sm font-medium hover:underline"
+        >
+          Open →
         </Link>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

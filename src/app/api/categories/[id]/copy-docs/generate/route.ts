@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateCopyVariations, generateCopyKit, CopyType } from '@/lib/ai/openai'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
 const VALID_COPY_TYPES: CopyType[] = ['hook', 'cta', 'body', 'tagline', 'headline']
 
@@ -50,6 +51,9 @@ export async function POST(
       return NextResponse.json({ error: `Brief must be under ${MAX_BRIEF_LENGTH} characters` }, { status: 400 })
     }
 
+    // Sanitize user-supplied brief against prompt injection before sending to AI
+    const safeBrief = brief ? sanitizeForPrompt(brief) : brief
+
     // ── Resolve brand voice (library voice overrides category voice) ─────
     let brandVoice = category.brand_voice || undefined
     if (body.brandVoiceId) {
@@ -89,7 +93,7 @@ export async function POST(
       console.log(`Generating copy kit: ${copyTypes.length} types × ${tones.length} tones = ${totalCombinations} for ${category.slug}`)
 
       const results = await generateCopyKit(
-        brief,
+        safeBrief,
         copyTypes as CopyType[],
         tones,
         category.look_and_feel || '',
@@ -128,7 +132,7 @@ export async function POST(
     console.log(`Generating ${countNum} ${copyType} variations for category: ${category.slug}`)
 
     const results = await generateCopyVariations(
-      brief,
+      safeBrief,
       copyType as CopyType,
       category.look_and_feel || '',
       countNum,

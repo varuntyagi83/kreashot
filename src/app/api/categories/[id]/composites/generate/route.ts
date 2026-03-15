@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateComposite } from '@/lib/ai/gemini'
-import { getFormatDimensions } from '@/lib/formats'
+import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 import sharp from 'sharp'
 import { spawn } from 'child_process'
 import path from 'path'
@@ -93,10 +94,11 @@ export async function POST(
       return NextResponse.json({ error: 'userPrompt must be 20000 characters or fewer' }, { status: 400 })
     }
 
-    // Validate format whitelist
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (format && !VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    const safeUserPrompt = userPrompt ? sanitizeForPrompt(userPrompt) : undefined
+
+    // Validate format
+    if (format && !Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     // Validate format
@@ -378,17 +380,19 @@ export async function POST(
         const backgroundMimeType = detectMimeType(backgroundResized)
 
         // Generate composite using Gemini (with template safe zones if available)
+        const compositeStartMs = Date.now()
         const composite = await generateComposite(
           `data:${angledShotMimeType};base64,${angledShotBase64}`,
           angledShotMimeType,
           `data:${backgroundMimeType};base64,${backgroundBase64}`,
           backgroundMimeType,
-          userPrompt,
+          safeUserPrompt,
           category.look_and_feel || undefined,
           safeZones.length > 0 ? safeZones : undefined,
           formatDimensions.width,
           formatDimensions.height
         )
+        const compositeGenMs = Date.now() - compositeStartMs
 
         results.push({
           angledShotId: pair.angledShotId,
@@ -398,6 +402,7 @@ export async function POST(
           image_base64: composite.imageData,
           image_mime_type: composite.mimeType,
           prompt_used: composite.promptUsed,
+          generationTimeMs: compositeGenMs,
         })
 
         console.log(

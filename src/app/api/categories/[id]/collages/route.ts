@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { FORMATS } from '@/lib/formats'
 
 // GET - List all collages for a category
 export async function GET(
@@ -53,9 +54,8 @@ export async function POST(
     const body = await request.json()
     const { name, format = '1:1', collage_data } = body
 
-    const VALID_FORMATS = ['1:1', '16:9', '9:16', '4:5']
-    if (!VALID_FORMATS.includes(format)) {
-      return NextResponse.json({ error: `Invalid format. Must be one of: ${VALID_FORMATS.join(', ')}` }, { status: 400 })
+    if (!Object.keys(FORMATS).includes(format)) {
+      return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
     if (!name || !name.trim()) {

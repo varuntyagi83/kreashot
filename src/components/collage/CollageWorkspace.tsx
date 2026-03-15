@@ -627,14 +627,21 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
       </div>
 
       {/* Saved collages gallery */}
-      {collages.length > 0 && (
+      {loading && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="aspect-square rounded-xl bg-muted animate-pulse" />
+          ))}
+        </div>
+      )}
+      {!loading && collages.length > 0 && (
         <div className="mt-6">
           <h3 className="text-lg font-semibold mb-3">Saved Collages</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {collages.map((c) => (
               <div
                 key={c.id}
-                className={`border rounded-lg overflow-hidden cursor-pointer transition-all ${
+                className={`border rounded-lg overflow-hidden cursor-pointer transition-all hover:shadow-md transition-shadow ${
                   currentCollageId === c.id ? 'ring-2 ring-primary' : 'hover:border-primary/50'
                 }`}
                 onClick={() => loadCollage(c)}

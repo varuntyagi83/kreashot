@@ -52,45 +52,59 @@ export function CopyWorkspace({ category, format }: CopyWorkspaceProps) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Brand Voice Extractor — extract new voices */}
-      <BrandVoiceExtractor
-        categoryId={category.id}
-        lookAndFeel={category.look_and_feel || undefined}
-        initialProfile={brandVoice}
-        onProfileChange={setBrandVoice}
-        onSavedToLibrary={() => setVoicesRefreshKey((k) => k + 1)}
-      />
+    <div className="flex gap-0 h-full min-h-[calc(100vh-160px)]">
+      {/* ── Left panel: controls ─────────────────────────────────────────── */}
+      <div className="w-80 xl:w-96 shrink-0 border-r border bg-card overflow-y-auto">
+        <div className="p-5 space-y-4">
 
-      {/* Brand Voice Selector — pick from saved library */}
-      <BrandVoiceSelector
-        categoryBrandVoice={brandVoice}
-        selectedVoiceId={selectedBrandVoiceId}
-        onSelect={setSelectedBrandVoiceId}
-        refreshKey={voicesRefreshKey}
-      />
+          {/* Brand Voice Extractor */}
+          <BrandVoiceExtractor
+            categoryId={category.id}
+            lookAndFeel={category.look_and_feel || undefined}
+            initialProfile={brandVoice}
+            onProfileChange={setBrandVoice}
+            onSavedToLibrary={() => setVoicesRefreshKey((k) => k + 1)}
+          />
 
-      <CopyGenerationForm
-        categoryId={category.id}
-        lookAndFeel={category.look_and_feel || ''}
-        brandDocName={category.brand_doc_name}
-        brandVoiceId={selectedBrandVoiceId}
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
-        setIsGenerating={setIsGenerating}
-      />
+          {/* Brand Voice Selector */}
+          <BrandVoiceSelector
+            categoryBrandVoice={brandVoice}
+            selectedVoiceId={selectedBrandVoiceId}
+            onSelect={setSelectedBrandVoiceId}
+            refreshKey={voicesRefreshKey}
+          />
 
-      {generatedCopies.length > 0 && (
-        <CopyPreviewGrid
-          categoryId={category.id}
-          generatedCopies={generatedCopies}
-          brief={currentBrief}
-          copyType={currentCopyType}
-          onSaveComplete={handleSaveComplete}
-        />
-      )}
+          {/* Generation form */}
+          <CopyGenerationForm
+            categoryId={category.id}
+            lookAndFeel={category.look_and_feel || ''}
+            brandDocName={category.brand_doc_name}
+            brandVoiceId={selectedBrandVoiceId}
+            onGenerate={handleGenerate}
+            isGenerating={isGenerating}
+            setIsGenerating={setIsGenerating}
+          />
+        </div>
+      </div>
 
-      <CopyGallery categoryId={category.id} refreshTrigger={refreshKey} />
+      {/* ── Right panel: results ─────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto bg-background">
+        <div className="p-6 space-y-6">
+          {/* Preview grid (newly generated) */}
+          {generatedCopies.length > 0 && (
+            <CopyPreviewGrid
+              categoryId={category.id}
+              generatedCopies={generatedCopies}
+              brief={currentBrief}
+              copyType={currentCopyType}
+              onSaveComplete={handleSaveComplete}
+            />
+          )}
+
+          {/* Saved gallery */}
+          <CopyGallery categoryId={category.id} refreshTrigger={refreshKey} />
+        </div>
+      </div>
     </div>
   )
 }
