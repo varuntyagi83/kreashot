@@ -172,6 +172,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [presetHeadline, setPresetHeadline] = useState('')
   const [presetSubline, setPresetSubline] = useState('')
   const [presetFontFamily, setPresetFontFamily] = useState('Arial')
+  const [presetFontUrl, setPresetFontUrl] = useState<string | undefined>(undefined)
   const [darkenImage, setDarkenImage] = useState(false)
 
   // Stable list of brand font URLs for @font-face injection (preview) — same order => same family name
@@ -647,7 +648,15 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-medium text-muted-foreground">Font</Label>
-                  <Select value={presetFontFamily} onValueChange={setPresetFontFamily} disabled={generating}>
+                  <Select
+                    value={presetFontFamily}
+                    onValueChange={(v) => {
+                      setPresetFontFamily(v)
+                      const bf = brandFonts.find(f => f.name === v)
+                      setPresetFontUrl(bf?.storage_url ?? undefined)
+                    }}
+                    disabled={generating}
+                  >
                     <SelectTrigger className="border-input focus:border-primary rounded-lg h-8 text-sm"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Arial">Arial</SelectItem>
@@ -1164,6 +1173,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     darkenImage={darkenImage}
                     format={format}
                     fontFamily={adMode === 'preset' ? presetFontFamily : undefined}
+                    fontUrl={adMode === 'preset' ? presetFontUrl : undefined}
                   />
                   <p className="text-xs text-muted-foreground">Updates live as you type — matches final output</p>
                 </div>

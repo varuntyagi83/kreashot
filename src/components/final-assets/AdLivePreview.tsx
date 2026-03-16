@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getFormatDimensions } from '@/lib/formats'
 import type { AdLayoutPreset, OverlaySpec } from '@/lib/ad-layouts'
 
@@ -33,6 +33,7 @@ interface AdLivePreviewProps {
   darkenImage?: boolean
   format?: string
   fontFamily?: string
+  fontUrl?: string   // storage URL for the selected brand font (preset mode)
 }
 
 /** Compute absolute CSS style for an overlay spec given container size. */
@@ -86,6 +87,7 @@ export function AdLivePreview({
   darkenImage,
   format = '1:1',
   fontFamily = 'Arial',
+  fontUrl,
 }: AdLivePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(400)
@@ -106,6 +108,37 @@ export function AdLivePreview({
   useEffect(() => {
     setImageNaturalSize(null)
   }, [baseImageUrl])
+
+  // Collect all custom font URLs (preset + freeform layers) and map each to a CSS family name
+  const fontUrlsToLoad = useMemo(() => {
+    const urls: string[] = []
+    if (fontUrl) urls.push(fontUrl)
+    freeformLayers?.forEach(l => { if (l.fontUrl?.startsWith('http')) urls.push(l.fontUrl) })
+    return [...new Set(urls)]
+  }, [fontUrl, freeformLayers])
+
+  const urlToFamily = useMemo(
+    () => Object.fromEntries(fontUrlsToLoad.map((url, i) => [url, `AdForgeFont-${i}`])),
+    [fontUrlsToLoad]
+  )
+
+  // Inject @font-face declarations into document head
+  useEffect(() => {
+    if (fontUrlsToLoad.length === 0) return
+    const styleId = 'adforge-preview-font-faces'
+    let el = document.getElementById(styleId) as HTMLStyleElement | null
+    if (!el) {
+      el = document.createElement('style')
+      el.id = styleId
+      document.head.appendChild(el)
+    }
+    el.textContent = fontUrlsToLoad
+      .map(url => `@font-face { font-family: '${urlToFamily[url]}'; src: url('${url}'); }`)
+      .join('\n')
+  }, [fontUrlsToLoad, urlToFamily])
+
+  // Resolve the CSS font-family to use for preset text
+  const resolvedFontFamily = (fontUrl && urlToFamily[fontUrl]) ? urlToFamily[fontUrl] : fontFamily
 
   const { width: canvasW, height: canvasH } = getFormatDimensions(format)
   const scaleFactor = containerWidth / REF_CANVAS_WIDTH
@@ -205,7 +238,7 @@ export function AdLivePreview({
                 fontWeight: preset.headline.fontWeight || 'normal',
                 color: preset.headline.color,
                 textAlign: preset.headline.align,
-                fontFamily,
+                fontFamily: resolvedFontFamily,
                 lineHeight: 1.15,
                 pointerEvents: 'none',
                 wordBreak: 'break-word',
@@ -228,7 +261,7 @@ export function AdLivePreview({
                 fontWeight: preset.subline.fontWeight || 'normal',
                 color: preset.subline.color,
                 textAlign: preset.subline.align,
-                fontFamily,
+                fontFamily: resolvedFontFamily,
                 lineHeight: 1.2,
                 pointerEvents: 'none',
                 wordBreak: 'break-word',
@@ -262,7 +295,7 @@ export function AdLivePreview({
                 fontSize: `${layer.fontSize * scaleFactor}px`,
                 color: layer.color,
                 textAlign: layer.align,
-                fontFamily: layer.fontFamily || 'Arial',
+                fontFamily: (layer.fontUrl && urlToFamily[layer.fontUrl]) ? urlToFamily[layer.fontUrl] : (layer.fontFamily || 'Arial'),
                 lineHeight: 1.2,
                 pointerEvents: 'none',
                 wordBreak: 'break-word',
