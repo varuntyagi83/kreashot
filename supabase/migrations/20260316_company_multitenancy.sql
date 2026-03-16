@@ -111,11 +111,11 @@ UPDATE collages         t SET company_id = m.company_id FROM _user_company_map m
 UPDATE brand_guidelines t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE brand_voices     t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 
--- product_images (if exists)
+-- product_images (if exists) — no user_id column; join through products
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'product_images') THEN
-    EXECUTE 'UPDATE product_images t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id';
+    EXECUTE 'UPDATE product_images pi SET company_id = p.company_id FROM products p WHERE pi.product_id = p.id AND p.company_id IS NOT NULL';
   END IF;
 END$$;
 
