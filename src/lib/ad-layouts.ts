@@ -41,10 +41,9 @@ export const AD_LAYOUT_PRESETS: AdLayoutPreset[] = [
   {
     id: 'bottom-strip',
     name: 'Bottom Strip',
-    overlay: { type: 'strip-bottom', opacity: 0.82, height: 20 },
     logo: { x: 4, y: 4, size: 10 },
-    headline: { x: 5, y: 81, width: 90, fontSize: 48, align: 'left', color: '#FFFFFF', fontWeight: 'bold' },
-    subline:  { x: 5, y: 91, width: 90, fontSize: 28, align: 'left', color: '#EEEEEE' },
+    headline: { x: 5, y: 74, width: 90, fontSize: 52, align: 'left', color: '#FFFFFF', fontWeight: 'bold' },
+    subline:  { x: 5, y: 86, width: 90, fontSize: 32, align: 'left', color: '#FFFFFF' },
   },
   {
     id: 'center-overlay',
