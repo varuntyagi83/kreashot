@@ -89,6 +89,7 @@ export function AdLivePreview({
 }: AdLivePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(400)
+  const [imageNaturalSize, setImageNaturalSize] = useState<{ w: number; h: number } | null>(null)
 
   useEffect(() => {
     const el = containerRef.current
@@ -101,11 +102,19 @@ export function AdLivePreview({
     return () => ro.disconnect()
   }, [])
 
+  // Reset natural size when base image changes
+  useEffect(() => {
+    setImageNaturalSize(null)
+  }, [baseImageUrl])
+
   const { width: canvasW, height: canvasH } = getFormatDimensions(format)
   const scaleFactor = containerWidth / REF_CANVAS_WIDTH
 
-  // Compute aspect ratio as CSS value
-  const aspectRatio = `${canvasW} / ${canvasH}`
+  // Use the image's natural aspect ratio so the full image is always visible — no cropping, no letterbox bars.
+  // Fall back to the ad format ratio until the image loads.
+  const aspectRatio = imageNaturalSize
+    ? `${imageNaturalSize.w} / ${imageNaturalSize.h}`
+    : `${canvasW} / ${canvasH}`
 
   // Freeform logo position helpers
   function getFreeformLogoStyle(): React.CSSProperties {
@@ -138,13 +147,19 @@ export function AdLivePreview({
       ref={containerRef}
       style={{ position: 'relative', width: '100%', aspectRatio, overflow: 'hidden', backgroundColor: '#111', borderRadius: '8px' }}
     >
-      {/* Base image — object-fit: cover to match PIL cover+crop */}
+      {/* Base image — container matches image's natural ratio so cover = no cropping */}
       {baseImageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={baseImageUrl}
           alt=""
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'center' }}
+          onLoad={(e) => {
+            const img = e.currentTarget
+            if (img.naturalWidth && img.naturalHeight) {
+              setImageNaturalSize({ w: img.naturalWidth, h: img.naturalHeight })
+            }
+          }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
         />
       )}
 
