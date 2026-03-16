@@ -608,6 +608,23 @@ def composite_final_asset(
             draw = ImageDraw.Draw(final_image)
             sys.stderr.write(f"    ✅ Pasted graphic overlay\n")
 
+        elif layer_type == 'overlay_rect':
+            # Programmatic semi-transparent overlay rectangle — no external image needed.
+            # Used by preset layouts (bottom strip, top badge, center overlay, badge-center, full-darken).
+            color_hex = layer.get('color', '#000000').lstrip('#')
+            try:
+                r = int(color_hex[0:2], 16)
+                g = int(color_hex[2:4], 16)
+                b = int(color_hex[4:6], 16)
+            except (ValueError, IndexError):
+                r, g, b = 0, 0, 0
+            alpha = int(min(1.0, max(0.0, layer.get('opacity', 0.5))) * 255)
+            overlay_layer = Image.new('RGBA', (canvas_width, canvas_height), (0, 0, 0, 0))
+            ImageDraw.Draw(overlay_layer).rectangle([x, y, x + lw, y + lh], fill=(r, g, b, alpha))
+            final_image = Image.alpha_composite(final_image.convert('RGBA'), overlay_layer).convert('RGB')
+            draw = ImageDraw.Draw(final_image)
+            sys.stderr.write(f"    ✅ Drew overlay_rect ({lw}x{lh} at {x},{y}, opacity={layer.get('opacity', 0.5):.2f})\n")
+
         elif layer_type == 'composite':
             # Composite layer — a pre-composed product+background image
             source_url = layer.get('source_url', '') or composite_url
