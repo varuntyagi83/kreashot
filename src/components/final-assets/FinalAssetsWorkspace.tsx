@@ -173,6 +173,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [presetSubline, setPresetSubline] = useState('')
   const [presetFontFamily, setPresetFontFamily] = useState('Arial')
   const [presetFontUrl, setPresetFontUrl] = useState<string | undefined>(undefined)
+  const [presetLogoSize, setPresetLogoSize] = useState(10)
   const [darkenImage, setDarkenImage] = useState(false)
 
   // Stable list of brand font URLs for @font-face injection (preview) — same order => same family name
@@ -1129,6 +1130,25 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
               )}
             </div>
 
+            {/* Logo size slider — preset mode only */}
+            {adMode === 'preset' && selectedLogoId && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-muted-foreground">Logo Size</Label>
+                  <span className="text-xs text-muted-foreground">{presetLogoSize}%</span>
+                </div>
+                <Slider
+                  min={4}
+                  max={30}
+                  step={1}
+                  value={[presetLogoSize]}
+                  onValueChange={([v]) => setPresetLogoSize(v)}
+                  disabled={generating}
+                  className="w-full"
+                />
+              </div>
+            )}
+
             <Button
               onClick={handleGenerate}
               disabled={generating || !assetName.trim() || (imageSource === 'composite' ? !selectedCompositeId : !selectedAngledShotId)}
@@ -1174,6 +1194,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
                     format={format}
                     fontFamily={adMode === 'preset' ? presetFontFamily : undefined}
                     fontUrl={adMode === 'preset' ? presetFontUrl : undefined}
+                    presetLogoSize={adMode === 'preset' ? presetLogoSize : undefined}
                   />
                   <p className="text-xs text-muted-foreground">Updates live as you type — matches final output</p>
                 </div>

@@ -33,7 +33,8 @@ interface AdLivePreviewProps {
   darkenImage?: boolean
   format?: string
   fontFamily?: string
-  fontUrl?: string   // storage URL for the selected brand font (preset mode)
+  fontUrl?: string        // storage URL for the selected brand font (preset mode)
+  presetLogoSize?: number // override preset's default logo size (% of canvas width)
 }
 
 /** Compute absolute CSS style for an overlay spec given container size. */
@@ -88,6 +89,7 @@ export function AdLivePreview({
   format = '1:1',
   fontFamily = 'Arial',
   fontUrl,
+  presetLogoSize,
 }: AdLivePreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(400)
@@ -122,7 +124,7 @@ export function AdLivePreview({
     [fontUrlsToLoad]
   )
 
-  // Inject @font-face declarations into document head
+  // Inject @font-face declarations into document head via font proxy (avoids CORS issues with Drive/Supabase URLs)
   useEffect(() => {
     if (fontUrlsToLoad.length === 0) return
     const styleId = 'adforge-preview-font-faces'
@@ -133,7 +135,10 @@ export function AdLivePreview({
       document.head.appendChild(el)
     }
     el.textContent = fontUrlsToLoad
-      .map(url => `@font-face { font-family: '${urlToFamily[url]}'; src: url('${url}'); }`)
+      .map(url => {
+        const proxied = `/api/font-proxy?url=${encodeURIComponent(url)}`
+        return `@font-face { font-family: '${urlToFamily[url]}'; src: url('${proxied}'); }`
+      })
       .join('\n')
   }, [fontUrlsToLoad, urlToFamily])
 
@@ -219,7 +224,7 @@ export function AdLivePreview({
                 position: 'absolute',
                 left: `${preset.logo.x}%`,
                 top: `${preset.logo.y}%`,
-                width: `${preset.logo.size}%`,
+                width: `${presetLogoSize ?? preset.logo.size}%`,
                 objectFit: 'contain',
                 pointerEvents: 'none',
               }}
