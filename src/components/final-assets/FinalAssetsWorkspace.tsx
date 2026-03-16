@@ -844,8 +844,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
               </p>
             </div>
 
-            {/* Freeform controls — shown when no template selected */}
-            {isFreeform && (
+            {/* Freeform controls — shown only in Freeform mode when no template selected */}
+            {adMode === 'freeform' && isFreeform && (
               <div className="space-y-4 border rounded-lg p-3 bg-muted/20">
                 <Label className="text-sm font-medium text-muted-foreground">Freeform Layout</Label>
 
