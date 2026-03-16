@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -27,6 +28,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     // Optional format filter — when provided, counts reflect only that format
     const { searchParams } = new URL(request.url)
     const format = searchParams.get('format')
@@ -36,7 +40,7 @@ export async function GET(
       .from('categories')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (error) {
@@ -135,6 +139,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
     const { name, description, look_and_feel } = body
 
@@ -161,7 +168,7 @@ export async function PUT(
       .from('categories')
       .update(updateData)
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .select()
       .single()
 
@@ -297,18 +304,22 @@ export async function DELETE(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
     console.log(`[audit] DELETE category ${id} by user ${user.id} at ${new Date().toISOString()}`)
 
-    // Verify category belongs to user before proceeding
+    // Verify category belongs to company before proceeding
     const { data: category } = await supabase
       .from('categories')
       .select('id')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -329,7 +340,7 @@ export async function DELETE(
       .from('categories')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('[categories/[id] DELETE] error:', error)

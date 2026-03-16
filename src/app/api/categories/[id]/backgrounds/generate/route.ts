@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/replicate'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -37,6 +38,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`backgrounds:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -45,16 +49,16 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to user and get look_and_feel + brand_guidelines + color description (from PDF Vision)
+    // Verify category belongs to company and get look_and_feel + brand_guidelines + color description (from PDF Vision)
     const { data: category, error: categoryError } = await supabase
       .from('categories')
       .select('id, name, slug, look_and_feel')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (categoryError) {
-      console.error(`[backgrounds/generate] Category query error for id=${categoryId}, user=${user.id}:`, categoryError)
+      console.error(`[backgrounds/generate] Category query error for id=${categoryId}, company=${companyId}:`, categoryError)
     }
 
     if (!category) {
@@ -154,7 +158,7 @@ export async function POST(
         .from('brand_guidelines')
         .select('id, name, extracted_text, color_description')
         .in('id', uniqueGuidelineIds)
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
 
       if (guidelines?.length) {
         resolvedGuidelinesText = guidelines
@@ -177,7 +181,7 @@ export async function POST(
       const { data: allGuidelines } = await supabase
         .from('brand_guidelines')
         .select('color_description')
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
 
       if (allGuidelines?.length) {
         resolvedColorDescription = allGuidelines
@@ -231,20 +235,20 @@ export async function POST(
       const { data: productImages } = await supabase
         .from('product_images')
         .select('id, file_path, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .in('id', referenceAssetIds)
 
       const { data: angledShots } = await supabase
         .from('angled_shots')
         .select('id, storage_path, storage_provider, storage_url, gdrive_file_id')
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .in('id', referenceAssetIds)
 
       // Also check brand_assets table (stored in Supabase Storage)
       const { data: brandAssets } = await supabase
         .from('brand_assets')
         .select('id, storage_path, storage_url, metadata')
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .in('id', referenceAssetIds)
 
       const allReferences = [

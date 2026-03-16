@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
+import { getCompanyId } from '@/lib/get-company'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-// ── GET — list user's saved brand guidelines ─────────────────────────────────
+// ── GET — list company's saved brand guidelines ───────────────────────────────
 
 export async function GET() {
   try {
@@ -21,10 +22,13 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: guidelines, error } = await supabase
       .from('brand_guidelines')
       .select('id, name, source_file_name, extracted_text, color_description, is_default, created_at, updated_at')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -59,6 +63,9 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
@@ -125,6 +132,7 @@ export async function POST(request: NextRequest) {
       .from('brand_guidelines')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         name: name.trim(),
         source_file_name: file.name,
         extracted_text: truncatedText,
@@ -148,6 +156,7 @@ export async function POST(request: NextRequest) {
         .from('asset_references')
         .insert({
           user_id: user.id,
+          company_id: companyId,
           category_id: null,
           reference_id: `@brand-guidelines/${slug}`,
           asset_type: 'guideline',
@@ -162,7 +171,7 @@ export async function POST(request: NextRequest) {
       })
       .catch((err) => console.error('[brand-guidelines] background update failed:', err))
 
-    console.log(`✅ Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
+    console.log(`Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
 
     return NextResponse.json({
       guideline: {

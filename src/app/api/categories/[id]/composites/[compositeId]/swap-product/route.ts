@@ -2,6 +2,7 @@ export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 import { generateComposite } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
@@ -56,6 +57,9 @@ export async function POST(
       )
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
     const { newAngledShotId } = body
 
@@ -66,10 +70,10 @@ export async function POST(
     // Fetch the original composite
     const { data: composite } = await supabase
       .from('composites')
-      .select('*, category:categories!inner(user_id, slug, look_and_feel)')
+      .select('*, category:categories!inner(company_id, slug, look_and_feel)')
       .eq('id', compositeId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!composite) {
@@ -82,7 +86,7 @@ export async function POST(
       .select('id, display_name, angle_name, product_id, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', newAngledShotId)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!newShot) {
@@ -95,7 +99,7 @@ export async function POST(
       .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', composite.background_id)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!background) {
@@ -151,7 +155,7 @@ export async function POST(
     const bgName = background.name
     const folderName = formatToFolderName(format)
     const newSlug = `${categorySlug}-${newShotName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${bgName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-swap-${Date.now()}`
-    const fileName = `${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+    const fileName = `${companyId}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
     const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
     const outputBuffer = Buffer.from(base64Data, 'base64')
@@ -167,6 +171,7 @@ export async function POST(
       .from('composites')
       .insert({
         category_id: categoryId,
+        company_id: companyId,
         user_id: user.id,
         product_id: newShot.product_id || null,
         angled_shot_id: newAngledShotId,

@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 
 export const dynamic = 'force-dynamic'
 
-// ── GET — list user's saved brand voices ─────────────────────────────────────
+// ── GET — list company's saved brand voices ───────────────────────────────────
 
 export async function GET() {
   try {
@@ -11,10 +12,13 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: voices, error } = await supabase
       .from('brand_voices')
       .select('id, name, is_default, profile, created_at, updated_at')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false })
 
@@ -48,6 +52,9 @@ export async function POST(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { name, profile, is_default } = await request.json()
 
     if (!name || !name.trim()) {
@@ -68,14 +75,28 @@ export async function POST(request: NextRequest) {
       await supabase
         .from('brand_voices')
         .update({ is_default: false })
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .eq('is_default', true)
+    }
+
+    // Check for duplicate name within this company (mirrors the UNIQUE(user_id, name) constraint
+    // at the application level, now scoped to company_id)
+    const { data: duplicate } = await supabase
+      .from('brand_voices')
+      .select('id')
+      .eq('company_id', companyId)
+      .eq('name', name.trim())
+      .maybeSingle()
+
+    if (duplicate) {
+      return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
     }
 
     const { data: voice, error } = await supabase
       .from('brand_voices')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         name: name.trim(),
         profile,
         is_default: is_default || false,

@@ -4,6 +4,7 @@ import { uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * GET /api/categories/[id]/angled-shots
@@ -26,12 +27,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify category belongs to company
     const { data: category } = await supabase
       .from('categories')
       .select('id, name')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -143,12 +147,15 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user and get slug
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify category belongs to company and get slug
     const { data: category } = await supabase
       .from('categories')
       .select('id, slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -246,10 +253,10 @@ export async function POST(
     const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
 
     // Generate filename using the folder structure per STORAGE_HIERARCHY.md:
-    // {category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
+    // {companyId}/{category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
     const fileExt = mimeType?.split('/')[1] || 'jpg'
     const formatFolder = formatToFolderName(format) // "4:5" → "4x5"
-    const fileName = `${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
+    const fileName = `${companyId}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     const storageFile = await uploadFile(buffer, fileName, {
@@ -268,6 +275,7 @@ export async function POST(
         product_image_id: productImageId,
         category_id: categoryId,
         user_id: user.id,
+        company_id: companyId,
         angle_name: angleName,
         angle_description: angleDescription,
         display_name: displayName, // Product-prefixed display name

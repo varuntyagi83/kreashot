@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 // ── GET — get single guideline with full text ────────────────────────────────
 
@@ -15,11 +16,14 @@ export async function GET(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: guideline, error } = await supabase
       .from('brand_guidelines')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (error) {
@@ -50,6 +54,9 @@ export async function PUT(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
     const updateData: Record<string, unknown> = {}
 
@@ -62,7 +69,7 @@ export async function PUT(
       await supabase
         .from('brand_guidelines')
         .update({ is_default: false })
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .eq('is_default', true)
       updateData.is_default = true
     } else if (body.is_default === false) {
@@ -73,7 +80,7 @@ export async function PUT(
       .from('brand_guidelines')
       .update(updateData)
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .select('id, name, is_default, updated_at')
       .single()
 
@@ -116,6 +123,10 @@ export async function DELETE(
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
@@ -133,7 +144,7 @@ export async function DELETE(
       .from('brand_guidelines')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('[brand-guidelines/[id] DELETE] error:', error)

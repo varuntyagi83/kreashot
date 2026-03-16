@@ -10,6 +10,7 @@ import { deleteFile, downloadFile, uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * POST /api/categories/[id]/angled-shots/generate
@@ -37,6 +38,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -49,7 +53,7 @@ export async function POST(
       .from('categories')
       .select('id, name, slug, look_and_feel')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -90,7 +94,6 @@ export async function POST(
       .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
       .eq('id', productImageId)
       .eq('product_id', productId)
-      .eq('user_id', user.id)
       .single()
 
     if (!productImage) {
@@ -193,7 +196,7 @@ export async function POST(
 
           const fileExt = shot.mimeType?.split('/')[1] || 'jpg'
           const formatFolder = formatToFolderName(detectedFormat)
-          const fileName = `${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
+          const fileName = `${companyId}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
 
           const storageFile = await uploadFile(buffer, fileName, {
             contentType: shot.mimeType || 'image/jpeg',
@@ -209,6 +212,7 @@ export async function POST(
               product_image_id: productImageId,
               category_id: categoryId,
               user_id: user.id,
+              company_id: companyId,
               angle_name: shot.angleName,
               angle_description: shot.angleDescription,
               display_name: displayName,

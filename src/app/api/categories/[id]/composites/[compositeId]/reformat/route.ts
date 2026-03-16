@@ -2,6 +2,7 @@ export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -36,13 +37,16 @@ export async function POST(
       )
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     // Fetch composite with category info
     const { data: composite } = await supabase
       .from('composites')
-      .select('*, category:categories!inner(user_id, slug, look_and_feel)')
+      .select('*, category:categories!inner(company_id, slug, look_and_feel)')
       .eq('id', compositeId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!composite) {
@@ -101,7 +105,7 @@ export async function POST(
         const folderName = formatToFolderName(fmt)
         const baseSlug = composite.slug || composite.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         const newSlug = `${baseSlug}-${fmt.replace(':', 'x')}-${Date.now()}`
-        const fileName = `${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+        const fileName = `${companyId}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')
@@ -118,6 +122,7 @@ export async function POST(
           .from('composites')
           .insert({
             category_id: categoryId,
+            company_id: companyId,
             user_id: user.id,
             product_id: composite.product_id || null,
             angled_shot_id: composite.angled_shot_id,

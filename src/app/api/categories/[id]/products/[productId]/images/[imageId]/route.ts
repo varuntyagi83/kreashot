@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { deleteFile } from '@/lib/storage'
+import { getCompanyId } from '@/lib/get-company'
 
 // PATCH /api/categories/[id]/products/[productId]/images/[imageId] - Set as primary
 export async function PATCH(
@@ -24,14 +25,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify image belongs to user's product
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify image belongs to company's product
     const { data: image } = await supabase
       .from('product_images')
-      .select('*, product:products!inner(category:categories!inner(user_id))')
+      .select('*, product:products!inner(category:categories!inner(company_id))')
       .eq('id', imageId)
       .eq('product_id', productId)
       .eq('product.category_id', categoryId)
-      .eq('product.category.user_id', user.id)
+      .eq('product.category.company_id', companyId)
       .single()
 
     if (!image) {
@@ -88,14 +92,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify image belongs to user's product
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify image belongs to company's product
     const { data: image } = await supabase
       .from('product_images')
-      .select('*, product:products!inner(category:categories!inner(user_id))')
+      .select('*, product:products!inner(category:categories!inner(company_id))')
       .eq('id', imageId)
       .eq('product_id', productId)
       .eq('product.category_id', categoryId)
-      .eq('product.category.user_id', user.id)
+      .eq('product.category.company_id', companyId)
       .single()
 
     if (!image) {

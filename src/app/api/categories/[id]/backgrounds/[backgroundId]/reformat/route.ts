@@ -4,6 +4,7 @@ import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * POST /api/categories/[id]/backgrounds/[backgroundId]/reformat
@@ -30,6 +31,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -41,10 +45,10 @@ export async function POST(
     // Fetch background with category info
     const { data: background } = await supabase
       .from('backgrounds')
-      .select('*, category:categories!inner(user_id, slug)')
+      .select('*, category:categories!inner(company_id, slug)')
       .eq('id', backgroundId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!background) {
@@ -111,7 +115,7 @@ export async function POST(
         // Save the generated image
         const folderName = formatToFolderName(fmt)
         const slug = background.slug || background.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        const fileName = `${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
+        const fileName = `${companyId}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')
@@ -128,6 +132,7 @@ export async function POST(
           .from('backgrounds')
           .insert({
             category_id: categoryId,
+            company_id: companyId,
             user_id: user.id,
             name: newName,
             slug: `${slug}-${fmt.replace(':', 'x')}-${Date.now()}`,

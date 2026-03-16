@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
+import { getCompanyId } from '@/lib/get-company'
 
 function generateSlug(name: string): string {
   return name
@@ -30,11 +31,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: category } = await supabase
       .from('categories')
       .select('id, name, slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -84,11 +88,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: category } = await supabase
       .from('categories')
       .select('id, slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -154,7 +161,7 @@ export async function POST(
       created_at: new Date().toISOString(),
     }
 
-    const fileName = `${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
+    const fileName = `${companyId}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
     const buffer = Buffer.from(JSON.stringify(copyData, null, 2), 'utf-8')
 
     console.log(`Uploading copy doc to Google Drive: ${fileName}`)
@@ -169,6 +176,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id,
+        company_id: companyId,
         original_text: originalText || '',
         generated_text: generatedText,
         copy_type: copyType,

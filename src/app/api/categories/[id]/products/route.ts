@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 
 // Generate slug from name
 function generateSlug(name: string): string {
@@ -29,12 +30,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify category belongs to company
     const { data: category, error: categoryError } = await supabase
       .from('categories')
       .select('id')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (categoryError || !category) {
@@ -80,14 +84,17 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
 
-    // Verify category belongs to user
+    // Verify category belongs to company
     const { data: category, error: categoryError } = await supabase
       .from('categories')
       .select('id')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (categoryError || !category) {
@@ -111,6 +118,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id, // Required for RLS policy
+        company_id: companyId,
         name: body.name.trim(),
         slug,
         description: body.description?.trim() || null,

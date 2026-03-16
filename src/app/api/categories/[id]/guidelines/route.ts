@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile, deleteFile } from '@/lib/storage'
+import { getCompanyId } from '@/lib/get-company'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -40,12 +41,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify category belongs to user
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify category belongs to company
     const { data: category } = await supabase
       .from('categories')
       .select('id, name, slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -101,11 +105,14 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: category } = await supabase
       .from('categories')
       .select('id, slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -160,7 +167,7 @@ export async function POST(
     const ext = file.name.split('.').pop() || 'bin'
 
     // Upload to Google Drive
-    const fileName = `${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
+    const fileName = `${companyId}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const detectedMime = detectFileMime(buffer)
@@ -180,6 +187,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id,
+        company_id: companyId,
         name,
         description: description || null,
         storage_path: storageFile.path,

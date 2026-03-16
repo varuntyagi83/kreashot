@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 export async function GET(
   request: NextRequest,
@@ -19,11 +20,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: category } = await supabase
       .from('categories')
       .select('id')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -69,6 +73,9 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
 
     const {
@@ -89,7 +96,7 @@ export async function PUT(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     const categorySlug = category?.slug || 'unknown'
@@ -107,10 +114,10 @@ export async function PUT(
         height,
         template_data,
         slug: name?.toLowerCase().replace(/\s+/g, '-'),
-        storage_path: `${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`,
+        storage_path: `${companyId}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`,
       })
       .eq('id', templateId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .select()
       .single()
 
@@ -136,9 +143,10 @@ export async function PUT(
 
         // Convert format from "4:5" to "4x5" for folder naming
         const formatFolder = format?.replace(':', 'x')
-        const storagePath = `${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`
+        const storagePath = `${companyId}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`
 
         console.log('🔵 Google Drive Upload Debug:')
+        console.log('  Company ID:', companyId)
         console.log('  Category Slug:', categorySlug)
         console.log('  Format:', format, '→', formatFolder)
         console.log('  Storage Path:', storagePath)
@@ -205,6 +213,10 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
@@ -215,7 +227,7 @@ export async function DELETE(
       .from('templates')
       .delete()
       .eq('id', templateId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('Error deleting template:', error)

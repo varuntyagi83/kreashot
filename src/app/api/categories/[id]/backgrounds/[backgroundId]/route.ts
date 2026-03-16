@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * GET /api/categories/[id]/backgrounds/[backgroundId]
@@ -22,12 +23,15 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: background } = await supabase
       .from('backgrounds')
-      .select('*, category:categories!inner(user_id, slug, name, look_and_feel)')
+      .select('*, category:categories!inner(company_id, slug, name, look_and_feel)')
       .eq('id', backgroundId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!background) {
@@ -61,13 +65,16 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify background belongs to user's category
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify background belongs to company's category
     const { data: existing } = await supabase
       .from('backgrounds')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', backgroundId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!existing) {
@@ -128,13 +135,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    // Verify background belongs to user's category
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify background belongs to company's category
     const { data: background } = await supabase
       .from('backgrounds')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', backgroundId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!background) {

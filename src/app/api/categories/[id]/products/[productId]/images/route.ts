@@ -4,6 +4,7 @@ import { uploadFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 function detectImageMime(buf: Buffer): string | null {
   if (buf.length < 12) return null
@@ -33,13 +34,16 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Verify product belongs to user's category
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify product belongs to company's category
     const { data: product } = await supabase
       .from('products')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', productId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!product) {
@@ -107,18 +111,21 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`upload:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Upload rate limit exceeded' }, { status: 429 })
     }
 
-    // Verify product belongs to user's category and get slugs
+    // Verify product belongs to company's category and get slugs
     const { data: product } = await supabase
       .from('products')
-      .select('*, category:categories!inner(user_id, slug)')
+      .select('*, category:categories!inner(company_id, slug)')
       .eq('id', productId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!product) {
@@ -186,7 +193,7 @@ export async function POST(
       const formatFolder = formatToFolderName(detectedFormat)
 
       // Generate filename following hierarchy:
-      // {category-slug}/{product-slug}/product-images/angled-shots/{aspect-ratio}/{filename}
+      // {companyId}/{category-slug}/{product-slug}/product-images/angled-shots/{aspect-ratio}/{filename}
       const fileExt = file.name.split('.').pop() || 'jpg'
       const timestamp = Date.now()
       const sanitizedFileName = file.name
@@ -196,7 +203,7 @@ export async function POST(
         .replace(/[\s_]+/g, '-') // Replace spaces/underscores with hyphens
         .replace(/^-+|-+$/g, '') // Trim hyphens
 
-      const storagePath = `${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
+      const storagePath = `${companyId}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
 
@@ -226,6 +233,7 @@ export async function POST(
           storage_path: storagePath,
           storage_url: storageFile.publicUrl,
           gdrive_file_id: storageFile.fileId || null,
+          company_id: companyId,
         })
         .select()
         .single()

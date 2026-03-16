@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { deleteFile } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * DELETE /api/categories/[id]/angled-shots/[angleId]
@@ -23,6 +24,10 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
@@ -34,7 +39,7 @@ export async function DELETE(
       .select('id, storage_path, storage_provider, gdrive_file_id, category_id, user_id')
       .eq('id', angleId)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!angledShot) {
@@ -75,7 +80,7 @@ export async function DELETE(
       .from('angled_shots')
       .delete()
       .eq('id', angleId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (dbError) {
       console.error('Database deletion error:', dbError)

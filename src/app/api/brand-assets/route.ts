@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
+import { getCompanyId } from '@/lib/get-company'
 
 function detectMimeFromBytes(buffer: Buffer): string | null {
   if (buffer.length < 12) return null
@@ -45,10 +46,13 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: assets, error } = await supabase
       .from('brand_assets')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -88,6 +92,9 @@ export async function POST(request: NextRequest) {
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -177,7 +184,7 @@ export async function POST(request: NextRequest) {
     let storageFile: { path: string; publicUrl: string; fileId?: string }
     let storageProvider: 'supabase' | 'gdrive'
     if (isFont) {
-      const filePath = `${user.id}/font/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${companyId}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'supabase',
@@ -185,7 +192,7 @@ export async function POST(request: NextRequest) {
       })
       storageProvider = 'supabase'
     } else {
-      const filePath = `brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${companyId}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'gdrive',
@@ -200,6 +207,7 @@ export async function POST(request: NextRequest) {
       .from('brand_assets')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         name,
         asset_type: assetType,
         storage_provider: storageProvider,
@@ -241,6 +249,7 @@ export async function POST(request: NextRequest) {
       .from('asset_references')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         category_id: null, // Global asset
         reference_id: referenceId,
         asset_type: 'brand_asset',

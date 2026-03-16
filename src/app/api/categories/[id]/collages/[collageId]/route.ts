@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { FORMATS } from '@/lib/formats'
+import { getCompanyId } from '@/lib/get-company'
 
 // GET - Fetch a single collage
 export async function GET(
@@ -16,12 +17,15 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const companyId = await getCompanyId(supabase, user.id)
+  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
   const { data: collage, error } = await supabase
     .from('collages')
     .select('*')
     .eq('id', collageId)
     .eq('category_id', categoryId)
-    .eq('user_id', user.id)
+    .eq('company_id', companyId)
     .single()
 
   if (error || !collage) {
@@ -45,13 +49,16 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     // Verify ownership
     const { data: existing } = await supabase
       .from('collages')
       .select('id')
       .eq('id', collageId)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!existing) {
@@ -132,6 +139,10 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
@@ -143,7 +154,7 @@ export async function DELETE(
       .select('id')
       .eq('id', collageId)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!existing) {

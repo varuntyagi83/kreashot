@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
@@ -47,12 +48,15 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Verify this category belongs to the authenticated user
+  const companyId = await getCompanyId(supabase, user.id)
+  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+  // Verify this category belongs to the authenticated company
   const { data: category } = await supabase
     .from('categories')
     .select('id')
     .eq('id', id)
-    .eq('user_id', user.id)
+    .eq('company_id', companyId)
     .single()
 
   if (!category) {
@@ -94,6 +98,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -102,12 +109,12 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to the authenticated user
+    // Verify category belongs to the authenticated company
     const { data: ownedCategory } = await supabase
       .from('categories')
       .select('id')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!ownedCategory) {
@@ -293,7 +300,7 @@ export async function POST(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     const categorySlug = category?.slug || 'unknown'
@@ -453,7 +460,7 @@ export async function POST(
 
     const timestamp = Date.now()
     const formatFolder = format.replace(':', 'x') // '1:1' → '1x1', '16:9' → '16x9'
-    const storagePath = `${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
+    const storagePath = `${companyId}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
 
     // Read the file as a Buffer
     const fileBuffer = await readFile(result)
@@ -472,6 +479,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id,
+        company_id: companyId,
         template_id: template?.id,
         composite_id: compositeId,
         copy_doc_id: copyDocId,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 
 // ── PUT — update a brand voice (rename / set default) ────────────────────────
 
@@ -14,12 +15,28 @@ export async function PUT(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
     const updateData: Record<string, unknown> = {}
 
     if (body.name !== undefined) {
       if (body.name.length > 200) {
         return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
+      }
+      // Check for duplicate name within this company (mirrors the UNIQUE(user_id, name) constraint
+      // at the application level, now scoped to company_id)
+      const { data: duplicate } = await supabase
+        .from('brand_voices')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('name', body.name.trim())
+        .neq('id', id)
+        .maybeSingle()
+
+      if (duplicate) {
+        return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
       }
       updateData.name = body.name.trim()
     }
@@ -29,7 +46,7 @@ export async function PUT(
       await supabase
         .from('brand_voices')
         .update({ is_default: false })
-        .eq('user_id', user.id)
+        .eq('company_id', companyId)
         .eq('is_default', true)
       updateData.is_default = true
     } else if (body.is_default === false) {
@@ -40,7 +57,7 @@ export async function PUT(
       .from('brand_voices')
       .update(updateData)
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .select('id, name, is_default, updated_at')
       .single()
 
@@ -75,11 +92,14 @@ export async function DELETE(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { error } = await supabase
       .from('brand_voices')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('[brand-voices/[id] DELETE] error:', error)

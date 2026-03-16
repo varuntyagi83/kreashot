@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -64,12 +65,15 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to user
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify category belongs to company
     const { data: category } = await supabase
       .from('categories')
       .select('id, name, slug, look_and_feel')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {

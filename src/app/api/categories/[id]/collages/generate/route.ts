@@ -8,6 +8,7 @@ import { spawn } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
+import { getCompanyId } from '@/lib/get-company'
 
 // POST - Generate (render) a collage into a final image
 export async function POST(
@@ -22,6 +23,9 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = checkRateLimit(`collage-gen:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -44,7 +48,7 @@ export async function POST(
       .select('*')
       .eq('id', collageId)
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (fetchError || !collage) {
@@ -177,13 +181,13 @@ export async function POST(
       .from('categories')
       .select('slug')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     const categorySlug = category?.slug || 'unknown'
     const timestamp = Date.now()
     const formatFolder = collage.format.replace(':', 'x')
-    const storagePath = `${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
+    const storagePath = `${companyId}/${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
 
     const fileBuffer = await readFile(result)
 

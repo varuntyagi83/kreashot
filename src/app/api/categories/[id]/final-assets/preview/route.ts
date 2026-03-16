@@ -5,6 +5,7 @@ export const maxDuration = 60
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile, writeFile } from 'fs/promises'
 import path from 'path'
@@ -61,6 +62,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`preview:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -73,7 +77,7 @@ export async function POST(
       .from('categories')
       .select('id')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!ownedCategory) {

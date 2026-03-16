@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 
 // GET /api/references/search?q=query - Search brand assets, guidelines, and products
 export async function GET(request: NextRequest) {
@@ -19,11 +20,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     // Search brand assets
     const { data: brandAssets } = await supabase
       .from('brand_assets')
       .select('id, file_name, file_path, mime_type, storage_url, storage_path')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .ilike('file_name', `%${query}%`)
       .limit(5)
 
@@ -31,15 +35,15 @@ export async function GET(request: NextRequest) {
     const { data: guidelines } = await supabase
       .from('brand_guidelines')
       .select('id, name, source_file_name, is_default')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .ilike('name', `%${query}%`)
       .limit(5)
 
     // Search products across all categories
     const { data: products } = await supabase
       .from('products')
-      .select('id, name, slug, category:categories!inner(id, name, user_id)')
-      .eq('category.user_id', user.id)
+      .select('id, name, slug, category:categories!inner(id, name, company_id)')
+      .eq('category.company_id', companyId)
       .ilike('name', `%${query}%`)
       .limit(5)
 

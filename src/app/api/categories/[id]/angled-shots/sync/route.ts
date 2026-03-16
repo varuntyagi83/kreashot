@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getStorageAdapter } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 /**
  * POST /api/categories/[id]/angled-shots/sync
@@ -26,6 +27,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`angled-shots-sync:${user.id}`, 3, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -34,12 +38,12 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to user
+    // Verify category belongs to company
     const { data: category } = await supabase
       .from('categories')
       .select('id, name')
       .eq('id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (!category) {
@@ -56,7 +60,7 @@ export async function POST(
       .from('angled_shots')
       .select('id, storage_path, storage_provider, gdrive_file_id, angle_name, product_id')
       .eq('category_id', categoryId)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (fetchError) {
       console.error('Error fetching angled shots:', fetchError)
@@ -114,7 +118,7 @@ export async function POST(
         .from('angled_shots')
         .delete()
         .in('id', idsToDelete)
-        .eq('user_id', user.id) // Safety: only delete user's own records
+        .eq('company_id', companyId) // Safety: only delete company's own records
 
       if (deleteError) {
         console.error('Error deleting orphaned records:', deleteError)

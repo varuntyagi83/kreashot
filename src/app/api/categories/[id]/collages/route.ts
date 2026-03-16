@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { FORMATS } from '@/lib/formats'
+import { getCompanyId } from '@/lib/get-company'
 
 // GET - List all collages for a category
 export async function GET(
@@ -16,11 +17,14 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const companyId = await getCompanyId(supabase, user.id)
+  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
   let query = supabase
     .from('collages')
     .select('*')
     .eq('category_id', categoryId)
-    .eq('user_id', user.id)
+    .eq('company_id', companyId)
     .order('created_at', { ascending: false })
 
   if (format) {
@@ -50,6 +54,9 @@ export async function POST(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
     const { name, format = '1:1', collage_data } = body
@@ -89,6 +96,7 @@ export async function POST(
       .insert({
         category_id: categoryId,
         user_id: user.id,
+        company_id: companyId,
         name: name.trim(),
         format,
         width,

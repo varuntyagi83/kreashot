@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
@@ -27,13 +28,16 @@ export async function DELETE(
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    // Verify composite belongs to user's category
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Verify composite belongs to company's category
     const { data: composite } = await supabase
       .from('composites')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', compositeId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (!composite) {

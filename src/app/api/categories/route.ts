@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -21,11 +22,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get all categories for this user
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Get all categories for this company
     const { data: categories, error } = await supabase
       .from('categories')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -80,6 +84,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
     const { name, description, look_and_feel } = body
 
@@ -108,6 +115,7 @@ export async function POST(request: NextRequest) {
       .from('categories')
       .insert({
         user_id: user.id,
+        company_id: companyId,
         name,
         slug,
         description,

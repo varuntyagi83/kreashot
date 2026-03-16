@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 export async function GET(
   request: NextRequest,
@@ -15,11 +16,14 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const { data: asset, error } = await supabase
       .from('brand_assets')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (error) {
@@ -49,6 +53,10 @@ export async function DELETE(
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
@@ -60,7 +68,7 @@ export async function DELETE(
       .from('brand_assets')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .single()
 
     if (fetchError) {
@@ -93,7 +101,7 @@ export async function DELETE(
       .from('asset_references')
       .delete()
       .eq('asset_table_id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
       .eq('asset_type', 'brand_asset')
 
     // Delete from database
@@ -101,7 +109,7 @@ export async function DELETE(
       .from('brand_assets')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('company_id', companyId)
 
     if (deleteError) {
       console.error('[brand-assets/[id] DELETE] deleteError:', deleteError)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { getCompanyId } from '@/lib/get-company'
 
 // Generate slug from name
 function generateSlug(name: string): string {
@@ -31,13 +32,16 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get product and verify it belongs to user's category
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    // Get product and verify it belongs to company's category
     const { data: product, error } = await supabase
       .from('products')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', productId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (error || !product) {
@@ -71,15 +75,18 @@ export async function PUT(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const body = await request.json()
 
-    // Verify product belongs to user's category
+    // Verify product belongs to company's category
     const { data: existingProduct, error: fetchError } = await supabase
       .from('products')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', productId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (fetchError || !existingProduct) {
@@ -196,19 +203,23 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
     const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
     console.log(`[audit] DELETE product ${productId} by user ${user.id} at ${new Date().toISOString()}`)
 
-    // Verify product belongs to user's category
+    // Verify product belongs to company's category
     const { data: product, error: fetchError } = await supabase
       .from('products')
-      .select('*, category:categories!inner(user_id)')
+      .select('*, category:categories!inner(company_id)')
       .eq('id', productId)
       .eq('category_id', categoryId)
-      .eq('category.user_id', user.id)
+      .eq('category.company_id', companyId)
       .single()
 
     if (fetchError || !product) {
