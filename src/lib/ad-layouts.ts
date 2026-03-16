@@ -2,6 +2,7 @@
  * Ad layout presets for the Ads workspace.
  * All position/size values are percentages of the canvas (0–100).
  * fontSize is in pixels at a reference canvas width of 1080px.
+ * 15 named presets covering common ad layout patterns.
  */
 
 export interface OverlaySpec {
