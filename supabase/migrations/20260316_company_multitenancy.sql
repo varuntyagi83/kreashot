@@ -37,7 +37,6 @@ CREATE INDEX IF NOT EXISTS idx_company_members_company_id ON company_members(com
 ALTER TABLE categories       ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
 ALTER TABLE brand_assets     ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
 ALTER TABLE products         ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
-ALTER TABLE product_assets   ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
 ALTER TABLE angled_shots     ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
 ALTER TABLE backgrounds      ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
 ALTER TABLE composites       ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id);
@@ -99,7 +98,6 @@ ON CONFLICT DO NOTHING;
 UPDATE categories       t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE brand_assets     t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE products         t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
-UPDATE product_assets   t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE angled_shots     t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE backgrounds      t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
 UPDATE composites       t SET company_id = m.company_id FROM _user_company_map m WHERE t.user_id = m.user_id;
@@ -128,7 +126,6 @@ END$$;
 ALTER TABLE categories       ALTER COLUMN company_id SET NOT NULL;
 ALTER TABLE brand_assets     ALTER COLUMN company_id SET NOT NULL;
 ALTER TABLE products         ALTER COLUMN company_id SET NOT NULL;
-ALTER TABLE product_assets   ALTER COLUMN company_id SET NOT NULL;
 ALTER TABLE angled_shots     ALTER COLUMN company_id SET NOT NULL;
 ALTER TABLE backgrounds      ALTER COLUMN company_id SET NOT NULL;
 ALTER TABLE composites       ALTER COLUMN company_id SET NOT NULL;
@@ -171,7 +168,7 @@ DECLARE
   tbl TEXT;
 BEGIN
   FOR tbl IN SELECT unnest(ARRAY[
-    'categories', 'brand_assets', 'products', 'product_assets',
+    'categories', 'brand_assets', 'products',
     'angled_shots', 'backgrounds', 'composites', 'copy_docs',
     'guidelines', 'final_assets', 'ad_exports', 'asset_references',
     'templates', 'collages', 'brand_guidelines', 'brand_voices'
