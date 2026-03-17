@@ -4,7 +4,7 @@ import { uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 /**
  * GET /api/categories/[id]/angled-shots
@@ -27,8 +27,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company
     const { data: category } = await supabase
@@ -147,8 +148,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company and get slug
     const { data: category } = await supabase
@@ -256,7 +258,7 @@ export async function POST(
     // {companyId}/{category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
     const fileExt = mimeType?.split('/')[1] || 'jpg'
     const formatFolder = formatToFolderName(format) // "4:5" → "4x5"
-    const fileName = `${companyId}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
+    const fileName = `${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     const storageFile = await uploadFile(buffer, fileName, {

@@ -4,7 +4,7 @@ import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 /**
  * POST /api/categories/[id]/backgrounds/[backgroundId]/reformat
@@ -31,8 +31,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const rateLimit = checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -115,7 +116,7 @@ export async function POST(
         // Save the generated image
         const folderName = formatToFolderName(fmt)
         const slug = background.slug || background.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        const fileName = `${companyId}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
+        const fileName = `${companySlug}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')

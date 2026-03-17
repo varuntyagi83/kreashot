@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
 
@@ -36,8 +36,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company
     const { data: category } = await supabase
@@ -145,8 +146,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company and get slug
     const { data: category } = await supabase
@@ -259,7 +261,7 @@ export async function POST(
     // Generate filename using format-specific folder (x-notation for filesystem)
     const folderName = formatToFolderName(format)
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const fileName = `${companyId}/${category.slug}/composites/${folderName}/${slug}_${Date.now()}.${fileExt}`
+    const fileName = `${companySlug}/${category.slug}/composites/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     console.log(`Uploading ${format} composite to Google Drive (folder: ${folderName}): ${fileName}`)

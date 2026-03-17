@@ -4,7 +4,7 @@ import { uploadFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 function detectImageMime(buf: Buffer): string | null {
   if (buf.length < 12) return null
@@ -34,8 +34,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId } = companyInfo
 
     // Verify product belongs to company's category
     const { data: product } = await supabase
@@ -111,8 +112,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const rateLimit = checkRateLimit(`upload:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -203,7 +205,7 @@ export async function POST(
         .replace(/[\s_]+/g, '-') // Replace spaces/underscores with hyphens
         .replace(/^-+|-+$/g, '') // Trim hyphens
 
-      const storagePath = `${companyId}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
+      const storagePath = `${companySlug}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
 

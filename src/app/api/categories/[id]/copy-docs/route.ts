@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 function generateSlug(name: string): string {
   return name
@@ -31,8 +31,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const { data: category } = await supabase
       .from('categories')
@@ -88,8 +89,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const { data: category } = await supabase
       .from('categories')
@@ -161,7 +163,7 @@ export async function POST(
       created_at: new Date().toISOString(),
     }
 
-    const fileName = `${companyId}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
+    const fileName = `${companySlug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
     const buffer = Buffer.from(JSON.stringify(copyData, null, 2), 'utf-8')
 
     console.log(`Uploading copy doc to Google Drive: ${fileName}`)

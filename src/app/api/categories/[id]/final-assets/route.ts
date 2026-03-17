@@ -6,7 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
@@ -48,8 +48,9 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const companyId = await getCompanyId(supabase, user.id)
-  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+  const companyInfo = await getCompanyInfo(supabase, user.id)
+  if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+  const { company_id: companyId } = companyInfo
 
   // Verify this category belongs to the authenticated company
   const { data: category } = await supabase
@@ -98,8 +99,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const rateLimit = checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -133,6 +135,45 @@ export async function POST(
       layerTexts,
       customLayers,
     } = body
+
+    // Fast path: save a previously generated preview to the gallery (no Python/Drive re-run)
+    if (body.savePreview) {
+      const sp = body.savePreview as {
+        storageUrl: string; storagePath: string; gdriveFileId: string
+        name: string; format: string; width: number; height: number
+        compositeId?: string; copyDocId?: string; templateId?: string
+        compositionData: object
+      }
+      if (!sp.storageUrl || !sp.storagePath || !sp.gdriveFileId) {
+        return NextResponse.json({ error: 'Invalid save data' }, { status: 400 })
+      }
+      const { data: savedAsset, error: insertError } = await supabase
+        .from('final_assets')
+        .insert({
+          category_id: categoryId,
+          user_id: user.id,
+          company_id: companyId,
+          template_id: sp.templateId ?? null,
+          composite_id: sp.compositeId ?? null,
+          copy_doc_id: sp.copyDocId ?? null,
+          name: sp.name,
+          format: sp.format,
+          width: sp.width,
+          height: sp.height,
+          composition_data: sp.compositionData,
+          storage_provider: 'gdrive',
+          storage_path: sp.storagePath,
+          storage_url: sp.storageUrl,
+          gdrive_file_id: sp.gdriveFileId,
+        })
+        .select()
+        .single()
+      if (insertError) {
+        console.error('❌ Save preview insert failed:', insertError)
+        throw insertError
+      }
+      return NextResponse.json({ finalAsset: savedAsset, message: 'Final asset saved to gallery' })
+    }
 
     if (logoUrl && !isAllowedUrl(logoUrl)) {
       return NextResponse.json({ error: 'Logo URL not allowed' }, { status: 400 })
@@ -460,7 +501,7 @@ export async function POST(
 
     const timestamp = Date.now()
     const formatFolder = format.replace(':', 'x') // '1:1' → '1x1', '16:9' → '16x9'
-    const storagePath = `${companyId}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
+    const storagePath = `${companySlug}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
 
     // Read the file as a Buffer
     const fileBuffer = await readFile(result)
@@ -470,6 +511,36 @@ export async function POST(
       storagePath,
       { provider: 'gdrive' }
     )
+
+    // If preview mode: return the generated image without saving to the gallery.
+    // The client will show a confirmation dialog; a second call with savePreview saves it.
+    if (body.preview === true) {
+      await unlink(result).catch(() => {})
+      for (const fp of fontCleanup) { await unlink(fp).catch(() => {}) }
+      return NextResponse.json({
+        isPreview: true,
+        preview: {
+          storageUrl: publicUrl,
+          storagePath,
+          gdriveFileId: fileId,
+          name,
+          format,
+          width,
+          height,
+          compositeId: compositeId ?? null,
+          copyDocId: copyDocId ?? null,
+          templateId: template.id ?? null,
+          compositionData: {
+            layers: template.template_data.layers,
+            source_composite: compositeUrl,
+            source_copy: typeof copyText === 'object' && 'generated_text' in copyText
+              ? (copyText as any).generated_text
+              : null,
+            safe_zones_validated: true,
+          },
+        },
+      })
+    }
 
     // 7. Save to database
     console.log('💾 Saving to database...')

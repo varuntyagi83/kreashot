@@ -2,7 +2,7 @@ export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 import { generateComposite } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
@@ -57,8 +57,9 @@ export async function POST(
       )
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const body = await request.json()
     const { newAngledShotId } = body
@@ -155,7 +156,7 @@ export async function POST(
     const bgName = background.name
     const folderName = formatToFolderName(format)
     const newSlug = `${categorySlug}-${newShotName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${bgName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-swap-${Date.now()}`
-    const fileName = `${companyId}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+    const fileName = `${companySlug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
     const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
     const outputBuffer = Buffer.from(base64Data, 'base64')

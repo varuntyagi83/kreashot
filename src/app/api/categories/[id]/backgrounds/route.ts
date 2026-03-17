@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -36,8 +36,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company
     const { data: category } = await supabase
@@ -131,8 +132,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company and get slug
     const { data: category } = await supabase
@@ -212,7 +214,7 @@ export async function POST(
     // Generate filename using format-specific folder (x-notation for filesystem)
     const folderName = formatToFolderName(format)
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const fileName = `${companyId}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
+    const fileName = `${companySlug}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     console.log(`Uploading ${format} background to Google Drive (folder: ${folderName}): ${fileName}`)

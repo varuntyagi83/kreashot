@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 function detectMimeFromBytes(buffer: Buffer): string | null {
   if (buffer.length < 12) return null
@@ -46,8 +46,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId } = companyInfo
 
     const { data: assets, error } = await supabase
       .from('brand_assets')
@@ -93,8 +94,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
     let storageFile: { path: string; publicUrl: string; fileId?: string }
     let storageProvider: 'supabase' | 'gdrive'
     if (isFont) {
-      const filePath = `${companyId}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${companySlug}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'supabase',
@@ -192,7 +194,7 @@ export async function POST(request: NextRequest) {
       })
       storageProvider = 'supabase'
     } else {
-      const filePath = `${companyId}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${companySlug}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'gdrive',

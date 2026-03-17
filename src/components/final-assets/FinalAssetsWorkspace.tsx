@@ -28,6 +28,20 @@ interface FinalAsset {
   aspect_ratio: string | null
 }
 
+interface PreviewData {
+  storageUrl: string
+  storagePath: string
+  gdriveFileId: string
+  name: string
+  format: string
+  width: number
+  height: number
+  compositeId: string | null
+  copyDocId: string | null
+  templateId: string | null
+  compositionData: object
+}
+
 interface TemplateLayer {
   id: string
   type: string
@@ -146,6 +160,8 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
   const [generating, setGenerating] = useState(false)
   const generatingRef = useRef(false)
   const [assetName, setAssetName] = useState('')
+  const [pendingPreview, setPendingPreview] = useState<PreviewData | null>(null)
+  const [saving, setSaving] = useState(false)
 
   // Selected IDs
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('')
@@ -276,6 +292,32 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       console.error('Error fetching final assets:', error)
       throw error
     }
+  }
+
+  const handleSavePreview = async () => {
+    if (!pendingPreview) return
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/categories/${categoryId}/final-assets`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ savePreview: pendingPreview }),
+      })
+      const data = await response.json()
+      if (data.error) throw new Error(data.error)
+      setPendingPreview(null)
+      setAssetName('')
+      toast.success('Final ad saved to gallery! 🎉')
+      fetchFinalAssets()
+    } catch (error: any) {
+      toast.error(error.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDiscardPreview = () => {
+    setPendingPreview(null)
   }
 
   const handleDeleteAsset = async (assetId: string) => {
@@ -540,7 +582,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
       const response = await fetch(`/api/categories/${categoryId}/final-assets`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({ ...requestBody, preview: true })
       })
 
       const data = await response.json()
@@ -549,9 +591,13 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
         throw new Error(data.error)
       }
 
-      toast.success('Final ad generated successfully! 🎉')
-      setAssetName('')
-      fetchFinalAssets()
+      if (data.isPreview) {
+        setPendingPreview(data.preview as PreviewData)
+      } else {
+        toast.success('Final ad generated successfully! 🎉')
+        setAssetName('')
+        fetchFinalAssets()
+      }
     } catch (error: any) {
       console.error('Error generating final asset:', error)
       toast.error(error.message)
@@ -1220,6 +1266,51 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview confirmation — shown after generation, before saving */}
+      {pendingPreview && (
+        <Card className="rounded-xl border-2 border-primary/40 shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold">Preview Generated Ad</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Review your ad before saving it to the gallery.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex justify-center">
+              <div className="relative rounded-lg overflow-hidden border" style={{ maxWidth: 320 }}>
+                <Image
+                  src={driveImgSrc(pendingPreview.storageUrl)}
+                  alt="Generated ad preview"
+                  width={pendingPreview.width}
+                  height={pendingPreview.height}
+                  className="w-full h-auto"
+                  unoptimized
+                />
+              </div>
+            </div>
+            <p className="text-xs text-center text-muted-foreground">
+              {pendingPreview.name} · {pendingPreview.format} · {pendingPreview.width}×{pendingPreview.height}
+            </p>
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={handleSavePreview}
+                disabled={saving}
+                className="bg-primary hover:bg-primary/90 text-white"
+              >
+                {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving…</> : 'Save to Gallery'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDiscardPreview}
+                disabled={saving}
+              >
+                Discard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Final Assets Gallery */}
       <div>

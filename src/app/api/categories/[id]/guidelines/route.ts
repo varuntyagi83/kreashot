@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile, deleteFile } from '@/lib/storage'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -41,8 +41,9 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     // Verify category belongs to company
     const { data: category } = await supabase
@@ -105,8 +106,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const { data: category } = await supabase
       .from('categories')
@@ -167,7 +169,7 @@ export async function POST(
     const ext = file.name.split('.').pop() || 'bin'
 
     // Upload to Google Drive
-    const fileName = `${companyId}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
+    const fileName = `${companySlug}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const detectedMime = detectFileMime(buffer)

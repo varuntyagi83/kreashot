@@ -10,7 +10,7 @@ import { deleteFile, downloadFile, uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
-import { getCompanyId } from '@/lib/get-company'
+import { getCompanyInfo } from '@/lib/get-company'
 
 /**
  * POST /api/categories/[id]/angled-shots/generate
@@ -38,8 +38,9 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const companyInfo = await getCompanyInfo(supabase, user.id)
+    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const { company_id: companyId, company_slug: companySlug } = companyInfo
 
     const rateLimit = checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -196,7 +197,7 @@ export async function POST(
 
           const fileExt = shot.mimeType?.split('/')[1] || 'jpg'
           const formatFolder = formatToFolderName(detectedFormat)
-          const fileName = `${companyId}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
+          const fileName = `${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
 
           const storageFile = await uploadFile(buffer, fileName, {
             contentType: shot.mimeType || 'image/jpeg',
