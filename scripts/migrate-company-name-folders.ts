@@ -18,21 +18,20 @@
  *   GOOGLE_DRIVE_CLIENT_EMAIL, GOOGLE_DRIVE_PRIVATE_KEY, GOOGLE_DRIVE_FOLDER_ID
  */
 
-import 'dotenv/config'
+// Load .env.local first before any other imports
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
 import { sanitizeCompanyName } from '../src/lib/sanitize-company-name'
 
-// Load .env.local
-import { config } from 'dotenv'
-config({ path: '.env.local' })
-
-const SUPABASE_URL = process.env.SUPABASE_URL!
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!
 const ROOT_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID!
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ROOT_FOLDER_ID) {
-  console.error('❌ Missing required env vars: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, GOOGLE_DRIVE_FOLDER_ID')
+  console.error('❌ Missing required env vars: SUPABASE_URL (or NEXT_PUBLIC_SUPABASE_URL), SUPABASE_SERVICE_ROLE_KEY, GOOGLE_DRIVE_FOLDER_ID')
   process.exit(1)
 }
 
@@ -120,17 +119,24 @@ async function main() {
     console.log('─'.repeat(60))
 
     try {
-      // Step 1: Check if company-slug folder exists at root
-      const companySlugFolderId = await findFolder(ROOT_FOLDER_ID, company.slug)
+      // Step 1: Check if company-slug OR company-UUID folder exists at root
+      let companyFolderId = await findFolder(ROOT_FOLDER_ID, company.slug)
+      let foundFolderName = company.slug
 
-      if (!companySlugFolderId) {
-        console.log(`   ℹ️  No folder found for slug "${company.slug}" at root`)
+      if (!companyFolderId) {
+        // Try looking for UUID-based folder (legacy format)
+        companyFolderId = await findFolder(ROOT_FOLDER_ID, company.id)
+        foundFolderName = company.id
+      }
+
+      if (!companyFolderId) {
+        console.log(`   ℹ️  No folder found for slug "${company.slug}" or UUID "${company.id}" at root`)
         console.log(`   ℹ️  This is expected for new companies - folders will be created on first upload`)
         skipCount++
         continue
       }
 
-      console.log(`   ✓ Found company slug folder: ${company.slug}`)
+      console.log(`   ✓ Found company folder: ${foundFolderName}`)
 
       // Step 2: Check if company name folder already exists
       const companyNameFolderId = await findFolder(ROOT_FOLDER_ID, sanitizedName)
@@ -146,31 +152,59 @@ async function main() {
           continue
         }
 
-        // Name folder exists but slug folder is still at root - move it
+        // Name folder exists but company folder is still at root - move it
         console.log(`   📁 Company name folder already exists`)
-        console.log(`   🔄 Moving slug folder into company name folder...`)
+        console.log(`   🔄 Moving company folder into name folder...`)
 
         if (!DRY_RUN) {
-          await moveFolder(companySlugFolderId, companyNameFolderId, ROOT_FOLDER_ID)
-          console.log(`   ✅ Moved: "${company.slug}" → "${sanitizedName}/${company.slug}"`)
+          await moveFolder(companyFolderId, companyNameFolderId, ROOT_FOLDER_ID)
+          console.log(`   ✅ Moved: "${foundFolderName}" → "${sanitizedName}/${foundFolderName}"`)
+
+          // If we moved a UUID folder, rename it to the slug
+          if (foundFolderName === company.id && foundFolderName !== company.slug) {
+            console.log(`   🔄 Renaming UUID folder to slug: "${company.id}" → "${company.slug}"`)
+            await drive.files.update({
+              fileId: companyFolderId,
+              requestBody: { name: company.slug },
+              supportsAllDrives: true,
+            })
+            console.log(`   ✅ Renamed to: "${sanitizedName}/${company.slug}"`)
+          }
         } else {
-          console.log(`   🔍 [DRY RUN] Would move: "${company.slug}" → "${sanitizedName}/${company.slug}"`)
+          console.log(`   🔍 [DRY RUN] Would move: "${foundFolderName}" → "${sanitizedName}/${foundFolderName}"`)
+          if (foundFolderName === company.id && foundFolderName !== company.slug) {
+            console.log(`   🔍 [DRY RUN] Would rename: "${company.id}" → "${company.slug}"`)
+          }
         }
         successCount++
       } else {
-        // Create company name folder and move slug folder into it
+        // Create company name folder and move company folder into it
         console.log(`   📁 Creating company name folder: "${sanitizedName}"`)
 
         if (!DRY_RUN) {
           const newNameFolderId = await createFolder(ROOT_FOLDER_ID, sanitizedName)
           console.log(`   ✓ Created folder: ${sanitizedName}`)
 
-          console.log(`   🔄 Moving slug folder into company name folder...`)
-          await moveFolder(companySlugFolderId, newNameFolderId, ROOT_FOLDER_ID)
-          console.log(`   ✅ Migration complete: "${sanitizedName}/${company.slug}"`)
+          console.log(`   🔄 Moving company folder into name folder...`)
+          await moveFolder(companyFolderId, newNameFolderId, ROOT_FOLDER_ID)
+          console.log(`   ✅ Moved: "${foundFolderName}" → "${sanitizedName}/${foundFolderName}"`)
+
+          // If we moved a UUID folder, rename it to the slug
+          if (foundFolderName === company.id && foundFolderName !== company.slug) {
+            console.log(`   🔄 Renaming UUID folder to slug: "${company.id}" → "${company.slug}"`)
+            await drive.files.update({
+              fileId: companyFolderId,
+              requestBody: { name: company.slug },
+              supportsAllDrives: true,
+            })
+            console.log(`   ✅ Final structure: "${sanitizedName}/${company.slug}"`)
+          }
         } else {
           console.log(`   🔍 [DRY RUN] Would create: "${sanitizedName}/"`)
-          console.log(`   🔍 [DRY RUN] Would move: "${company.slug}" → "${sanitizedName}/${company.slug}"`)
+          console.log(`   🔍 [DRY RUN] Would move: "${foundFolderName}" → "${sanitizedName}/${foundFolderName}"`)
+          if (foundFolderName === company.id && foundFolderName !== company.slug) {
+            console.log(`   🔍 [DRY RUN] Would rename: "${company.id}" → "${company.slug}"`)
+          }
         }
         successCount++
       }
