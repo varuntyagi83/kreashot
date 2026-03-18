@@ -94,8 +94,8 @@ export async function POST(
       return NextResponse.json({ error: 'Too many pairs. Maximum 20 allowed per request.' }, { status: 400 })
     }
 
-    if (userPrompt && typeof userPrompt === 'string' && userPrompt.length > 20000) {
-      return NextResponse.json({ error: 'userPrompt must be 20000 characters or fewer' }, { status: 400 })
+    if (userPrompt && typeof userPrompt === 'string' && userPrompt.length > 5000) {
+      return NextResponse.json({ error: 'userPrompt must be 5000 characters or fewer' }, { status: 400 })
     }
 
     const safeUserPrompt = userPrompt ? sanitizeForPrompt(userPrompt) : undefined

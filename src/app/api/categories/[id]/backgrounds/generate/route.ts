@@ -105,9 +105,9 @@ export async function POST(
       )
     }
 
-    if (typeof resolvedPrompt === 'string' && resolvedPrompt.length > 20000) {
+    if (typeof resolvedPrompt === 'string' && resolvedPrompt.length > 5000) {
       return NextResponse.json(
-        { error: 'prompt must be 20000 characters or fewer' },
+        { error: 'prompt must be 5000 characters or fewer' },
         { status: 400 }
       )
     }

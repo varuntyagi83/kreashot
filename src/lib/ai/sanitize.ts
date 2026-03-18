@@ -16,7 +16,3 @@ export function sanitizeForPrompt(input: string): string {
   }
   return sanitized.replace(/\0/g, '').trim()
 }
-
-export function sanitizePromptMaxLength(input: string, max = 2000): string {
-  return sanitizeForPrompt(input).slice(0, max)
-}
