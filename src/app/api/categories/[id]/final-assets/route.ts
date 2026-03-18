@@ -163,6 +163,14 @@ export async function POST(
       if (!sp.storageUrl || !sp.storagePath || !sp.gdriveFileId) {
         return NextResponse.json({ error: 'Invalid save data' }, { status: 400 })
       }
+
+      // Security (H-02): verify the storage path belongs to this company's namespace.
+      // A malicious caller could supply an arbitrary storagePath / storageUrl to link
+      // another company's file into their gallery. Reject any path that does not start
+      // with the authenticated company's slug prefix.
+      if (!sp.storagePath.startsWith(`${companySlug}/`)) {
+        return NextResponse.json({ error: 'Storage path does not belong to this company' }, { status: 403 })
+      }
       const { data: savedAsset, error: insertError } = await supabase
         .from('final_assets')
         .insert({

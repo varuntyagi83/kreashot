@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 import { getCompanyMembership } from '@/lib/get-company'
 
 /**
@@ -36,14 +37,17 @@ export async function POST(request: NextRequest) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
     const redirectTo = `${baseUrl}/auth/callback?company_id=${membership.company_id}&next=/categories`
 
-    // Send magic-link invite via Supabase Auth admin API
-    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(email, {
+    // Send magic-link invite via Supabase Auth admin API.
+    // Uses service-role client (supabaseAdmin) — auth.admin requires service role key, not anon key.
+    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
       redirectTo,
     })
 
     if (inviteError) {
+      // Log full error server-side; return a generic message to the client (Security Invariant #10:
+      // do not leak internal error messages or stack traces in API responses).
       console.error('[company/invite POST]', inviteError)
-      return NextResponse.json({ error: inviteError.message }, { status: 500 })
+      return NextResponse.json({ error: 'Failed to send invite' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true, email })

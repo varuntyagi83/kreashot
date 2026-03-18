@@ -58,6 +58,15 @@ export async function POST(
     // Sanitize user-supplied brief against prompt injection before sending to AI
     const safeBrief = brief ? sanitizeForPrompt(brief) : brief
 
+    // Sanitize DB-sourced brand context strings before embedding in the system prompt.
+    // Although these values are written by authenticated users (not anonymous callers),
+    // they are passed verbatim into the OpenAI system prompt in buildSystemPrompt().
+    // A user could store a prompt-injection payload in look_and_feel or brand_guidelines.
+    const safeLookAndFeel = sanitizeForPrompt(category.look_and_feel || '')
+    const safeBrandGuidelines = category.brand_guidelines
+      ? sanitizeForPrompt(category.brand_guidelines)
+      : undefined
+
     // ── Resolve brand voice (library voice overrides category voice) ─────
     let brandVoice = category.brand_voice || undefined
     if (body.brandVoiceId) {
@@ -100,9 +109,9 @@ export async function POST(
         safeBrief,
         copyTypes as CopyType[],
         tones,
-        category.look_and_feel || '',
+        safeLookAndFeel,
         targetAudience,
-        category.brand_guidelines || undefined,
+        safeBrandGuidelines,
         brandVoice
       )
 
@@ -138,11 +147,11 @@ export async function POST(
     const results = await generateCopyVariations(
       safeBrief,
       copyType as CopyType,
-      category.look_and_feel || '',
+      safeLookAndFeel,
       countNum,
       tone,
       targetAudience,
-      category.brand_guidelines || undefined,
+      safeBrandGuidelines,
       brandVoice
     )
 

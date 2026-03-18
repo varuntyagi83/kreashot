@@ -144,11 +144,12 @@ export async function POST(
         )
     }
 
-    // Save to database
+    // Save to database — include company_id guard for defence-in-depth (M-02)
     const { error: updateError } = await supabase
       .from('categories')
       .update({ brand_voice: profile })
       .eq('id', categoryId)
+      .eq('company_id', companyId)
 
     if (updateError) {
       console.error('Failed to save brand voice:', updateError)
@@ -199,6 +200,7 @@ export async function DELETE(
       .from('categories')
       .update({ brand_voice: null })
       .eq('id', categoryId)
+      .eq('company_id', companyId)
 
     return NextResponse.json({ message: 'Brand voice profile cleared' })
   } catch (error: any) {

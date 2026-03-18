@@ -233,7 +233,13 @@ export async function DELETE(
     }
 
     // Delete product (cascade will handle related records)
-    const { error } = await supabase.from('products').delete().eq('id', productId)
+    // Include company_id guard for defence-in-depth (M-03): prevents deletion if the
+    // product's company changed between the ownership check above and this statement.
+    const { error } = await supabase
+      .from('products')
+      .delete()
+      .eq('id', productId)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('[products/[productId] DELETE] error:', error)

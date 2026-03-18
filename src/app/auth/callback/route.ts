@@ -9,8 +9,17 @@ export async function GET(request: NextRequest) {
   const isRelativePath = next.startsWith('/') && !next.startsWith('//')
   const safeNext = isRelativePath ? next : '/categories'
 
-  // Optional: company invite param — if present, join this company instead of creating a new one
-  const inviteCompanyId = requestUrl.searchParams.get('company_id')
+  // Optional: company invite param — if present, join this company instead of creating a new one.
+  // SECURITY NOTE (C-02): This param is not cryptographically signed. The validation below
+  // (UUID format + company existence check) is a defence-in-depth partial fix. The full
+  // mitigation requires a `company_invites` table with a one-time signed token so the
+  // callback can verify the invite has not been forged or reused.
+  const rawInviteCompanyId = requestUrl.searchParams.get('company_id')
+  // Validate strict UUID format to prevent path-traversal or injection via this param
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const inviteCompanyId = rawInviteCompanyId && UUID_RE.test(rawInviteCompanyId)
+    ? rawInviteCompanyId
+    : null
 
   if (code) {
     const supabase = await createServerSupabaseClient()
@@ -30,14 +39,33 @@ export async function GET(request: NextRequest) {
           .single()
 
         if (!existingMember) {
+          let joinedViaInvite = false
+
           if (inviteCompanyId) {
-            // Join the invited company as a member
-            await supabase.from('company_members').insert({
-              company_id: inviteCompanyId,
-              user_id: user.id,
-              role: 'member',
-            })
-          } else {
+            // Verify the company actually exists before inserting the membership.
+            // This prevents joining a nonexistent or guessed company UUID.
+            // TODO (C-02 full fix): replace with a lookup against a `company_invites` table
+            // that holds a short-lived one-time signed token keyed to (company_id, email).
+            const { data: invitedCompany } = await supabase
+              .from('companies')
+              .select('id')
+              .eq('id', inviteCompanyId)
+              .single()
+
+            if (invitedCompany) {
+              // Join the invited company as a member
+              await supabase.from('company_members').insert({
+                company_id: inviteCompanyId,
+                user_id: user.id,
+                role: 'member',
+              })
+              joinedViaInvite = true
+            } else {
+              console.warn(`[auth/callback] invite company_id ${inviteCompanyId} not found — creating new company instead`)
+            }
+          }
+
+          if (!joinedViaInvite) {
             // Create a new solo company for this user
             const displayName =
               (user.user_metadata?.full_name as string | undefined)?.trim() ||
