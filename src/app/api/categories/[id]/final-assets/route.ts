@@ -137,6 +137,13 @@ export async function POST(
       customLayers,
     } = body
 
+    if (!name || name.length > 200) {
+      return NextResponse.json(
+        { error: 'name is required and must be 200 characters or fewer' },
+        { status: 400 }
+      )
+    }
+
     // Fast path: save a previously generated preview to the gallery (no Python/Drive re-run)
     if (body.savePreview) {
       const sp = body.savePreview as {
