@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { getCompanyMembership } from '@/lib/get-company'
 
 /**
@@ -34,7 +34,7 @@ export async function GET() {
     // Fetch user emails + metadata from auth.users via admin API
     // Uses service-role client (supabaseAdmin) — auth.admin requires service role key, not anon key.
     const userIds = (members || []).map((m) => m.user_id)
-    const { data: usersData } = await supabaseAdmin.auth.admin.listUsers()
+    const { data: usersData } = await getSupabaseAdmin().auth.admin.listUsers()
     const usersMap: Record<string, { email: string; full_name?: string }> = {}
     for (const u of usersData?.users ?? []) {
       if (userIds.includes(u.id)) {

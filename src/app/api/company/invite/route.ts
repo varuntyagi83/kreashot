@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { getCompanyMembership } from '@/lib/get-company'
 
 /**
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
 
     // Send magic-link invite via Supabase Auth admin API.
     // Uses service-role client (supabaseAdmin) — auth.admin requires service role key, not anon key.
-    const { error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+    const { error: inviteError } = await getSupabaseAdmin().auth.admin.inviteUserByEmail(email, {
       redirectTo,
     })
 
