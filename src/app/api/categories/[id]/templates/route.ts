@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
 import { FORMATS } from '@/lib/formats'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 export async function GET(
   request: NextRequest,
@@ -75,7 +76,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const body = await request.json()
 
@@ -119,6 +120,7 @@ export async function POST(
     }
 
     const categorySlug = category?.slug || 'unknown'
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Create template
     // Convert format from "4:5" to "4x5" for folder naming
@@ -136,7 +138,7 @@ export async function POST(
         height,
         template_data,
         storage_provider: 'gdrive',
-        storage_path: `${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`,
+        storage_path: `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`,
         storage_url: '', // Will be updated after upload
         slug: safeName,
         metadata: {},
@@ -157,7 +159,7 @@ export async function POST(
 
       // Convert format from "4:5" to "4x5" for folder naming
       const formatFolder = format.replace(':', 'x')
-      const storagePath = `${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`
+      const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`
       const uploadResult = await gdrive.upload(templateBuffer, storagePath, {
         contentType: 'application/json',
       })

@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 export async function GET(
   request: NextRequest,
@@ -76,7 +77,7 @@ export async function PUT(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const body = await request.json()
 
@@ -102,6 +103,7 @@ export async function PUT(
       .single()
 
     const categorySlug = category?.slug || 'unknown'
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Update template in database
     // Convert format from "4:5" to "4x5" for folder naming
@@ -116,7 +118,7 @@ export async function PUT(
         height,
         template_data,
         slug: name?.toLowerCase().replace(/\s+/g, '-'),
-        storage_path: `${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`,
+        storage_path: `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`,
       })
       .eq('id', templateId)
       .eq('company_id', companyId)
@@ -145,7 +147,7 @@ export async function PUT(
 
         // Convert format from "4:5" to "4x5" for folder naming
         const formatFolder = format?.replace(':', 'x')
-        const storagePath = `${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`
+        const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`
 
         console.log('🔵 Google Drive Upload Debug:')
         console.log('  Company ID:', companyId)

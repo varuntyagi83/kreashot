@@ -9,6 +9,7 @@ import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 // POST - Generate (render) a collage into a final image
 export async function POST(
@@ -26,7 +27,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = checkRateLimit(`collage-gen:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -185,10 +186,11 @@ export async function POST(
       .eq('company_id', companyId)
       .single()
 
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const categorySlug = category?.slug || 'unknown'
     const timestamp = Date.now()
     const formatFolder = collage.format.replace(':', 'x')
-    const storagePath = `${companySlug}/${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
+    const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
 
     const fileBuffer = await readFile(result)
 

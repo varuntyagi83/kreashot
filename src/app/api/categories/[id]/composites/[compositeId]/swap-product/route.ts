@@ -8,6 +8,7 @@ import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
 import sharp from 'sharp'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 const GEMINI_INPUT_MAX_PX = 1536
 
@@ -59,7 +60,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const body = await request.json()
     const { newAngledShotId } = body
@@ -152,11 +153,12 @@ export async function POST(
     const generationTimeMs = Date.now() - startTime
 
     // Save new composite
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const newShotName = newShot.display_name || newShot.angle_name
     const bgName = background.name
     const folderName = formatToFolderName(format)
     const newSlug = `${categorySlug}-${newShotName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${bgName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-swap-${Date.now()}`
-    const fileName = `${companySlug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+    const fileName = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
     const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
     const outputBuffer = Buffer.from(base64Data, 'base64')

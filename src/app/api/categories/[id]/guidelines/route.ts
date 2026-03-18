@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -108,7 +109,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const { data: category } = await supabase
       .from('categories')
@@ -164,12 +165,13 @@ export async function POST(
     }
 
     const slug = generateSlug(name)
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Get file extension
     const ext = file.name.split('.').pop() || 'bin'
 
     // Upload to Google Drive
-    const fileName = `${companySlug}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
+    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const detectedMime = detectFileMime(buffer)

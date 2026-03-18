@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 function generateSlug(name: string): string {
   return name
@@ -91,7 +92,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const { data: category } = await supabase
       .from('categories')
@@ -153,6 +154,7 @@ export async function POST(
     }
 
     // Save as JSON file to Google Drive
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const copyData = {
       name,
       original_text: originalText || '',
@@ -163,7 +165,7 @@ export async function POST(
       created_at: new Date().toISOString(),
     }
 
-    const fileName = `${companySlug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
+    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
     const buffer = Buffer.from(JSON.stringify(copyData, null, 2), 'utf-8')
 
     console.log(`Uploading copy doc to Google Drive: ${fileName}`)

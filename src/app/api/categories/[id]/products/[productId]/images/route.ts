@@ -5,6 +5,7 @@ import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 function detectImageMime(buf: Buffer): string | null {
   if (buf.length < 12) return null
@@ -114,7 +115,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = checkRateLimit(`upload:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -193,9 +194,10 @@ export async function POST(
       }
 
       const formatFolder = formatToFolderName(detectedFormat)
+      const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
       // Generate filename following hierarchy:
-      // {companyId}/{category-slug}/{product-slug}/product-images/angled-shots/{aspect-ratio}/{filename}
+      // {companyName}/{companySlug}/{category-slug}/{product-slug}/product-images/angled-shots/{aspect-ratio}/{filename}
       const fileExt = file.name.split('.').pop() || 'jpg'
       const timestamp = Date.now()
       const sanitizedFileName = file.name
@@ -205,7 +207,7 @@ export async function POST(
         .replace(/[\s_]+/g, '-') // Replace spaces/underscores with hyphens
         .replace(/^-+|-+$/g, '') // Trim hyphens
 
-      const storagePath = `${companySlug}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
+      const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
 
       console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
 

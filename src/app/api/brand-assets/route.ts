@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile } from '@/lib/storage'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 function detectMimeFromBytes(buffer: Buffer): string | null {
   if (buffer.length < 12) return null
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const formData = await request.formData()
     const file = formData.get('file') as File
@@ -180,13 +181,14 @@ export async function POST(request: NextRequest) {
       ttf: 'font/ttf', otf: 'font/otf', woff: 'font/woff', woff2: 'font/woff2',
     }
     const contentType = file.type || FONT_EXT_MIME[fileExt.toLowerCase()] || 'application/octet-stream'
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Fonts: store in Supabase so the browser can load them via @font-face (no CORS issues).
     // Other assets: Google Drive.
     let storageFile: { path: string; publicUrl: string; fileId?: string }
     let storageProvider: 'supabase' | 'gdrive'
     if (isFont) {
-      const filePath = `${companySlug}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${sanitizedCompanyName}/${companySlug}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'supabase',
@@ -194,7 +196,7 @@ export async function POST(request: NextRequest) {
       })
       storageProvider = 'supabase'
     } else {
-      const filePath = `${companySlug}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
+      const filePath = `${sanitizedCompanyName}/${companySlug}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
         provider: 'gdrive',

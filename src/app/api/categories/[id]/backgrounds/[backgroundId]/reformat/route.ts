@@ -5,6 +5,7 @@ import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
  * POST /api/categories/[id]/backgrounds/[backgroundId]/reformat
@@ -33,7 +34,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -100,6 +101,7 @@ export async function POST(
     }> = []
 
     const categorySlug = (background.category as any).slug
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     for (const fmt of targetFormats) {
       console.log(`  Reformatting to ${fmt}...`)
@@ -116,7 +118,7 @@ export async function POST(
         // Save the generated image
         const folderName = formatToFolderName(fmt)
         const slug = background.slug || background.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        const fileName = `${companySlug}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
+        const fileName = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')

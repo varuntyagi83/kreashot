@@ -11,6 +11,7 @@ import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 const ALLOWED_FONT_DOMAINS = [
   'lh3.googleusercontent.com',
@@ -101,7 +102,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -499,9 +500,10 @@ export async function POST(
     // 6. Upload to Google Drive
     console.log('📤 Uploading final asset to Google Drive...')
 
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const timestamp = Date.now()
     const formatFolder = format.replace(':', 'x') // '1:1' → '1x1', '16:9' → '16x9'
-    const storagePath = `${companySlug}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
+    const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
 
     // Read the file as a Buffer
     const fileBuffer = await readFile(result)

@@ -11,6 +11,7 @@ import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
  * POST /api/categories/[id]/angled-shots/generate
@@ -40,7 +41,7 @@ export async function POST(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -173,6 +174,7 @@ export async function POST(
     const perShotMs = Math.round((Date.now() - angledShotStartMs) / (generatedShots.length || 1))
 
     const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Save each shot to GDrive + DB
     const savedShots = await Promise.all(
@@ -197,7 +199,7 @@ export async function POST(
 
           const fileExt = shot.mimeType?.split('/')[1] || 'jpg'
           const formatFolder = formatToFolderName(detectedFormat)
-          const fileName = `${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
+          const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
 
           const storageFile = await uploadFile(buffer, fileName, {
             contentType: shot.mimeType || 'image/jpeg',

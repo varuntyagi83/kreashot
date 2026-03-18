@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
 import { getCompanyInfo } from '@/lib/get-company'
+import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 // Helper to generate slug from name
 function generateSlug(name: string): string {
@@ -38,7 +39,7 @@ export async function GET(
 
     const companyInfo = await getCompanyInfo(supabase, user.id)
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     // Verify category belongs to company
     const { data: category } = await supabase
@@ -214,7 +215,8 @@ export async function POST(
     // Generate filename using format-specific folder (x-notation for filesystem)
     const folderName = formatToFolderName(format)
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const fileName = `${companySlug}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     console.log(`Uploading ${format} background to Google Drive (folder: ${folderName}): ${fileName}`)
