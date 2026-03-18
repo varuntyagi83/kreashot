@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
 import { getCompanyId } from '@/lib/get-company'
+import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
 export const dynamic = 'force-dynamic'
 
@@ -122,7 +123,8 @@ export async function POST(request: NextRequest) {
     const wasTruncated = extractedText.trim().length > 20000
 
     // Translate hex codes to natural-language color descriptions for image generation
-    const colorDescription = await translateGuidelinesToColorDescription(truncatedText)
+    const sanitizedText = sanitizeForPrompt(truncatedText)
+    const colorDescription = await translateGuidelinesToColorDescription(sanitizedText)
     if (colorDescription) {
       console.log(`Color description generated (${colorDescription.length} chars)`)
     }
