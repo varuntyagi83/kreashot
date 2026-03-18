@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
 import { getCompanyId } from '@/lib/get-company'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,6 +68,14 @@ export async function POST(request: NextRequest) {
 
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    const rateLimit = checkRateLimit(`guidelines-upload:${user.id}`, 5, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Try again in a minute.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
+    }
 
     const formData = await request.formData()
     const file = formData.get('file') as File | null
