@@ -97,13 +97,16 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Successful confirmation - redirect to dashboard
-      return NextResponse.redirect(new URL(safeNext, request.url))
+      // Successful confirmation - redirect to dashboard.
+      // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address.
+      const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
+      return NextResponse.redirect(new URL(safeNext, appOrigin))
     }
   }
 
   // If there's an error, redirect to login with error message
+  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
   return NextResponse.redirect(
-    new URL('/auth/login?error=Could not verify email', request.url)
+    new URL('/auth/login?error=Could not verify email', appOrigin)
   )
 }
