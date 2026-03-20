@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -46,7 +47,9 @@ export async function GET(request: NextRequest) {
             // This prevents joining a nonexistent or guessed company UUID.
             // TODO (C-02 full fix): replace with a lookup against a `company_invites` table
             // that holds a short-lived one-time signed token keyed to (company_id, email).
-            const { data: invitedCompany } = await supabase
+            // Use admin client to bypass RLS — the invited user has no membership yet,
+            // so the user-session client cannot read the companies table.
+            const { data: invitedCompany } = await getSupabaseAdmin()
               .from('companies')
               .select('id')
               .eq('id', inviteCompanyId)
