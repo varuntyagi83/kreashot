@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     // Build the redirect URL that includes company_id as a param
     // The auth/callback route reads this and joins the company
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, '')
     const redirectTo = `${baseUrl}/auth/callback?company_id=${membership.company_id}&next=/categories`
 
     // Send magic-link invite via Supabase Auth admin API.
