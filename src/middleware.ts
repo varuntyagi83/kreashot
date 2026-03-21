@@ -41,15 +41,19 @@ export async function middleware(request: NextRequest) {
   const isAdminApiRoute = request.nextUrl.pathname.startsWith('/api/admin')
   const isCleanupApiRoute = request.nextUrl.pathname.startsWith('/api/cleanup')
 
+  // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address
+  // leaking into redirect Location headers sent to the browser.
+  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, '')
+
   // Redirect to login if user is not authenticated and trying to access protected routes
   // Admin and cleanup API routes use their own Bearer token auth
   if (!user && !isAuthRoute && !isAdminApiRoute && !isCleanupApiRoute) {
-    return NextResponse.redirect(new URL('/auth/login', request.url))
+    return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 
   // Redirect to home if user is authenticated and trying to access auth routes
   if (user && isAuthRoute && !request.nextUrl.pathname.includes('/callback')) {
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/', appOrigin))
   }
 
   return response
