@@ -45,19 +45,25 @@ export async function POST(request: NextRequest) {
     const { data: company } = await admin.from('companies').select('id, name').eq('id', companyId).single()
     if (!company) return NextResponse.json({ error: 'Company not found' }, { status: 404 })
 
-    // Remove user from all other companies first
-    await admin.from('company_members').delete().eq('user_id', userId).neq('company_id', companyId)
-
-    // Upsert membership in the target company
-    const { error: upsertError } = await admin
+    // Remove ALL existing memberships for this user (including any in the target company),
+    // then insert a single clean row. This avoids any dependency on a unique constraint
+    // and prevents duplicate rows that would break getCompanyId(.single()).
+    const { error: deleteError } = await admin
       .from('company_members')
-      .upsert(
-        { user_id: userId, company_id: companyId, role, joined_at: new Date().toISOString() },
-        { onConflict: 'user_id,company_id' }
-      )
+      .delete()
+      .eq('user_id', userId)
 
-    if (upsertError) {
-      console.error('[super-admin/assign POST]', upsertError)
+    if (deleteError) {
+      console.error('[super-admin/assign POST] delete error', deleteError)
+      return NextResponse.json({ error: 'Failed to clear existing memberships' }, { status: 500 })
+    }
+
+    const { error: insertError } = await admin
+      .from('company_members')
+      .insert({ user_id: userId, company_id: companyId, role, joined_at: new Date().toISOString() })
+
+    if (insertError) {
+      console.error('[super-admin/assign POST] insert error', insertError)
       return NextResponse.json({ error: 'Failed to assign user' }, { status: 500 })
     }
 
