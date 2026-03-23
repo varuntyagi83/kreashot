@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,7 +40,11 @@ export async function POST(request: NextRequest) {
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
     const slug = `${baseSlug}-${user.id.slice(0, 8)}`
 
-    const { data: company, error: companyError } = await supabase
+    // Use admin client — new users have no company_members row yet, so user-session
+    // client is blocked by RLS on the companies table.
+    const admin = getSupabaseAdmin()
+
+    const { data: company, error: companyError } = await admin
       .from('companies')
       .insert({ name, slug })
       .select('id')
@@ -50,7 +55,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create company' }, { status: 500 })
     }
 
-    const { error: memberError } = await supabase
+    const { error: memberError } = await admin
       .from('company_members')
       .insert({ company_id: company.id, user_id: user.id, role: 'admin' })
 

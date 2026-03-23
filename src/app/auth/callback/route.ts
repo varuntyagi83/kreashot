@@ -69,7 +69,9 @@ export async function GET(request: NextRequest) {
           }
 
           if (!joinedViaInvite) {
-            // Create a new solo company for this user
+            // Create a new solo company for this user.
+            // Must use admin client — new user has no company_members row yet,
+            // so the user-session client is blocked by RLS on the companies table.
             const displayName =
               (user.user_metadata?.company_name as string | undefined)?.trim() ||
               (user.user_metadata?.full_name as string | undefined)?.trim() ||
@@ -81,14 +83,14 @@ export async function GET(request: NextRequest) {
               .replace(/^-+|-+$/g, '')
             const slug = `${baseSlug}-${user.id.slice(0, 8)}`
 
-            const { data: company } = await supabase
+            const { data: company } = await getSupabaseAdmin()
               .from('companies')
               .insert({ name: displayName, slug })
               .select('id')
               .single()
 
             if (company) {
-              await supabase.from('company_members').insert({
+              await getSupabaseAdmin().from('company_members').insert({
                 company_id: company.id,
                 user_id: user.id,
                 role: 'admin',
