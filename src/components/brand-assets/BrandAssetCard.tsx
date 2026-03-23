@@ -93,7 +93,7 @@ export function BrandAssetCard({ asset, onDeleted }: BrandAssetCardProps) {
               className="flex-1"
               asChild
             >
-              <a href={asset.storage_url} target="_blank" rel="noopener noreferrer">
+              <a href={driveImgSrc(asset.storage_url, asset.gdrive_file_id)} target="_blank" rel="noopener noreferrer">
                 <Eye className="h-3 w-3 mr-1" />
                 View
               </a>
