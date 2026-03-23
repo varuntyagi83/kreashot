@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,21 +51,33 @@ export function BrandAssetCard({ asset, onDeleted }: BrandAssetCardProps) {
     }
   }
 
-  const isImage = asset.metadata.file_type.startsWith('image/')
-  const fileSize = (asset.metadata.file_size / 1024).toFixed(2) + ' KB'
+  const isImage = asset.metadata?.file_type?.startsWith('image/')
+  const isOverlay = asset.asset_type === 'overlay' || asset.asset_type === 'watermark'
+  const isFont = asset.asset_type === 'font'
+  const fileSizeBytes = asset.metadata?.file_size
+  const fileSize = fileSizeBytes ? (fileSizeBytes / 1024).toFixed(2) + ' KB' : (isOverlay ? 'Seeded' : '—')
+
+  // Overlays and data URIs must use a plain <img> tag — Next.js Image doesn't support data: URIs
+  const isDataUri = asset.storage_url?.startsWith('data:')
+  const imgSrc = isDataUri ? asset.storage_url : driveImgSrc(asset.storage_url, asset.gdrive_file_id)
 
   return (
     <Card className="group hover:shadow-md transition-shadow">
       <CardContent className="p-4">
-        <div className="aspect-square mb-3 rounded-md bg-muted flex items-center justify-center overflow-hidden relative">
+        {/* Overlay previews: dark checkered bg so white strokes are visible */}
+        <div className={`aspect-square mb-3 rounded-md flex items-center justify-center overflow-hidden relative ${isOverlay ? 'bg-neutral-800' : 'bg-muted'}`}>
           {isImage ? (
-            <Image
-              src={driveImgSrc(asset.storage_url, asset.gdrive_file_id)}
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imgSrc}
               alt={asset.name}
-              fill
-              className="object-contain"
-              unoptimized
+              className="w-full h-full object-contain"
             />
+          ) : isFont ? (
+            <div className="flex flex-col items-center gap-1 text-muted-foreground">
+              <span className="text-3xl font-bold" style={{ fontFamily: 'serif' }}>Aa</span>
+              <span className="text-xs">{asset.name.substring(0, 12)}</span>
+            </div>
           ) : (
             <div className="text-4xl font-bold text-muted-foreground">
               {asset.name.substring(0, 2).toUpperCase()}
