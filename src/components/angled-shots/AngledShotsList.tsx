@@ -45,10 +45,11 @@ interface Product {
 
 interface AngledShotsListProps {
   categoryId: string
-  format?: string // NEW: Format filter
+  format?: string
+  productRefreshKey?: number
 }
 
-export function AngledShotsList({ categoryId, format }: AngledShotsListProps) {
+export function AngledShotsList({ categoryId, format, productRefreshKey }: AngledShotsListProps) {
   const [angledShots, setAngledShots] = useState<AngledShot[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -94,7 +95,12 @@ export function AngledShotsList({ categoryId, format }: AngledShotsListProps) {
   useEffect(() => {
     fetchProducts()
     fetchAngledShots()
-  }, [categoryId, format]) // NEW: Added format to dependencies
+  }, [categoryId, format])
+
+  // Re-fetch products when the parent signals a new product was added
+  useEffect(() => {
+    if (productRefreshKey) fetchProducts()
+  }, [productRefreshKey])
 
   const handleProductFilter = (productId: string) => {
     setSelectedProductId(productId)

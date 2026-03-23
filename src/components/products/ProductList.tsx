@@ -29,6 +29,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [creating, setCreating] = useState(false)
+  const [productRefreshKey, setProductRefreshKey] = useState(0)
 
   const fetchProducts = async () => {
     try {
@@ -63,6 +64,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
         setName('')
         setDescription('')
         fetchProducts()
+        setProductRefreshKey(k => k + 1)
       } else {
         toast.error(data.error || 'Failed to create product')
       }
@@ -160,7 +162,7 @@ export function ProductList({ categoryId, format }: ProductListProps) {
         </div>
 
         {/* Angled Shots section (merged from Angled Shots tab) */}
-        <AngledShotsList categoryId={categoryId} format={format} />
+        <AngledShotsList categoryId={categoryId} format={format} productRefreshKey={productRefreshKey} />
       </div>
     </div>
   )

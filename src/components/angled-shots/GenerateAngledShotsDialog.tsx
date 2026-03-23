@@ -49,6 +49,7 @@ export function GenerateAngledShotsDialog({
   const [selectedProductId, setSelectedProductId] = useState<string>('')
   const [productImages, setProductImages] = useState<ProductImage[]>([])
   const [selectedImageId, setSelectedImageId] = useState<string>('')
+  const [imagesLoading, setImagesLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null)
 
@@ -82,6 +83,7 @@ export function GenerateAngledShotsDialog({
   }
 
   const fetchProductImages = async (productId: string) => {
+    setImagesLoading(true)
     try {
       const { data: images } = await supabase
         .from('product_images')
@@ -92,9 +94,14 @@ export function GenerateAngledShotsDialog({
       if (images && images.length > 0) {
         setProductImages(images)
         setSelectedImageId(images[0].id)
+      } else {
+        setProductImages([])
+        setSelectedImageId('')
       }
     } catch (error) {
       console.error('Error fetching product images:', error)
+    } finally {
+      setImagesLoading(false)
     }
   }
 
@@ -206,7 +213,20 @@ export function GenerateAngledShotsDialog({
             </Select>
           </div>
 
-          {selectedProductId && productImages.length > 0 && (
+          {selectedProductId && imagesLoading && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Loading images…
+            </div>
+          )}
+
+          {selectedProductId && !imagesLoading && productImages.length === 0 && (
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+              This product has no images. Please upload product images on the Products tab first.
+            </p>
+          )}
+
+          {selectedProductId && !imagesLoading && productImages.length > 0 && (
             <div className="space-y-2">
               <label className="text-sm font-medium">Select Image</label>
               <Select value={selectedImageId} onValueChange={setSelectedImageId}>
