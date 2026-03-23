@@ -379,6 +379,7 @@ export default function SuperAdminPage() {
             </div>
           )}
         </div>
+        </div>
         </TabsContent>
       </Tabs>
     </div>
