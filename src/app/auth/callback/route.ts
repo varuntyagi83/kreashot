@@ -71,6 +71,7 @@ export async function GET(request: NextRequest) {
           if (!joinedViaInvite) {
             // Create a new solo company for this user
             const displayName =
+              (user.user_metadata?.company_name as string | undefined)?.trim() ||
               (user.user_metadata?.full_name as string | undefined)?.trim() ||
               user.email?.split('@')[0] ||
               'My Company'

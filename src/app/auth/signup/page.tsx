@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 
 export default function SignupPage() {
   const [email, setEmail] = useState('')
+  const [companyName, setCompanyName] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -20,6 +21,11 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!companyName.trim()) {
+      toast.error('Company name is required')
+      return
+    }
 
     if (password !== confirmPassword) {
       toast.error('Passwords do not match')
@@ -39,6 +45,7 @@ export default function SignupPage() {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/auth/callback`,
+          data: { company_name: companyName.trim() },
         },
       })
 
@@ -64,6 +71,18 @@ export default function SignupPage() {
         </CardHeader>
         <form onSubmit={handleSignup}>
           <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="companyName">Company Name</Label>
+              <Input
+                id="companyName"
+                type="text"
+                placeholder="Acme Inc."
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
