@@ -6,6 +6,7 @@ import { BookOpen, Layout } from 'lucide-react'
 import { GuidelineUploadForm } from '@/components/templates/GuidelineUploadForm'
 import { GuidelinesList } from '@/components/templates/GuidelinesList'
 import { TemplateWorkspace } from '@/components/templates/TemplateWorkspace'
+import { VisualIdentityExtractor } from './VisualIdentityExtractor'
 
 interface StylesWorkspaceProps {
   categoryId: string
@@ -43,6 +44,10 @@ export function StylesWorkspace({ categoryId, format = '1:1' }: StylesWorkspaceP
         </TabsList>
 
         <TabsContent value="guidelines" className="mt-6 space-y-6">
+          {/* Extract visual identity (colours, typography, photography style) from brand images.
+              Updates the category's Look & Feel — feeds directly into Scenes and Photoshoots generation. */}
+          <VisualIdentityExtractor categoryId={categoryId} />
+
           <GuidelineUploadForm
             categoryId={categoryId}
             onUploadComplete={() => setGuidelinesKey(k => k + 1)}

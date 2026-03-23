@@ -15,6 +15,7 @@ import {
   Plus,
   Palette,
   FolderOpen,
+  Shield,
 } from 'lucide-react'
 
 interface Category {
@@ -23,6 +24,8 @@ interface Category {
   slug: string
 }
 
+const SUPER_ADMIN_EMAIL = 'varun.tyagi83@gmail.com'
+
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -30,10 +33,15 @@ export function Sidebar() {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
+  const [userEmail, setUserEmail] = useState<string | null>(null)
 
   useEffect(() => {
     fetchCategories()
   }, [pathname])
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => setUserEmail(d.email ?? null)).catch(() => {})
+  }, [])
 
   // Auto-expand the category that matches the current URL
   useEffect(() => {
@@ -84,6 +92,8 @@ export function Sidebar() {
 
   const isBrandAssetsActive = pathname === '/brand-assets'
   const isCategoriesActive = pathname === '/categories'
+  const isAdminActive = pathname === '/admin'
+  const isSuperAdmin = userEmail === SUPER_ADMIN_EMAIL
 
   return (
     <div className="flex h-full w-[220px] flex-col border-r bg-sidebar">
@@ -122,6 +132,24 @@ export function Sidebar() {
               <span className="flex-1 font-medium">Brand Kit</span>
             </Link>
           </div>
+
+          {/* Super Admin — only visible to varun.tyagi83@gmail.com */}
+          {isSuperAdmin && (
+            <div className="px-3 py-2">
+              <Link
+                href="/admin"
+                className={cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                  isAdminActive
+                    ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <Shield className="h-4 w-4" />
+                <span className="flex-1 font-medium">Admin</span>
+              </Link>
+            </div>
+          )}
 
           <Separator />
 
