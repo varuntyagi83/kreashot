@@ -4,10 +4,6 @@ import type { BrandVoiceProfile } from './brand-voice'
 import { formatBrandVoiceForPrompt } from './brand-voice'
 import type { CopyType, CopyVariation, CopyKitItem } from './openai'
 import { sanitizeForPrompt } from './sanitize'
-import { spawn } from 'child_process'
-import { readFile, unlink } from 'fs/promises'
-import { join } from 'path'
-import crypto from 'crypto'
 
 // Image generation (angled shots, backgrounds, composites, reformat) uses REST API to
 // generativelanguage.googleapis.com .../generateContent — intentionally not the SDK —
@@ -742,52 +738,104 @@ export async function generateComposite(
   mimeType: string
 }> {
   try {
-    console.log(`Generating composite via Python PIL (${canvasWidth}x${canvasHeight}) — pixel-perfect product fidelity`)
+    const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY || ''
+    if (!GEMINI_API_KEY) throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
 
-    // ── Python-based compositing: pixel-perfect, no AI hallucination ──────────
-    // Gemini image generation cannot copy logos/text faithfully — it regenerates
-    // from memory and always distorts. Python PIL copies pixels exactly.
-    // The background is already a high-quality AI image; only placement uses PIL.
+    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
 
-    const outputPath = `/tmp/composite_${crypto.randomUUID()}.png`
-    const scriptPath = join(process.cwd(), 'scripts', 'composite_final_asset.py')
+    // Compute aspect ratio string from canvas dimensions
+    const ratio = canvasWidth / canvasHeight
+    let aspectRatio = '1:1'
+    if (Math.abs(ratio - 16 / 9) < 0.05) aspectRatio = '16:9'
+    else if (Math.abs(ratio - 9 / 16) < 0.05) aspectRatio = '9:16'
+    else if (Math.abs(ratio - 4 / 5) < 0.05) aspectRatio = '4:5'
+    else if (Math.abs(ratio - 3 / 4) < 0.05) aspectRatio = '3:4'
+    else if (Math.abs(ratio - 4 / 3) < 0.05) aspectRatio = '4:3'
 
-    const inputPayload = JSON.stringify({
-      mode: 'extract_composite',
-      product_data_uri: productImageData,
-      background_data_uri: backgroundImageData,
-      output_path: outputPath,
-      width: canvasWidth,
-      height: canvasHeight,
-    })
+    console.log(`Generating composite via Gemini single-step (${canvasWidth}x${canvasHeight}, ${aspectRatio})`)
 
-    await new Promise<void>((resolve, reject) => {
-      const proc = spawn('python3', [scriptPath])
-      let stderr = ''
-      proc.stderr?.on('data', (d: Buffer) => { stderr += d.toString() })
-      proc.stdin?.write(inputPayload)
-      proc.stdin?.end()
-      proc.on('close', (code: number) => {
-        if (code !== 0) {
-          reject(new Error(`Python composite failed (exit ${code}): ${stderr.slice(-500)}`))
-        } else {
-          console.log(`  Python stderr: ${stderr.trim()}`)
-          resolve()
-        }
-      })
-    })
+    const productBase64 = productImageData.replace(/^data:image\/\w+;base64,/, '')
+    const backgroundBase64 = backgroundImageData.replace(/^data:image\/\w+;base64,/, '')
 
-    const buf = await readFile(outputPath)
-    await unlink(outputPath).catch(() => {})
+    // Build the composite prompt
+    let compositePrompt = `You are given two images:
+- Image 1: the product photograph
+- Image 2: the background scene
 
-    console.log(`   ✅ Python composite generated (${canvasWidth}x${canvasHeight})`)
-    return {
-      promptUsed: 'Python PIL composite — pixel-perfect product placement',
-      imageData: `data:image/png;base64,${buf.toString('base64')}`,
-      mimeType: 'image/png',
+Your task: Create a seamless, photorealistic lifestyle composite where the product from Image 1 appears to physically exist inside the scene from Image 2.
+
+PRODUCT LABEL FIDELITY — NON-NEGOTIABLE:
+- Every line of text on the product label must be reproduced EXACTLY as shown in Image 1. Do not change, paraphrase, or invent any words.
+- Every logo, icon, and graphic element on the product must be reproduced EXACTLY as shown. No stylistic changes.
+- Product shape, proportions, colors, and packaging materials must match Image 1 exactly.
+
+SCENE INTEGRATION — MAKE IT LOOK REAL:
+- The product lighting must match the scene in Image 2: same light direction, same color temperature, same intensity.
+- Cast a natural, realistic shadow from the product onto the scene surface — matching the existing shadow geometry in the scene.
+- Size the product proportionally so it looks natural in the space (not too large, not too small).
+- The background scene from Image 2 must look exactly as shown — do not add or remove elements from the environment.
+- Professional commercial photography quality — the result should be indistinguishable from a real photoshoot.`
+
+    if (userPrompt) compositePrompt += `\n\nAdditional instructions: ${userPrompt}`
+    if (lookAndFeel) compositePrompt += `\n\nBrand style: ${lookAndFeel}`
+
+    const parts: any[] = [
+      { inline_data: { data: productBase64, mime_type: productImageMimeType } },
+      { inline_data: { data: backgroundBase64, mime_type: backgroundImageMimeType } },
+      { text: compositePrompt },
+    ]
+
+    const requestBody = {
+      systemInstruction: {
+        parts: [{
+          text: `You are a world-class commercial photographer and photo compositor. You create photorealistic lifestyle images where products appear naturally in scenes — with perfect lighting integration, realistic shadows, and seamless environment blending. You have one absolute rule: the product label, text, and logo from the reference image must be reproduced exactly — not approximated, not reinterpreted. Label fidelity is your highest priority.`
+        }]
+      },
+      contents: [{ parts }],
+      generationConfig: {
+        temperature: 0.65,
+        topP: 0.95,
+        maxOutputTokens: 32768,
+        responseModalities: ['IMAGE'],
+        imageConfig: { aspectRatio, imageSize: '4K' }
+      }
     }
 
-    // (dead code removed — Python pipeline above handles everything)
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 180_000)
+
+    const response = await fetchGeminiWithRetry(
+      GEMINI_API_URL,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      },
+      GEMINI_API_KEY
+    )
+    clearTimeout(timeout)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Gemini composite API error: ${response.status} — ${errorText.substring(0, 300)}`)
+    }
+
+    const data = await response.json()
+    const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
+    if (!imagePart) {
+      const textPart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.text)
+      throw new Error(`Gemini returned no image. Model response: ${textPart?.text?.substring(0, 200) || 'empty'}`)
+    }
+
+    const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+    console.log(`   ✅ Composite generated (${aspectRatio}, Gemini single-step)`)
+
+    return {
+      promptUsed: compositePrompt,
+      imageData: `data:${generatedMimeType};base64,${imagePart.inlineData.data}`,
+      mimeType: generatedMimeType,
+    }
   } catch (error) {
     console.error('Error generating composite:', error)
     throw new Error(`Failed to generate composite: ${error instanceof Error ? error.message : error}`)
