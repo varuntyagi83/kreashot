@@ -97,6 +97,7 @@ Rules:
           temperature: 0.3,
           maxOutputTokens: 1024,
           responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 }, // disable thinking — we just need the JSON output
         },
       }),
       signal: controller.signal,
@@ -109,12 +110,17 @@ Rules:
     }
 
     const geminiData = await response.json()
-    let text: string = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
 
-    // Gemini sometimes wraps the JSON in markdown code fences despite responseMimeType
+    // gemini-2.5-flash may return thinking in parts[0] and the actual answer in parts[1].
+    // Scan all parts for the one containing a JSON object.
+    const allParts: any[] = geminiData.candidates?.[0]?.content?.parts || []
+    const textPart = allParts.find((p: any) => p.text && p.text.includes('{')) || allParts.find((p: any) => p.text)
+    let text: string = textPart?.text || '{}'
+
+    // Strip markdown code fences (Gemini sometimes wraps JSON despite responseMimeType)
     text = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
 
-    // Extract JSON object if there's surrounding text
+    // Extract the first JSON object in case there's surrounding text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) text = jsonMatch[0]
 
