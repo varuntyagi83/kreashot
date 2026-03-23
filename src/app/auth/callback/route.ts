@@ -56,8 +56,10 @@ export async function GET(request: NextRequest) {
               .single()
 
             if (invitedCompany) {
-              // Join the invited company as a member
-              await supabase.from('company_members').insert({
+              // Join the invited company as a member.
+              // Must use admin client — new user has no membership yet, so user-session
+              // client is blocked by RLS on company_members.
+              await getSupabaseAdmin().from('company_members').insert({
                 company_id: inviteCompanyId,
                 user_id: user.id,
                 role: 'member',
@@ -72,29 +74,37 @@ export async function GET(request: NextRequest) {
             // Create a new solo company for this user.
             // Must use admin client — new user has no company_members row yet,
             // so the user-session client is blocked by RLS on the companies table.
-            const displayName =
+            const displayName = (
               (user.user_metadata?.company_name as string | undefined)?.trim() ||
               (user.user_metadata?.full_name as string | undefined)?.trim() ||
               user.email?.split('@')[0] ||
               'My Company'
+            ).substring(0, 100)
             const baseSlug = displayName
               .toLowerCase()
               .replace(/[^a-z0-9]+/g, '-')
               .replace(/^-+|-+$/g, '')
             const slug = `${baseSlug}-${user.id.slice(0, 8)}`
 
-            const { data: company } = await getSupabaseAdmin()
+            const { data: company, error: companyErr } = await getSupabaseAdmin()
               .from('companies')
               .insert({ name: displayName, slug })
               .select('id')
               .single()
 
-            if (company) {
-              await getSupabaseAdmin().from('company_members').insert({
-                company_id: company.id,
-                user_id: user.id,
-                role: 'admin',
-              })
+            if (companyErr || !company) {
+              console.error('[auth/callback] company insert failed:', companyErr)
+              // Redirect to /onboarding so the user can retry with a valid name
+              const appOrigin2 = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
+              return NextResponse.redirect(new URL('/onboarding', appOrigin2))
+            }
+            const { error: memberErr } = await getSupabaseAdmin().from('company_members').insert({
+              company_id: company.id,
+              user_id: user.id,
+              role: 'admin',
+            })
+            if (memberErr) {
+              console.error('[auth/callback] member insert failed:', memberErr)
             }
           }
         }

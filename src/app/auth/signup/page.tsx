@@ -50,7 +50,8 @@ export default function SignupPage() {
       })
 
       if (error) {
-        toast.error(error.message)
+        // Don't surface raw Supabase error messages (user enumeration risk)
+        toast.error('Could not create account. Please check your details and try again.')
       } else {
         // Redirect to login with success message
         router.push('/auth/login?message=Account created! Please check your email to verify your account.')
