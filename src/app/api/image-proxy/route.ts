@@ -6,6 +6,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getCompanyId } from '@/lib/get-company'
 import { google } from 'googleapis'
 
 function getDriveClient() {
@@ -42,6 +43,37 @@ export async function GET(request: NextRequest) {
   const fileId = request.nextUrl.searchParams.get('fileId')
   if (!fileId || !/^[a-zA-Z0-9_-]+$/.test(fileId)) {
     return NextResponse.json({ error: 'Invalid fileId' }, { status: 400 })
+  }
+
+  // Verify ownership — fileId must belong to the authenticated user's company
+  const tables = ['backgrounds', 'composites', 'angled_shots'] as const
+  let owned = false
+  for (const table of tables) {
+    const { data } = await supabase
+      .from(table)
+      .select('id')
+      .eq('gdrive_file_id', fileId)
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+    if (data) { owned = true; break }
+  }
+  if (!owned) {
+    // Also check brand_assets, which is scoped by company_id rather than user_id
+    const companyId = await getCompanyId(supabase, user.id)
+    if (companyId) {
+      const { data } = await supabase
+        .from('brand_assets')
+        .select('id')
+        .eq('gdrive_file_id', fileId)
+        .eq('company_id', companyId)
+        .limit(1)
+        .maybeSingle()
+      if (data) owned = true
+    }
+  }
+  if (!owned) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
   try {

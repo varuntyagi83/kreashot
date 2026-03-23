@@ -124,9 +124,9 @@ export async function POST(request: NextRequest) {
   try {
     // Verify authorization
     const authHeader = request.headers.get('authorization')
-    const token = authHeader?.replace('Bearer ', '')
+    const expectedToken = process.env.CRON_SECRET
 
-    if (!process.env.CRON_SECRET || token !== process.env.CRON_SECRET) {
+    if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

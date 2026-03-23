@@ -131,6 +131,13 @@ export async function POST(
     // ── SINGLE MODE: one type, one tone, N variations (backwards compatible) ─
     const { copyType = 'hook', count = 1, tone, targetAudience } = body
 
+    if (tone && tone.length > 500) {
+      return NextResponse.json({ error: 'tone must be 500 characters or fewer' }, { status: 400 })
+    }
+    if (targetAudience && targetAudience.length > 500) {
+      return NextResponse.json({ error: 'targetAudience must be 500 characters or fewer' }, { status: 400 })
+    }
+
     const countNum = typeof count === 'number' ? count : parseInt(String(count), 10)
     if (!Number.isFinite(countNum) || countNum < 1 || countNum > 5) {
       return NextResponse.json({ error: 'count must be an integer between 1 and 5' }, { status: 400 })

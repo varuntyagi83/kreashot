@@ -63,6 +63,7 @@ export async function GET(
       .from('guidelines')
       .select('*')
       .eq('category_id', categoryId)
+      .eq('company_id', companyId)
       .order('created_at', { ascending: false })
 
     if (error) {

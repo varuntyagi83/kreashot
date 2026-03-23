@@ -170,25 +170,21 @@ export async function POST(request: NextRequest) {
 
     // Also register in asset_references for @ search
     const slug = generateSlug(name.trim())
-    Promise.resolve(
-      supabase
-        .from('asset_references')
-        .insert({
-          user_id: user.id,
-          company_id: companyId,
-          category_id: null,
-          reference_id: `@brand-guidelines/${slug}`,
-          asset_type: 'guideline',
-          asset_table_id: guideline.id,
-          storage_url: null,
-          display_name: name.trim(),
-          searchable_text: `${name.trim()} ${file.name} brand guidelines`,
-        })
-    )
-      .then(({ error: refError }) => {
-        if (refError) console.error('Failed to create asset reference:', refError)
+    void supabase
+      .from('asset_references')
+      .insert({
+        user_id: user.id,
+        company_id: companyId,
+        category_id: null,
+        reference_id: `@brand-guidelines/${slug}`,
+        asset_type: 'guideline',
+        asset_table_id: guideline.id,
+        storage_url: null,
+        display_name: name.trim(),
+        searchable_text: `${name.trim()} ${file.name} brand guidelines`,
       })
-      .catch((err) => console.error('[brand-guidelines] background update failed:', err))
+      .then(({ error: refError }) => { if (refError) console.error('[brand-guidelines] asset_references insert failed:', refError) })
+      .catch((err) => console.error('[brand-guidelines] asset_references insert threw:', err))
 
     console.log(`Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
 

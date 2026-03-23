@@ -111,6 +111,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const ALLOWED_ASSET_TYPES = ['logo', 'font', 'image', 'overlay', 'watermark', 'pattern']
+    if (!assetType || !ALLOWED_ASSET_TYPES.includes(assetType)) {
+      return NextResponse.json({ error: `asset_type must be one of: ${ALLOWED_ASSET_TYPES.join(', ')}` }, { status: 400 })
+    }
+
     if (!name || name.trim().length === 0) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }

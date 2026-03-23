@@ -52,6 +52,12 @@ export async function POST(
       return NextResponse.json({ error: 'Maximum 5 images allowed' }, { status: 400 })
     }
 
+    for (const img of images) {
+      if (img.base64 && img.base64.length > 28_000_000) {
+        return NextResponse.json({ error: 'Each image must be under 20MB' }, { status: 400 })
+      }
+    }
+
     const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY
     if (!GEMINI_API_KEY) throw new Error('GOOGLE_GEMINI_API_KEY is not set')
 
@@ -147,6 +153,6 @@ Rules:
     return NextResponse.json({ visual_identity: profile })
   } catch (error: any) {
     console.error('[extract-visual-identity] error:', error)
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

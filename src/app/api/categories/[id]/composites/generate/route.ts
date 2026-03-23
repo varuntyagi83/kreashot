@@ -231,9 +231,8 @@ export async function POST(
           .single()
 
         if (shotError || !angledShot) {
-          const msg = `Angled shot ${pair.angledShotId} not found in database: ${shotError?.message || 'no data'}`
-          console.warn(msg)
-          errors.push(msg)
+          console.warn(`Angled shot ${pair.angledShotId} not found in database:`, shotError?.message || 'no data')
+          errors.push(`Angled shot not found for pair ${compositionPairs.indexOf(pair) + 1}`)
           continue
         }
 
@@ -246,9 +245,8 @@ export async function POST(
           .single()
 
         if (bgError || !background) {
-          const msg = `Background ${pair.backgroundId} not found in database: ${bgError?.message || 'no data'}`
-          console.warn(msg)
-          errors.push(msg)
+          console.warn(`Background ${pair.backgroundId} not found in database:`, bgError?.message || 'no data')
+          errors.push(`Background not found for pair ${compositionPairs.indexOf(pair) + 1}`)
           continue
         }
 
@@ -262,14 +260,12 @@ export async function POST(
               console.log(`  Downloading angled shot via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
               angledShotBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
             } catch (dlError) {
-              const msg = `Failed to download angled shot "${angledShot.display_name}" from Google Drive: ${dlError}`
-              console.warn(msg)
-              errors.push(msg)
+              console.warn(`Failed to download angled shot "${angledShot.display_name}" from Google Drive:`, dlError)
+              errors.push(`Failed to download angled shot "${angledShot.display_name}"`)
             }
           } else {
-            const msg = `Angled shot "${angledShot.display_name}" has no gdrive_file_id or storage_path`
-            console.warn(msg)
-            errors.push(msg)
+            console.warn(`Angled shot "${angledShot.display_name}" has no gdrive_file_id or storage_path`)
+            errors.push(`Angled shot "${angledShot.display_name}" could not be retrieved`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -280,9 +276,8 @@ export async function POST(
             const arrayBuffer = await data.arrayBuffer()
             angledShotBuffer = Buffer.from(arrayBuffer)
           } else {
-            const msg = `Failed to download angled shot "${angledShot.display_name}" from Supabase: ${error?.message}`
-            console.warn(msg)
-            errors.push(msg)
+            console.warn(`Failed to download angled shot "${angledShot.display_name}" from Supabase:`, error?.message)
+            errors.push(`Failed to download angled shot "${angledShot.display_name}"`)
           }
         }
 
@@ -300,14 +295,12 @@ export async function POST(
               console.log(`  Downloading background via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
               backgroundBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
             } catch (dlError) {
-              const msg = `Failed to download background "${background.name}" from Google Drive: ${dlError}`
-              console.warn(msg)
-              errors.push(msg)
+              console.warn(`Failed to download background "${background.name}" from Google Drive:`, dlError)
+              errors.push(`Failed to download background "${background.name}"`)
             }
           } else {
-            const msg = `Background "${background.name}" has no gdrive_file_id or storage_path`
-            console.warn(msg)
-            errors.push(msg)
+            console.warn(`Background "${background.name}" has no gdrive_file_id or storage_path`)
+            errors.push(`Background "${background.name}" could not be retrieved`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -318,9 +311,8 @@ export async function POST(
             const arrayBuffer = await data.arrayBuffer()
             backgroundBuffer = Buffer.from(arrayBuffer)
           } else {
-            const msg = `Failed to download background "${background.name}" from Supabase: ${error?.message}`
-            console.warn(msg)
-            errors.push(msg)
+            console.warn(`Failed to download background "${background.name}" from Supabase:`, error?.message)
+            errors.push(`Failed to download background "${background.name}"`)
           }
         }
 
@@ -341,17 +333,27 @@ export async function POST(
             height: formatDimensions.height,
           })
           try {
-            const outPath = await new Promise<string>((resolve, reject) => {
-              const proc = spawn('python3', [scriptPath])
-              let stderr = ''
-              proc.stderr?.on('data', (d) => { stderr += d.toString() })
-              proc.stdin?.write(inputData)
-              proc.stdin?.end()
-              proc.on('close', (code) => {
-                if (code !== 0) reject(new Error(stderr || 'Python script failed'))
-                else resolve(outputPath)
-              })
-            })
+            const PYTHON_TIMEOUT_MS = 120_000 // 2 minutes
+            let proc: ReturnType<typeof spawn>
+            const outPath = await Promise.race([
+              new Promise<string>((resolve, reject) => {
+                proc = spawn('python3', [scriptPath])
+                let stderr = ''
+                proc.stderr?.on('data', (d) => { stderr += d.toString() })
+                proc.stdin?.write(inputData)
+                proc.stdin?.end()
+                proc.on('close', (code) => {
+                  if (code !== 0) reject(new Error(stderr || 'Python script failed'))
+                  else resolve(outputPath)
+                })
+              }),
+              new Promise<never>((_, reject) =>
+                setTimeout(() => {
+                  proc.kill('SIGKILL')
+                  reject(new Error('Superimpose timed out'))
+                }, PYTHON_TIMEOUT_MS)
+              ),
+            ])
             const buf = await readFile(outPath)
             await unlink(outPath).catch(() => {})
             results.push({
@@ -365,9 +367,9 @@ export async function POST(
             })
             console.log(`   ✅ Superimpose ${results.length}/${compositionPairs.length} generated`)
           } catch (err) {
-            const msg = `Superimpose failed: ${err instanceof Error ? err.message : err}`
-            console.error(msg)
-            errors.push(msg)
+            const pairLabel = `pair ${compositionPairs.indexOf(pair) + 1}`
+            console.error(`Superimpose failed for ${pairLabel}:`, err)
+            errors.push(`Superimpose failed for ${pairLabel}`)
           }
           continue
         }
@@ -413,9 +415,9 @@ export async function POST(
           `   ✅ Composite ${results.length}/${compositionPairs.length} generated`
         )
       } catch (error) {
-        const msg = `Gemini generation failed for pair ${pair.angledShotId} + ${pair.backgroundId}: ${error instanceof Error ? error.message : error}`
-        console.error(msg)
-        errors.push(msg)
+        const pairLabel = `pair ${compositionPairs.indexOf(pair) + 1}`
+        console.error(`Generation failed for ${pairLabel}:`, error)
+        errors.push(`Generation failed for ${pairLabel}`)
         // Continue with next pair instead of failing entire batch
       }
     }

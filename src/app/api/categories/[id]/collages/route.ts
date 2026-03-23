@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { FORMATS } from '@/lib/formats'
 import { getCompanyId } from '@/lib/get-company'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // GET - List all collages for a category
 export async function GET(
@@ -19,6 +20,11 @@ export async function GET(
 
   const companyId = await getCompanyId(supabase, user.id)
   if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+  const rateLimit = checkRateLimit(`collages:${user.id}`, 30, 60_000)
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+  }
 
   let query = supabase
     .from('collages')
@@ -57,6 +63,20 @@ export async function POST(
 
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    const rateLimit = checkRateLimit(`collages:${user.id}`, 30, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
+
+    const { data: category } = await supabase
+      .from('categories')
+      .select('id')
+      .eq('id', categoryId)
+      .eq('company_id', companyId)
+      .single()
+
+    if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
     const body = await request.json()
     const { name, format = '1:1', collage_data } = body

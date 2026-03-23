@@ -154,7 +154,8 @@ export async function POST(
         python.on('close', (code) => {
           if (code !== 0) {
             console.error('❌ Python script failed:', stderr)
-            reject(new Error(`Python script failed: ${stderr}`))
+            console.error('[collages generate] Python script failed. stderr:', stderr)
+            reject(new Error('Image processing failed'))
           } else {
             console.log('✅ Python script output:', stdout)
             const lines = stdout.trim().split('\n')

@@ -62,8 +62,9 @@ export async function POST(
     }
 
     if (!category) {
+      if (categoryError) console.error('[backgrounds generate] category lookup failed:', categoryError)
       return NextResponse.json(
-        { error: categoryError ? `Category lookup failed: ${categoryError.message}` : 'Category not found' },
+        { error: 'Category not found' },
         { status: 404 }
       )
     }

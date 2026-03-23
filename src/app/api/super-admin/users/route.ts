@@ -4,7 +4,8 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const SUPER_ADMIN_EMAIL = 'varun.tyagi83@gmail.com'
+const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || ''
+if (!SUPER_ADMIN_EMAIL) { /* empty env var — all requests will be rejected as Forbidden */ }
 
 /**
  * GET /api/super-admin/users
@@ -13,6 +14,7 @@ const SUPER_ADMIN_EMAIL = 'varun.tyagi83@gmail.com'
  */
 export async function GET() {
   try {
+    if (!SUPER_ADMIN_EMAIL) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

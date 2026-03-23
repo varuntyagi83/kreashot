@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { uploadFile } from '@/lib/storage'
+import { uploadFile, deleteFile } from '@/lib/storage'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -250,12 +250,20 @@ export async function POST(
         .select()
         .single()
 
-      if (!dbError && imageRecord) {
-        uploadedImages.push({
-          ...imageRecord,
-          public_url: storageFile.publicUrl,
-        })
+      if (dbError || !imageRecord) {
+        console.error('[product-images] DB insert failed, cleaning up GDrive file:', dbError)
+        try {
+          await deleteFile(storageFile.fileId || storagePath, { provider: 'gdrive' })
+        } catch (cleanupErr) {
+          console.error('[product-images] GDrive cleanup failed:', cleanupErr)
+        }
+        // continue to next image rather than crashing the whole batch
+        continue
       }
+      uploadedImages.push({
+        ...imageRecord,
+        public_url: storageFile.publicUrl,
+      })
     }
 
     if (uploadedImages.length === 0) {
