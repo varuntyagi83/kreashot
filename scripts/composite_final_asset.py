@@ -688,6 +688,77 @@ def composite_final_asset(
     return output_path
 
 
+def composite_with_extraction(
+    product_data_uri: str,
+    background_data_uri: str,
+    output_path: str,
+    width: int,
+    height: int,
+) -> str:
+    """
+    Pixel-perfect photoshoot composite.
+
+    Accepts base64 data URIs — no network calls, no AI generation.
+    The product pixels are copied exactly: every logo, letter, and colour
+    is preserved. Only the white/light background is removed via edge
+    flood-fill (which leaves interior white — e.g. label text — intact).
+
+    Placement: product centred horizontally, sitting ~12% above the bottom
+    edge. Scale: product height = 38% of canvas, capped at 65% canvas width.
+    A soft drop shadow grounds the product in the scene.
+    """
+    bg_image = download_image(background_data_uri)
+    product_image = download_image(product_data_uri)
+
+    # Background: cover-resize then center-crop to exact canvas size
+    src_w, src_h = bg_image.size
+    scale = max(width / src_w, height / src_h)
+    new_w, new_h = int(src_w * scale), int(src_h * scale)
+    bg_image = bg_image.resize((new_w, new_h), Image.Resampling.LANCZOS)
+    crop_x, crop_y = (new_w - width) // 2, (new_h - height) // 2
+    bg_image = bg_image.crop((crop_x, crop_y, crop_x + width, crop_y + height))
+
+    # Product: flood-fill background removal (preserves interior white pixels)
+    product_rgba = remove_white_background(product_image)
+    pw, ph = product_rgba.size
+    if pw == 0 or ph == 0:
+        sys.stderr.write('  WARNING: empty product after background removal, returning background only\n')
+        bg_image.convert('RGB').save(output_path, 'PNG', quality=95)
+        return output_path
+
+    # Scale product: 38% of canvas height, capped so width ≤ 65% of canvas
+    target_h = int(height * 0.38)
+    scale_p = min(target_h / ph, int(width * 0.65) / pw)
+    new_pw = max(1, int(pw * scale_p))
+    new_ph = max(1, int(ph * scale_p))
+    product_rgba = product_rgba.resize((new_pw, new_ph), Image.Resampling.LANCZOS)
+
+    # Position: horizontally centred, 12% clear margin from the bottom
+    paste_x = (width - new_pw) // 2
+    paste_y = max(0, height - new_ph - int(height * 0.12))
+
+    # Soft drop shadow: offset + gaussian blur
+    _, _, _, a_ch = product_rgba.split()
+    shadow_blur_r = max(6, int(height * 0.010))
+    sx_off = int(width * 0.004)
+    sy_off = int(height * 0.007)
+    shadow_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    shadow_fill = Image.new('RGBA', (new_pw, new_ph), (0, 0, 0, 180))
+    shadow_mask = a_ch.point(lambda v: int(v * 0.65))
+    shadow_layer.paste(shadow_fill, (paste_x + sx_off, paste_y + sy_off), shadow_mask)
+    shadow_layer = shadow_layer.filter(ImageFilter.GaussianBlur(radius=shadow_blur_r))
+
+    # Composite: background → shadow → product
+    final = Image.alpha_composite(bg_image.convert('RGBA'), shadow_layer)
+    product_layer = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    product_layer.paste(product_rgba, (paste_x, paste_y), product_rgba)
+    final = Image.alpha_composite(final, product_layer)
+
+    final.convert('RGB').save(output_path, 'PNG', quality=95)
+    sys.stderr.write(f'  ✅ extract_composite: product {new_pw}x{new_ph} on {width}x{height} canvas\n')
+    return output_path
+
+
 def superimpose_product_on_background(
     background_url: str,
     product_url: str,
@@ -755,7 +826,16 @@ if __name__ == '__main__':
     width = input_data.get('width', 1080)
     height = input_data.get('height', 1080)
 
-    if input_data.get('mode') == 'superimpose':
+    if input_data.get('mode') == 'extract_composite':
+        # Pixel-perfect composite: base64 data URIs in, no network calls
+        result_path = composite_with_extraction(
+            product_data_uri=input_data['product_data_uri'],
+            background_data_uri=input_data['background_data_uri'],
+            output_path=output_path,
+            width=width,
+            height=height,
+        )
+    elif input_data.get('mode') == 'superimpose':
         # Remove product background and paste on scene (no AI merge)
         result_path = superimpose_product_on_background(
             background_url=input_data['background_url'],
