@@ -128,7 +128,35 @@ export function CompositeWorkspace({ category, format = '1:1' }: CompositeWorksp
       if (!res.ok) throw new Error(data.error || 'Generation failed')
       if (!data.results?.length) throw new Error('No composites generated')
 
-      toast.success(`Generated ${data.results.length} photoshoot${data.results.length > 1 ? 's' : ''}!`)
+      // Save each generated composite to Google Drive + database
+      let savedCount = 0
+      const ts = Date.now()
+      for (let i = 0; i < data.results.length; i++) {
+        const result = data.results[i]
+        const name = `${result.angledShotName} × ${result.backgroundName} ${ts}${data.results.length > 1 ? `-${i + 1}` : ''}`
+        const saveRes = await fetch(`/api/categories/${category.id}/composites`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            imageData: result.image_base64,
+            mimeType: result.image_mime_type,
+            angledShotId: result.angledShotId,
+            backgroundId: result.backgroundId,
+            promptUsed: result.prompt_used,
+            format: selectedFormat,
+            generationTimeMs: result.generationTimeMs,
+          }),
+        })
+        if (saveRes.ok) savedCount++
+        else {
+          const errData = await saveRes.json()
+          console.error('Failed to save composite:', errData.error)
+        }
+      }
+
+      if (savedCount === 0) throw new Error('Generation succeeded but failed to save. Please try again.')
+      toast.success(`Generated ${savedCount} photoshoot${savedCount > 1 ? 's' : ''}!`)
       setRefreshKey(k => k + 1)
     } catch (err: any) {
       toast.error(err.message || 'Failed to generate composites')
