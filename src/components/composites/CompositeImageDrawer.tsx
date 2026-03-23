@@ -108,18 +108,41 @@ export function CompositeImageDrawer({
     if (!composite) return
     setIsRegenerating(true)
     try {
+      const format = composite.aspect_ratio || '1:1'
       const res = await fetch(`/api/categories/${categoryId}/composites/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           mode: 'selected',
           pairs: [{ angledShotId: composite.angled_shot.id, backgroundId: composite.background.id }],
-          format: composite.aspect_ratio || '1:1',
+          format,
           superimpose: false,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Regeneration failed')
+      if (!data.results?.length) throw new Error('No composite generated')
+
+      const result = data.results[0]
+      const name = `${result.angledShotName} × ${result.backgroundName} ${Date.now()}`
+      const saveRes = await fetch(`/api/categories/${categoryId}/composites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          imageData: result.image_base64,
+          mimeType: result.image_mime_type,
+          angledShotId: result.angledShotId,
+          backgroundId: result.backgroundId,
+          promptUsed: result.prompt_used,
+          format,
+          generationTimeMs: result.generationTimeMs,
+        }),
+      })
+      if (!saveRes.ok) {
+        const errData = await saveRes.json()
+        throw new Error(errData.error || 'Generation succeeded but failed to save')
+      }
       toast.success('New variation generated!')
       onRefresh()
     } catch (err: any) {
