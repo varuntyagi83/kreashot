@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/select'
 import { Sparkles, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
 
 interface GenerateAngledShotsDialogProps {
@@ -53,8 +52,6 @@ export function GenerateAngledShotsDialog({
   const [generating, setGenerating] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number; current: string } | null>(null)
 
-  const supabase = createClient()
-
   useEffect(() => {
     if (open) {
       fetchProducts()
@@ -85,13 +82,14 @@ export function GenerateAngledShotsDialog({
   const fetchProductImages = async (productId: string) => {
     setImagesLoading(true)
     try {
-      const { data: images } = await supabase
-        .from('product_images')
-        .select('id, file_name, is_primary')
-        .eq('product_id', productId)
-        .order('is_primary', { ascending: false })
-
-      if (images && images.length > 0) {
+      const res = await fetch(`/api/categories/${categoryId}/products/${productId}/images`)
+      const data = await res.json()
+      const images: ProductImage[] = (data.images || []).map((img: any) => ({
+        id: img.id,
+        file_name: img.file_name,
+        is_primary: img.is_primary,
+      }))
+      if (images.length > 0) {
         setProductImages(images)
         setSelectedImageId(images[0].id)
       } else {
