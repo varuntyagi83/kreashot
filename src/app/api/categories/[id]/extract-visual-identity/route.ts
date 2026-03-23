@@ -109,12 +109,20 @@ Rules:
     }
 
     const geminiData = await response.json()
-    const text = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    let text: string = geminiData.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+
+    // Gemini sometimes wraps the JSON in markdown code fences despite responseMimeType
+    text = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+
+    // Extract JSON object if there's surrounding text
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (jsonMatch) text = jsonMatch[0]
 
     let profile: any
     try {
       profile = JSON.parse(text)
     } catch {
+      console.error('[extract-visual-identity] raw Gemini text:', text)
       throw new Error('Visual identity extraction returned invalid JSON. Please try again.')
     }
 
