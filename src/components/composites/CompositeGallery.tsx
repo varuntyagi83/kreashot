@@ -65,8 +65,11 @@ export function CompositeGallery({
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [drawerIndex, setDrawerIndex] = useState<number | null>(null)
+  const [brokenIds, setBrokenIds] = useState<Set<string>>(new Set())
+  const [cleaningUp, setCleaningUp] = useState(false)
 
   const fetchComposites = async () => {
+    setBrokenIds(new Set())
     try {
       const response = await fetch(`/api/categories/${categoryId}/composites?format=${format}`)
       const data = await response.json()
@@ -81,6 +84,25 @@ export function CompositeGallery({
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleCleanup = async () => {
+    if (brokenIds.size === 0) return
+    if (!confirm(`Delete ${brokenIds.size} unavailable composite${brokenIds.size > 1 ? 's' : ''}? This cannot be undone.`)) return
+
+    setCleaningUp(true)
+    let deleted = 0
+    for (const id of brokenIds) {
+      try {
+        const res = await fetch(`/api/categories/${categoryId}/composites/${id}`, { method: 'DELETE' })
+        if (res.ok) deleted++
+      } catch {
+        // continue
+      }
+    }
+    setCleaningUp(false)
+    toast.success(`Deleted ${deleted} unavailable composite${deleted !== 1 ? 's' : ''}`)
+    fetchComposites()
   }
 
   useEffect(() => {
@@ -162,6 +184,23 @@ export function CompositeGallery({
 
   return (
     <>
+      {brokenIds.size > 0 && (
+        <div className="flex items-center justify-between p-3 mb-2 rounded-lg bg-amber-50 border border-amber-200 text-sm">
+          <span className="text-amber-800">
+            {brokenIds.size} composite{brokenIds.size > 1 ? 's have' : ' has'} unavailable images (Drive files missing or expired)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleCleanup}
+            disabled={cleaningUp}
+            className="text-red-600 border-red-300 hover:bg-red-50 ml-3 shrink-0"
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            {cleaningUp ? 'Deleting…' : `Delete ${brokenIds.size} unavailable`}
+          </Button>
+        </div>
+      )}
       <div className={`grid ${gridClass} gap-4`}>
         {composites.map((composite, index) => (
           <Card
@@ -178,6 +217,7 @@ export function CompositeGallery({
                 className="w-full h-full object-cover"
                 onError={(e) => {
                   e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400"%3E%3Crect fill="%23f1f5f9" width="400" height="400"/%3E%3Ctext fill="%2394a3b8" font-family="sans-serif" font-size="14" x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle"%3EImage unavailable%3C/text%3E%3C/svg%3E'
+                  setBrokenIds(prev => new Set(prev).add(composite.id))
                 }}
               />
 
