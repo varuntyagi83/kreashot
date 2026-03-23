@@ -22,38 +22,19 @@ interface VisualIdentityExtractorProps {
 }
 
 export function VisualIdentityExtractor({ categoryId, onLookAndFeelUpdated }: VisualIdentityExtractorProps) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(true)
   const [extracting, setExtracting] = useState(false)
   const [identity, setIdentity] = useState<VisualIdentity | null>(null)
   const [images, setImages] = useState<Array<{ base64: string; mimeType: string; name: string }>>([])
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    if (images.length + files.length > 5) {
-      toast.error('Maximum 5 images')
-      return
-    }
-    files.forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        setImages((prev) => [
-          ...prev,
-          { base64: reader.result as string, mimeType: file.type, name: file.name },
-        ])
-      }
-      reader.readAsDataURL(file)
-    })
-    e.target.value = ''
-  }
-
-  const handleExtract = async () => {
-    if (images.length === 0 || extracting) return
+  const runExtraction = async (imagesToExtract: Array<{ base64: string; mimeType: string; name: string }>) => {
+    if (imagesToExtract.length === 0 || extracting) return
     setExtracting(true)
     try {
       const res = await fetch(`/api/categories/${categoryId}/extract-visual-identity`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: images.map(({ base64, mimeType }) => ({ base64, mimeType })) }),
+        body: JSON.stringify({ images: imagesToExtract.map(({ base64, mimeType }) => ({ base64, mimeType })) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Extraction failed')
@@ -67,6 +48,35 @@ export function VisualIdentityExtractor({ categoryId, onLookAndFeelUpdated }: Vi
       setExtracting(false)
     }
   }
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (images.length + files.length > 5) {
+      toast.error('Maximum 5 images')
+      return
+    }
+
+    let loaded = 0
+    const incoming: Array<{ base64: string; mimeType: string; name: string }> = []
+
+    files.forEach((file) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        incoming.push({ base64: reader.result as string, mimeType: file.type, name: file.name })
+        loaded++
+        if (loaded === files.length) {
+          const updated = [...images, ...incoming]
+          setImages(updated)
+          // Auto-extract as soon as all selected files are loaded
+          runExtraction(updated)
+        }
+      }
+      reader.readAsDataURL(file)
+    })
+    e.target.value = ''
+  }
+
+  const handleExtract = () => runExtraction(images)
 
   // Collapsed with result
   if (identity && !expanded) {
@@ -200,7 +210,7 @@ export function VisualIdentityExtractor({ categoryId, onLookAndFeelUpdated }: Vi
           {extracting ? (
             <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analysing brand images...</>
           ) : (
-            <><Sparkles className="h-4 w-4 mr-2" />Extract Visual Identity</>
+            <><Sparkles className="h-4 w-4 mr-2" />{identity ? 'Re-extract Visual Identity' : 'Extract Visual Identity'}</>
           )}
         </Button>
       </CardContent>
