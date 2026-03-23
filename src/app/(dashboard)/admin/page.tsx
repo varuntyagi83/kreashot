@@ -6,6 +6,7 @@ import { Shield, Users, Building2, ArrowRight, Loader2, Trash2, Search } from 'l
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Select,
   SelectContent,
@@ -133,6 +134,14 @@ export default function SuperAdminPage() {
       u.full_name.toLowerCase().includes(search.toLowerCase())
   )
 
+  // Build per-company member counts from users data
+  const companyCounts: Record<string, number> = {}
+  for (const u of users) {
+    for (const m of u.memberships) {
+      companyCounts[m.company_id] = (companyCounts[m.company_id] || 0) + 1
+    }
+  }
+
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
@@ -150,7 +159,49 @@ export default function SuperAdminPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_380px] gap-6">
+      <Tabs defaultValue="users">
+        <TabsList className="mb-4">
+          <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1.5" />Users</TabsTrigger>
+          <TabsTrigger value="companies"><Building2 className="h-3.5 w-3.5 mr-1.5" />Companies</TabsTrigger>
+        </TabsList>
+
+        {/* ── Companies tab ───────────────────────────────────────────── */}
+        <TabsContent value="companies">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Building2 className="h-4 w-4" /> All Organisations
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {companies.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-sm text-muted-foreground">No organisations found</p>
+                ) : (
+                  companies
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((c) => (
+                      <div key={c.id} className="flex items-center justify-between px-4 py-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">@{c.slug}</p>
+                          <p className="text-xs text-muted-foreground font-mono mt-0.5">{c.id}</p>
+                        </div>
+                        <Badge variant="secondary" className="shrink-0 ml-4">
+                          {companyCounts[c.id] ?? 0} member{(companyCounts[c.id] ?? 0) !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                    ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Users tab ───────────────────────────────────────────────── */}
+        <TabsContent value="users">
+        <div className="grid grid-cols-[1fr_380px] gap-6">
         {/* ── Users table ─────────────────────────────────────────────── */}
         <Card>
           <CardHeader className="pb-3">
@@ -328,7 +379,8 @@ export default function SuperAdminPage() {
             </div>
           )}
         </div>
-      </div>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
