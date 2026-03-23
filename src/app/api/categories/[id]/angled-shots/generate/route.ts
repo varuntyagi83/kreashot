@@ -227,7 +227,6 @@ export async function POST(
               storage_path: storageFile.path,
               storage_url: storageFile.publicUrl,
               gdrive_file_id: storageFile.fileId || null,
-              generation_time_ms: perShotMs,
               metadata: {},
             })
             .select()

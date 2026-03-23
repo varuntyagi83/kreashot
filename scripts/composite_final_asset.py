@@ -570,8 +570,13 @@ def composite_final_asset(
             logo_image = download_image(logo_url)
             logo_image = logo_image.convert('RGBA')
 
-            # Fit inside layer bounds (contain), then center — matches preview object-contain
-            logo_image.thumbnail((lw, lh), Image.Resampling.LANCZOS)
+            # Fit inside layer bounds (contain) with upscale support, then center
+            # thumbnail() only downscales; use explicit scale so small logos fill their zone
+            logo_w, logo_h = logo_image.size
+            scale = min(lw / logo_w, lh / logo_h)
+            new_logo_w = max(1, int(logo_w * scale))
+            new_logo_h = max(1, int(logo_h * scale))
+            logo_image = logo_image.resize((new_logo_w, new_logo_h), Image.Resampling.LANCZOS)
             paste_x = x + (lw - logo_image.width) // 2
             paste_y = y + (lh - logo_image.height) // 2
 
@@ -629,13 +634,23 @@ def composite_final_asset(
             # Composite layer — a pre-composed product+background image
             source_url = layer.get('source_url', '') or composite_url
             comp_img = download_image(source_url)
-            # Cover the layer area (like background but positioned within bounds)
-            comp_img = comp_img.resize((lw, lh), Image.Resampling.LANCZOS)
+            # Cover the layer area: scale to fill then center-crop — preserves aspect ratio
+            src_w, src_h = comp_img.size
+            if src_w == lw and src_h == lh:
+                pass  # exact match, no resize needed
+            else:
+                scale = max(lw / src_w, lh / src_h)
+                new_w = int(src_w * scale)
+                new_h = int(src_h * scale)
+                comp_img = comp_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                left = (new_w - lw) // 2
+                top = (new_h - lh) // 2
+                comp_img = comp_img.crop((left, top, left + lw, top + lh))
             if comp_img.mode == 'RGBA':
                 final_image.paste(comp_img, (x, y), comp_img)
             else:
                 final_image.paste(comp_img, (x, y))
-            sys.stderr.write(f"    ✅ Pasted composite layer\n")
+            sys.stderr.write(f"    ✅ Pasted composite layer ({src_w}x{src_h} → {lw}x{lh}, cover)\n")
 
         elif layer_type == 'image':
             source_url = layer.get('source_url', '')

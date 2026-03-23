@@ -303,24 +303,31 @@ export async function POST(
     } else if (compositeId) {
       const { data: composite } = await supabase
         .from('composites')
-        .select('storage_url')
+        .select('storage_url, gdrive_file_id')
         .eq('id', compositeId)
         .eq('category_id', categoryId)
         .single()
       if (!composite) {
         return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
       }
-      compositeUrl = composite?.storage_url || ''
+      // Prefer drive.usercontent.google.com — unlike the CDN (lh3.googleusercontent.com)
+      // it serves the file immediately after upload without propagation delay.
+      compositeUrl = composite.gdrive_file_id
+        ? `https://drive.usercontent.google.com/download?id=${composite.gdrive_file_id}&export=download`
+        : composite.storage_url || ''
     } else {
       // Get latest composite
       const { data: composites } = await supabase
         .from('composites')
-        .select('storage_url')
+        .select('storage_url, gdrive_file_id')
         .eq('category_id', categoryId)
         .order('created_at', { ascending: false })
         .limit(1)
 
-      compositeUrl = composites?.[0]?.storage_url || ''
+      const latest = composites?.[0]
+      compositeUrl = latest?.gdrive_file_id
+        ? `https://drive.usercontent.google.com/download?id=${latest.gdrive_file_id}&export=download`
+        : latest?.storage_url || ''
     }
 
     if (!compositeUrl) {
@@ -435,6 +442,10 @@ export async function POST(
 
           if (fontBuffer && fontBuffer.length > 100) {
             const ext = detectFontExt(fontBuffer)
+            if (ext === '.woff2') {
+              console.warn(`⚠️ WOFF2 font detected for layer ${layer.name ?? layer.id} — PIL does not support WOFF2. Upload a TTF or OTF font instead. Skipping.`)
+              continue
+            }
             const fontPath = `/tmp/font_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
             const { writeFile } = await import('fs/promises')
             await writeFile(fontPath, fontBuffer)
