@@ -2,6 +2,37 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/get-company'
 
+// ── GET — fetch full brand voice profile ─────────────────────────────────────
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const supabase = await createServerSupabaseClient()
+    const { id } = await params
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+    const companyId = await getCompanyId(supabase, user.id)
+    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    const { data: voice, error } = await supabase
+      .from('brand_voices')
+      .select('id, name, is_default, profile, created_at')
+      .eq('id', id)
+      .eq('company_id', companyId)
+      .single()
+
+    if (error || !voice) return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
+
+    return NextResponse.json({ voice })
+  } catch (error: any) {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 // ── PUT — update a brand voice (rename / set default) ────────────────────────
 
 export async function PUT(

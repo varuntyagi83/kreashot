@@ -219,6 +219,7 @@ ${JSON_SCHEMA}`,
         temperature: 0.3,
         maxOutputTokens: 1024,
         responseMimeType: 'application/json',
+        thinkingConfig: { thinkingBudget: 0 }, // disable thinking — not needed for structured JSON
       },
     }),
     signal: controller.signal,
@@ -231,10 +232,16 @@ ${JSON_SCHEMA}`,
   }
 
   const data = await response.json()
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+  // gemini-2.5-flash may return thinking in parts[0] and the actual answer in parts[1]
+  const allParts: any[] = data.candidates?.[0]?.content?.parts || []
+  const textPart = allParts.find((p: any) => p.text && p.text.includes('{')) || allParts.find((p: any) => p.text)
+  let rawText: string = textPart?.text || '{}'
+  rawText = rawText.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+  const jsonMatch = rawText.match(/\{[\s\S]*\}/)
+  if (jsonMatch) rawText = jsonMatch[0]
   let parsed
   try {
-    parsed = JSON.parse(text)
+    parsed = JSON.parse(rawText)
   } catch {
     throw new Error('Brand voice image analysis returned invalid JSON. Please try again.')
   }

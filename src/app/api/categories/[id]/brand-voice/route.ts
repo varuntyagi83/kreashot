@@ -137,9 +137,27 @@ export async function POST(
         break
       }
 
+      case 'library': {
+        // Apply a saved brand voice from the library to this category
+        const { voiceId } = body
+        if (!voiceId) return NextResponse.json({ error: 'voiceId is required' }, { status: 400 })
+
+        const { data: savedVoice } = await supabase
+          .from('brand_voices')
+          .select('profile')
+          .eq('id', voiceId)
+          .eq('company_id', companyId)
+          .single()
+
+        if (!savedVoice) return NextResponse.json({ error: 'Brand voice not found in library' }, { status: 404 })
+        profile = savedVoice.profile
+        console.log(`Applying library brand voice ${voiceId} to: ${category.name}`)
+        break
+      }
+
       default:
         return NextResponse.json(
-          { error: 'method must be one of: text, qa, images' },
+          { error: 'method must be one of: text, qa, images, library' },
           { status: 400 }
         )
     }

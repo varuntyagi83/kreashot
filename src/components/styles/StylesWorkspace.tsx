@@ -7,6 +7,7 @@ import { GuidelineUploadForm } from '@/components/templates/GuidelineUploadForm'
 import { GuidelinesList } from '@/components/templates/GuidelinesList'
 import { TemplateWorkspace } from '@/components/templates/TemplateWorkspace'
 import { VisualIdentityExtractor } from './VisualIdentityExtractor'
+import { BrandVoiceLibraryPicker } from './BrandVoiceLibraryPicker'
 
 interface StylesWorkspaceProps {
   categoryId: string
@@ -47,6 +48,8 @@ export function StylesWorkspace({ categoryId, format = '1:1' }: StylesWorkspaceP
           {/* Extract visual identity (colours, typography, photography style) from brand images.
               Updates the category's Look & Feel — feeds directly into Scenes and Photoshoots generation. */}
           <VisualIdentityExtractor categoryId={categoryId} />
+
+          <BrandVoiceLibraryPicker categoryId={categoryId} />
 
           <GuidelineUploadForm
             categoryId={categoryId}
