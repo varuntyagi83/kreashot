@@ -11,6 +11,7 @@ import { toast } from 'sonner'
 export default function OnboardingPage() {
   const [companyName, setCompanyName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [checking, setChecking] = useState(true)
   const router = useRouter()
 
   // If user already has a company, send them to the dashboard immediately
@@ -18,8 +19,9 @@ export default function OnboardingPage() {
     fetch('/api/company')
       .then((r) => {
         if (r.ok) router.replace('/')
+        else setChecking(false)
       })
-      .catch(() => {})
+      .catch(() => setChecking(false))
   }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,6 +29,11 @@ export default function OnboardingPage() {
 
     if (!companyName.trim()) {
       toast.error('Company name is required')
+      return
+    }
+
+    if (companyName.trim().length > 100) {
+      toast.error('Company name must be 100 characters or fewer')
       return
     }
 
@@ -52,6 +59,8 @@ export default function OnboardingPage() {
     }
   }
 
+  if (checking) return null
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
@@ -72,6 +81,7 @@ export default function OnboardingPage() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 required
+                maxLength={100}
                 disabled={loading}
                 autoFocus
               />

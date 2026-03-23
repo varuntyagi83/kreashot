@@ -81,6 +81,7 @@ export default function SignupPage() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 required
+                maxLength={100}
                 disabled={loading}
               />
             </div>
