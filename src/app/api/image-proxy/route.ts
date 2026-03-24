@@ -45,33 +45,48 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid fileId' }, { status: 400 })
   }
 
-  // Verify ownership — fileId must belong to the authenticated user's company
-  const tables = ['backgrounds', 'composites', 'angled_shots'] as const
+  // Verify ownership — fileId must belong to the user's active company.
+  // Ownership is company-scoped, not user-scoped: any member of a company
+  // can view assets created by other members of the same company.
+  const companyId = await getCompanyId(supabase, user.id)
+  if (!companyId) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
   let owned = false
-  for (const table of tables) {
-    const { data } = await supabase
+
+  // angled_shots, backgrounds, composites: scoped via category → company
+  for (const table of ['angled_shots', 'backgrounds', 'composites'] as const) {
+    const { data: asset } = await supabase
       .from(table)
-      .select('id')
+      .select('category_id')
       .eq('gdrive_file_id', fileId)
-      .eq('user_id', user.id)
       .limit(1)
       .maybeSingle()
-    if (data) { owned = true; break }
-  }
-  if (!owned) {
-    // Also check brand_assets, which is scoped by company_id rather than user_id
-    const companyId = await getCompanyId(supabase, user.id)
-    if (companyId) {
-      const { data } = await supabase
-        .from('brand_assets')
+
+    if (asset?.category_id) {
+      const { data: category } = await supabase
+        .from('categories')
         .select('id')
-        .eq('gdrive_file_id', fileId)
+        .eq('id', asset.category_id)
         .eq('company_id', companyId)
-        .limit(1)
         .maybeSingle()
-      if (data) owned = true
+      if (category) { owned = true; break }
     }
   }
+
+  // brand_assets: scoped directly by company_id
+  if (!owned) {
+    const { data } = await supabase
+      .from('brand_assets')
+      .select('id')
+      .eq('gdrive_file_id', fileId)
+      .eq('company_id', companyId)
+      .limit(1)
+      .maybeSingle()
+    if (data) owned = true
+  }
+
   if (!owned) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
