@@ -62,7 +62,11 @@ export function CompanySwitcher() {
         body: JSON.stringify({ companyId }),
       })
       if (res.ok) {
-        router.refresh()
+        // Update local state immediately so the switcher reflects the change
+        const next = memberships.find((m) => m.company_id === companyId)
+        if (next) setActiveCompany({ id: companyId, name: next.name })
+        // Hard-navigate to / so all server components reload with the new company cookie
+        router.push('/')
       }
     } finally {
       setSwitching(false)
