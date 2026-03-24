@@ -80,16 +80,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // brand_assets: scoped directly by company_id
+  // final_assets, collages, product_images, brand_assets: company_id column directly
   if (!owned) {
-    const { data } = await admin
-      .from('brand_assets')
-      .select('id')
-      .eq('gdrive_file_id', fileId)
-      .eq('company_id', companyId)
-      .limit(1)
-      .maybeSingle()
-    if (data) owned = true
+    for (const table of ['final_assets', 'collages', 'product_images', 'brand_assets'] as const) {
+      const { data } = await admin
+        .from(table)
+        .select('id')
+        .eq('gdrive_file_id', fileId)
+        .eq('company_id', companyId)
+        .limit(1)
+        .maybeSingle()
+      if (data) { owned = true; break }
+    }
   }
 
   if (!owned) {
