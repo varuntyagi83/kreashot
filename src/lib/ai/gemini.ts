@@ -50,38 +50,40 @@ async function removeGeminiWatermark(base64: string, mimeType: string): Promise<
     const buffer = Buffer.from(base64, 'base64')
     const image = sharp(buffer)
     const { width, height } = await image.metadata()
-    if (!width || !height || width < 100 || height < 100) return base64
+    if (!width || !height || width < 500 || height < 500) return base64
 
     const wmSize = 420 // Gemini watermark is ~300px; 420 covers it with margin
-
-    // Sample background from well above/left of the watermark to avoid picking up white pixels
-    const sampleLeft = Math.max(0, width - wmSize - 60)
-    const sampleTop = Math.max(0, height - wmSize - 60)
-    const sampleW = 40
-    const sampleH = 40
-
-    const { data: sample, info } = await image
-      .clone()
-      .extract({ left: sampleLeft, top: sampleTop, width: sampleW, height: sampleH })
-      .raw()
-      .toBuffer({ resolveWithObject: true })
-
-    const ch = info.channels
-    let r = 0, g = 0, b = 0, count = 0
-    for (let i = 0; i < sample.length; i += ch) {
-      r += sample[i]; g += sample[i + 1]; b += sample[i + 2]; count++
-    }
-    r = Math.round(r / count); g = Math.round(g / count); b = Math.round(b / count)
-
-    // Build a solid patch in the sampled color and composite over the watermark
     const patchLeft = Math.max(0, width - wmSize)
-    const patchTop = Math.max(0, height - wmSize)
+    const patchTop  = Math.max(0, height - wmSize)
     const patchW = width - patchLeft
     const patchH = height - patchTop
 
-    const patch = await sharp({
-      create: { width: patchW, height: patchH, channels: 3, background: { r, g, b } },
-    })
+    const borderW = Math.min(60, patchLeft)
+    const borderH = Math.min(60, patchTop)
+
+    // Stretch the strip just LEFT of the watermark zone across the full patch
+    const { data: leftData, info } = await image.clone()
+      .extract({ left: patchLeft - borderW, top: patchTop, width: borderW, height: patchH })
+      .resize(patchW, patchH, { fit: 'fill', kernel: 'lanczos3' })
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    // Stretch the strip just ABOVE the watermark zone across the full patch
+    const { data: topData } = await image.clone()
+      .extract({ left: patchLeft, top: patchTop - borderH, width: patchW, height: borderH })
+      .resize(patchW, patchH, { fit: 'fill', kernel: 'lanczos3' })
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    // 50/50 blend of both strips — preserves gradients, textures, and scene colors
+    const ch = info.channels
+    const blended = Buffer.alloc(leftData.length)
+    for (let i = 0; i < leftData.length; i++) {
+      blended[i] = Math.round((leftData[i] + topData[i]) / 2)
+    }
+
+    const patch = await sharp(blended, { raw: { width: patchW, height: patchH, channels: ch } })
+      .blur(2)
       .png()
       .toBuffer()
 
