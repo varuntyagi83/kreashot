@@ -525,7 +525,7 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
         const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data)
         if (imagePart) {
           const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-          const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
+          const generatedBase64 = imagePart.inlineData.data
           console.log(`  ✅ Background ${i + 1} done (${aspectRatio})`)
           return {
             promptUsed: prompt,
@@ -643,7 +643,7 @@ export async function regenerateBackgroundInFormat(
   }
 
   const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-  const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
+  const generatedBase64 = imagePart.inlineData.data
 
   return {
     promptUsed: prompt,
@@ -1014,7 +1014,7 @@ Before placing the product, read the background's light: direction, color temper
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
     if (imagePart) {
       const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-      const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
+      const generatedBase64 = imagePart.inlineData.data
 
       console.log(`   ✅ ${aspectRatio} composite generated successfully (two-call pipeline)`)
 
