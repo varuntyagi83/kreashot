@@ -39,66 +39,6 @@ async function fetchGeminiWithRetry(
   return lastResponse!
 }
 
-/**
- * Remove the Gemini SynthID visible watermark (white diamond ~50px, bottom-right corner).
- * Samples background color from the region just left of the watermark and fills the corner.
- * No-ops silently if sharp fails or image is too small.
- */
-async function removeGeminiWatermark(base64: string, mimeType: string): Promise<string> {
-  try {
-    const sharp = (await import('sharp')).default
-    const buffer = Buffer.from(base64, 'base64')
-    const image = sharp(buffer)
-    const { width, height } = await image.metadata()
-    if (!width || !height || width < 500 || height < 500) return base64
-
-    const wmSize = 420 // Gemini watermark is ~300px; 420 covers it with margin
-    const patchLeft = Math.max(0, width - wmSize)
-    const patchTop  = Math.max(0, height - wmSize)
-    const patchW = width - patchLeft
-    const patchH = height - patchTop
-
-    const borderW = Math.min(60, patchLeft)
-    const borderH = Math.min(60, patchTop)
-
-    // Stretch the strip just LEFT of the watermark zone across the full patch
-    const { data: leftData, info } = await image.clone()
-      .extract({ left: patchLeft - borderW, top: patchTop, width: borderW, height: patchH })
-      .resize(patchW, patchH, { fit: 'fill', kernel: 'lanczos3' })
-      .raw()
-      .toBuffer({ resolveWithObject: true })
-
-    // Stretch the strip just ABOVE the watermark zone across the full patch
-    const { data: topData } = await image.clone()
-      .extract({ left: patchLeft, top: patchTop - borderH, width: patchW, height: borderH })
-      .resize(patchW, patchH, { fit: 'fill', kernel: 'lanczos3' })
-      .raw()
-      .toBuffer({ resolveWithObject: true })
-
-    // 50/50 blend of both strips — preserves gradients, textures, and scene colors
-    const ch = info.channels
-    const blended = Buffer.alloc(leftData.length)
-    for (let i = 0; i < leftData.length; i++) {
-      blended[i] = Math.round((leftData[i] + topData[i]) / 2)
-    }
-
-    const patch = await sharp(blended, { raw: { width: patchW, height: patchH, channels: ch } })
-      .blur(2)
-      .png()
-      .toBuffer()
-
-    const result = await image
-      .composite([{ input: patch, left: patchLeft, top: patchTop }])
-      .toFormat(mimeType === 'image/png' ? 'png' : 'jpeg')
-      .toBuffer()
-
-    return result.toString('base64')
-  } catch (e) {
-    console.warn('[removeGeminiWatermark] skipped:', (e as Error).message)
-    return base64
-  }
-}
-
 // Lazy initialization of Gemini AI client
 let genAI: GoogleGenerativeAI | null = null
 
@@ -247,7 +187,7 @@ STRICT RULES — ONLY CAMERA ANGLE CHANGES:
         const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
         if (imagePart) {
           const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-          const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
+          const generatedBase64 = imagePart.inlineData.data
           console.log(`  ✅ ${angle.name} done`)
           return {
             angleName: angle.name,
@@ -488,54 +428,92 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
           }
         }
 
-        // Call Gemini API directly (with retry on 429/503)
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 120000)
+        // Imagen 4 supports these aspect ratios natively and produces higher quality backgrounds
+        const IMAGEN_4_RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16'])
+        const useImagen4 = IMAGEN_4_RATIOS.has(aspectRatio) && (!styleReferenceImages || styleReferenceImages.length === 0) && !isFlatColor
 
-        const response = await fetchGeminiWithRetry(
-          `${GEMINI_API_URL}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-goog-api-key': GEMINI_API_KEY,
-            },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal,
-          },
-          GEMINI_API_KEY
-        )
-        clearTimeout(timeout)
+        let generatedBase64: string
+        let generatedMimeType: string
 
-        if (!response.ok) {
-          const errorText = await response.text()
-          console.error(`  ❌ Gemini API ${response.status} for ${aspectRatio} bg ${i + 1}:`, errorText.substring(0, 500))
-          throw new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 200)}`)
-        }
+        if (useImagen4) {
+          // ── Imagen 4 path ──────────────────────────────────────────────────
+          console.log(`  → Using Imagen 4 for ${aspectRatio} background ${i + 1}`)
+          const IMAGEN_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`
 
-        const data = await response.json()
+          // Merge system instruction into prompt for Imagen (no systemInstruction field)
+          const imagenPrompt = `You are an elite editorial product photographer. Your work appears in premium lifestyle magazines like Kinfolk, Cereal, and Vogue Living. Every image you produce is indistinguishable from a real RAW photograph — cinematic, rich, and intentional. SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL — always commit to a clear single light source that creates strong, directional shadows across the scene.
 
-        // Check for safety/blocked responses
-        const candidate = data.candidates?.[0]
-        if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-          console.warn(`  ⚠️  Background ${i + 1} finish reason: ${candidate.finishReason}`)
-        }
+${prompt}`
 
-        // Search all parts for image data
-        const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data)
-        if (imagePart) {
-          const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
-          const generatedBase64 = imagePart.inlineData.data
-          console.log(`  ✅ Background ${i + 1} done (${aspectRatio})`)
-          return {
-            promptUsed: prompt,
-            imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
-            mimeType: generatedMimeType,
+          const negativePrompt = 'illustration, cartoon, painting, watercolor, sketch, line art, CGI, 3D render, digital art, vector graphics, clip art, plastic look, synthetic textures, oversaturated, HDR, neon glow, text, typography, watermarks, logos, UI elements, people, persons, models'
+
+          const imagenBody = {
+            instances: [{ prompt: imagenPrompt, negativePrompt }],
+            parameters: { sampleCount: 1, aspectRatio, addWatermark: false },
           }
+
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 120000)
+          const response = await fetchGeminiWithRetry(
+            IMAGEN_URL,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(imagenBody), signal: controller.signal },
+            GEMINI_API_KEY
+          )
+          clearTimeout(timeout)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            throw new Error(`Imagen 4 error: ${response.status} - ${errorText.substring(0, 200)}`)
+          }
+
+          const data = await response.json()
+          const prediction = data.predictions?.[0]
+          if (!prediction?.bytesBase64Encoded) {
+            throw new Error(`Imagen 4 returned no image. Response: ${JSON.stringify(data).substring(0, 300)}`)
+          }
+          generatedBase64 = prediction.bytesBase64Encoded
+          generatedMimeType = prediction.mimeType || 'image/png'
+
         } else {
-          const responsePreview = JSON.stringify(data).substring(0, 300)
-          console.warn(`  ⚠️  No image in response for ${aspectRatio} background ${i + 1}. Response: ${responsePreview}`)
-          throw new Error(`No image generated for ${aspectRatio}`)
+          // ── Gemini fallback (4:5, style refs, flat color) ──────────────────
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), 120000)
+          const response = await fetchGeminiWithRetry(
+            `${GEMINI_API_URL}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY },
+              body: JSON.stringify(requestBody),
+              signal: controller.signal,
+            },
+            GEMINI_API_KEY
+          )
+          clearTimeout(timeout)
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error(`  ❌ Gemini API ${response.status} for ${aspectRatio} bg ${i + 1}:`, errorText.substring(0, 500))
+            throw new Error(`Gemini API error: ${response.status} - ${errorText.substring(0, 200)}`)
+          }
+
+          const data = await response.json()
+          const candidate = data.candidates?.[0]
+          if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
+            console.warn(`  ⚠️  Background ${i + 1} finish reason: ${candidate.finishReason}`)
+          }
+          const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data)
+          if (!imagePart) {
+            throw new Error(`No image generated for ${aspectRatio}. Response: ${JSON.stringify(data).substring(0, 300)}`)
+          }
+          generatedBase64 = imagePart.inlineData.data
+          generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+        }
+
+        console.log(`  ✅ Background ${i + 1} done (${aspectRatio})`)
+        return {
+          promptUsed: prompt,
+          imageData: `data:${generatedMimeType};base64,${generatedBase64}`,
+          mimeType: generatedMimeType,
         }
       } catch (error) {
         console.error(`  ❌ Error generating ${aspectRatio} background ${i + 1}:`, error instanceof Error ? error.message : error)
