@@ -39,6 +39,64 @@ async function fetchGeminiWithRetry(
   return lastResponse!
 }
 
+/**
+ * Remove the Gemini SynthID visible watermark (white diamond ~50px, bottom-right corner).
+ * Samples background color from the region just left of the watermark and fills the corner.
+ * No-ops silently if sharp fails or image is too small.
+ */
+async function removeGeminiWatermark(base64: string, mimeType: string): Promise<string> {
+  try {
+    const sharp = (await import('sharp')).default
+    const buffer = Buffer.from(base64, 'base64')
+    const image = sharp(buffer)
+    const { width, height } = await image.metadata()
+    if (!width || !height || width < 100 || height < 100) return base64
+
+    const wmSize = 420 // Gemini watermark is ~300px; 420 covers it with margin
+
+    // Sample background from well above/left of the watermark to avoid picking up white pixels
+    const sampleLeft = Math.max(0, width - wmSize - 60)
+    const sampleTop = Math.max(0, height - wmSize - 60)
+    const sampleW = 40
+    const sampleH = 40
+
+    const { data: sample, info } = await image
+      .clone()
+      .extract({ left: sampleLeft, top: sampleTop, width: sampleW, height: sampleH })
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const ch = info.channels
+    let r = 0, g = 0, b = 0, count = 0
+    for (let i = 0; i < sample.length; i += ch) {
+      r += sample[i]; g += sample[i + 1]; b += sample[i + 2]; count++
+    }
+    r = Math.round(r / count); g = Math.round(g / count); b = Math.round(b / count)
+
+    // Build a solid patch in the sampled color and composite over the watermark
+    const patchLeft = Math.max(0, width - wmSize)
+    const patchTop = Math.max(0, height - wmSize)
+    const patchW = width - patchLeft
+    const patchH = height - patchTop
+
+    const patch = await sharp({
+      create: { width: patchW, height: patchH, channels: 3, background: { r, g, b } },
+    })
+      .png()
+      .toBuffer()
+
+    const result = await image
+      .composite([{ input: patch, left: patchLeft, top: patchTop }])
+      .toFormat(mimeType === 'image/png' ? 'png' : 'jpeg')
+      .toBuffer()
+
+    return result.toString('base64')
+  } catch (e) {
+    console.warn('[removeGeminiWatermark] skipped:', (e as Error).message)
+    return base64
+  }
+}
+
 // Lazy initialization of Gemini AI client
 let genAI: GoogleGenerativeAI | null = null
 
@@ -186,8 +244,8 @@ STRICT RULES — ONLY CAMERA ANGLE CHANGES:
         // Search all parts for image data (Gemini may return text in parts[0] and image in parts[1])
         const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
         if (imagePart) {
-          const generatedBase64 = imagePart.inlineData.data
           const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+          const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
           console.log(`  ✅ ${angle.name} done`)
           return {
             angleName: angle.name,
@@ -464,8 +522,8 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
         // Search all parts for image data
         const imagePart = candidate?.content?.parts?.find((p: any) => p.inlineData?.data)
         if (imagePart) {
-          const generatedBase64 = imagePart.inlineData.data
           const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+          const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
           console.log(`  ✅ Background ${i + 1} done (${aspectRatio})`)
           return {
             promptUsed: prompt,
@@ -582,8 +640,8 @@ export async function regenerateBackgroundInFormat(
     throw new Error('No image generated in response')
   }
 
-  const generatedBase64 = imagePart.inlineData.data
   const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+  const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
 
   return {
     promptUsed: prompt,
@@ -953,8 +1011,8 @@ Before placing the product, read the background's light: direction, color temper
     const data = await response.json()
     const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
     if (imagePart) {
-      const generatedBase64 = imagePart.inlineData.data
       const generatedMimeType = imagePart.inlineData.mimeType || 'image/jpeg'
+      const generatedBase64 = await removeGeminiWatermark(imagePart.inlineData.data, generatedMimeType)
 
       console.log(`   ✅ ${aspectRatio} composite generated successfully (two-call pipeline)`)
 
