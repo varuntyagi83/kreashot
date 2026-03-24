@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyMembership } from '@/lib/get-company'
+import { getCompanyMembership, getUserCompanies } from '@/lib/get-company'
 
 /**
  * GET /api/company
@@ -29,7 +29,9 @@ export async function GET() {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ company, role: membership.role })
+    const allCompanies = await getUserCompanies(supabase, user.id)
+
+    return NextResponse.json({ company, role: membership.role, memberships: allCompanies })
   } catch (err: any) {
     console.error('[company GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

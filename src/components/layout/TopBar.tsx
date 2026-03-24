@@ -13,6 +13,7 @@ import { LogOut, Settings, Sun, Moon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
+import { CompanySwitcher } from './CompanySwitcher'
 
 export function TopBar() {
   const { user, signOut } = useAuth()
@@ -33,6 +34,9 @@ export function TopBar() {
           <h1 className="text-xl font-bold tracking-tight text-foreground">
             AdForge
           </h1>
+        </div>
+        <div className="ml-4 flex-1 flex items-center">
+          <CompanySwitcher />
         </div>
         <div className="ml-auto flex items-center space-x-2">
 

@@ -15,13 +15,12 @@ export default async function DashboardLayout({
   const { data: { user } } = await supabase.auth.getUser()
 
   if (user) {
-    const { data: membership } = await supabase
+    const { data: memberships } = await supabase
       .from('company_members')
       .select('company_id')
       .eq('user_id', user.id)
-      .single()
 
-    if (!membership) {
+    if (!memberships || memberships.length === 0) {
       redirect('/onboarding')
     }
   }
