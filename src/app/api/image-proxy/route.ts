@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getCompanyId } from '@/lib/get-company'
+import { getSupabaseAdmin } from '@/lib/supabase/admin'
 import { google } from 'googleapis'
 
 function getDriveClient() {
@@ -53,11 +54,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  // Use admin client for ownership lookups — RLS on these tables is user_id-based,
+  // which would block members from seeing assets created by their teammates.
+  // The admin client bypasses RLS only for this membership check, not for data access.
+  const admin = getSupabaseAdmin()
   let owned = false
 
   // angled_shots, backgrounds, composites: scoped via category → company
   for (const table of ['angled_shots', 'backgrounds', 'composites'] as const) {
-    const { data: asset } = await supabase
+    const { data: asset } = await admin
       .from(table)
       .select('category_id')
       .eq('gdrive_file_id', fileId)
@@ -65,7 +70,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle()
 
     if (asset?.category_id) {
-      const { data: category } = await supabase
+      const { data: category } = await admin
         .from('categories')
         .select('id')
         .eq('id', asset.category_id)
@@ -77,7 +82,7 @@ export async function GET(request: NextRequest) {
 
   // brand_assets: scoped directly by company_id
   if (!owned) {
-    const { data } = await supabase
+    const { data } = await admin
       .from('brand_assets')
       .select('id')
       .eq('gdrive_file_id', fileId)
