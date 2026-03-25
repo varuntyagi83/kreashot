@@ -259,7 +259,8 @@ export async function POST(
     // {companyId}/{category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
     const fileExt = mimeType?.split('/')[1] || 'jpg'
     const formatFolder = formatToFolderName(format) // "4:5" → "4x5"
-    const fileName = `${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
+    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
     // Upload to Google Drive
     const storageFile = await uploadFile(buffer, fileName, {

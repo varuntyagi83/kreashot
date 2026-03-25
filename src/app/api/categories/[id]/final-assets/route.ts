@@ -168,7 +168,8 @@ export async function POST(
       // A malicious caller could supply an arbitrary storagePath / storageUrl to link
       // another company's file into their gallery. Reject any path that does not start
       // with the authenticated company's slug prefix.
-      if (!sp.storagePath.startsWith(`${companySlug}/`)) {
+      const sanitizedName = sanitizeCompanyName(companyName)
+      if (!sp.storagePath.startsWith(`${sanitizedName}/${companySlug}/`) && !sp.storagePath.startsWith(`${companySlug}/`)) {
         return NextResponse.json({ error: 'Storage path does not belong to this company' }, { status: 403 })
       }
       const { data: savedAsset, error: insertError } = await supabase
