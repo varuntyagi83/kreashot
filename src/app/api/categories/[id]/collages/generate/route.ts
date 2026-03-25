@@ -177,8 +177,8 @@ export async function POST(
       ),
     ])
 
-    // 4. Upload to Google Drive
-    console.log('📤 Uploading collage to Google Drive...')
+    // 4. Upload to GCS
+    console.log('📤 Uploading collage to GCS...')
 
     const { data: category } = await supabase
       .from('categories')
@@ -198,14 +198,14 @@ export async function POST(
     const { fileId, publicUrl } = await uploadFile(
       fileBuffer,
       storagePath,
-      { provider: 'gdrive' }
+      { provider: 'gcs' }
     )
 
     // 5. Update collage record with generated output
     const { data: updated, error: updateError } = await supabase
       .from('collages')
       .update({
-        storage_provider: 'gdrive',
+        storage_provider: 'gcs',
         storage_path: storagePath,
         storage_url: publicUrl,
         gdrive_file_id: fileId,

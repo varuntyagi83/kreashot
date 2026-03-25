@@ -77,17 +77,11 @@ export async function GET(
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    // Get public URLs for the images (use Google Drive URLs if available)
+    // Get public URLs for the images (use GCS URLs if available)
     const backgroundsWithUrls = (backgrounds || []).map((bg) => {
       let publicUrl: string
 
-      // Use Google Drive URL if stored in Google Drive
-      if (bg.storage_provider === 'gdrive' && bg.storage_url) {
-        publicUrl = bg.storage_url
-      } else {
-        // Fallback to Supabase Storage URL (shouldn't happen with new backgrounds)
-        publicUrl = bg.storage_url || ''
-      }
+      publicUrl = bg.storage_url || ''
 
       return {
         ...bg,
@@ -114,7 +108,7 @@ export async function GET(
 
 /**
  * POST /api/categories/[id]/backgrounds
- * Saves a generated background to Google Drive and database
+ * Saves a generated background to GCS and database
  */
 export async function POST(
   request: NextRequest,

@@ -189,9 +189,9 @@ export async function POST(request: NextRequest) {
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Fonts: store in Supabase so the browser can load them via @font-face (no CORS issues).
-    // Other assets: Google Drive.
+    // Other assets: GCS.
     let storageFile: { path: string; publicUrl: string; fileId?: string }
-    let storageProvider: 'supabase' | 'gdrive'
+    let storageProvider: 'supabase' | 'gcs'
     if (isFont) {
       const filePath = `${sanitizedCompanyName}/${companySlug}/${user.id}/font/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
@@ -204,9 +204,9 @@ export async function POST(request: NextRequest) {
       const filePath = `${sanitizedCompanyName}/${companySlug}/brand-assets/${assetType}/${slug}_${Date.now()}.${fileExt}`
       storageFile = await uploadFile(buffer, filePath, {
         contentType,
-        provider: 'gdrive',
+        provider: 'gcs',
       })
-      storageProvider = 'gdrive'
+      storageProvider = 'gcs'
     }
 
     const storageUrl = storageFile.publicUrl
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
         storage_provider: storageProvider,
         storage_path: storageFile.path,
         storage_url: storageUrl,
-        gdrive_file_id: storageProvider === 'gdrive' ? storageFile.fileId ?? null : null,
+        gdrive_file_id: null,
         metadata: {
           file_name: file.name,
           file_size: file.size,
@@ -235,10 +235,9 @@ export async function POST(request: NextRequest) {
     if (dbError) {
       // Cleanup uploaded file if database insert fails
       try {
-        if (storageProvider === 'gdrive') {
+        if (storageProvider === 'gcs') {
           const { deleteFile } = await import('@/lib/storage')
-          const fileIdOrPath = storageFile.fileId || storageFile.path
-          await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+          await deleteFile(storageFile.path, { provider: 'gcs' })
         } else {
           await supabase.storage.from('brand-assets').remove([storageFile.path])
         }

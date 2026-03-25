@@ -77,8 +77,7 @@ export async function GET(
     const imagesWithUrls = (images || []).map((image) => {
       let publicUrl: string
 
-      // Use storage_url directly for gdrive and gcs (already a public URL)
-      if ((image.storage_provider === 'gdrive' || image.storage_provider === 'gcs') && image.storage_url) {
+      if (image.storage_url) {
         publicUrl = image.storage_url
       } else {
         // Fallback to Supabase Storage URL (legacy supabase-backed records)

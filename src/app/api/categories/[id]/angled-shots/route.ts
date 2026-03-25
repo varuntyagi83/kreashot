@@ -91,12 +91,11 @@ export async function GET(
       return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 
-    // Get public URLs for the images (use Google Drive URLs if available)
+    // Get public URLs for the images (use GCS URLs if available)
     const angledShotsWithUrls = (angledShots || []).map((shot) => {
       let publicUrl: string
 
-      // Use storage_url directly for gdrive and gcs (already a public URL)
-      if ((shot.storage_provider === 'gdrive' || shot.storage_provider === 'gcs') && shot.storage_url) {
+      if (shot.storage_url) {
         publicUrl = shot.storage_url
       } else {
         // Fallback to Supabase Storage URL (legacy supabase-backed records)
@@ -262,16 +261,16 @@ export async function POST(
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
-    // Upload to Google Drive
+    // Upload to GCS
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: mimeType || 'image/jpeg',
-      provider: 'gdrive',
+      provider: 'gcs',
     })
 
     // Create display name with product prefix (e.g., "Nike Air Max_Front")
     const displayName = createDisplayName(product.name, angleName)
 
-    // Save to database with Google Drive storage sync fields and format dimensions
+    // Save to database with GCS storage sync fields and format dimensions
     const { data: angledShot, error: dbError } = await supabase
       .from('angled_shots')
       .insert({
@@ -287,7 +286,7 @@ export async function POST(
         format: format, // Detected from actual image dimensions
         width: actualWidth,
         height: actualHeight,
-        storage_provider: 'gdrive',
+        storage_provider: 'gcs',
         storage_path: storageFile.path,
         storage_url: storageFile.publicUrl,
         gdrive_file_id: storageFile.fileId || null,

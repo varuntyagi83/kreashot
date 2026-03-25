@@ -95,13 +95,7 @@ export async function GET(
     const compositesWithUrls = (composites || []).map((composite) => {
       let publicUrl: string
 
-      // Use Google Drive URL if stored in Google Drive
-      if (composite.storage_provider === 'gdrive' && composite.storage_url) {
-        publicUrl = composite.storage_url
-      } else {
-        // Fallback to Supabase Storage URL
-        publicUrl = composite.storage_url || ''
-      }
+      publicUrl = composite.storage_url || ''
 
       return {
         ...composite,
@@ -128,7 +122,7 @@ export async function GET(
 
 /**
  * POST /api/categories/[id]/composites
- * Saves a generated composite to Google Drive and database
+ * Saves a generated composite to GCS and database
  */
 export async function POST(
   request: NextRequest,

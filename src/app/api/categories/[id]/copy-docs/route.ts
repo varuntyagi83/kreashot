@@ -73,7 +73,7 @@ export async function GET(
 
 /**
  * POST /api/categories/[id]/copy-docs
- * Saves a copy doc to Google Drive + database
+ * Saves a copy doc to GCS + database
  */
 export async function POST(
   request: NextRequest,
@@ -153,7 +153,7 @@ export async function POST(
       )
     }
 
-    // Save as JSON file to Google Drive
+    // Save as JSON file to GCS
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const copyData = {
       name,
@@ -168,10 +168,10 @@ export async function POST(
     const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
     const buffer = Buffer.from(JSON.stringify(copyData, null, 2), 'utf-8')
 
-    console.log(`Uploading copy doc to Google Drive: ${fileName}`)
+    console.log(`Uploading copy doc to GCS: ${fileName}`)
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: 'application/json',
-      provider: 'gdrive',
+      provider: 'gcs',
     })
 
     // Save to database
@@ -187,7 +187,7 @@ export async function POST(
         tone: tone || null,
         language,
         prompt_used: promptUsed || null,
-        storage_provider: 'gdrive',
+        storage_provider: 'gcs',
         storage_path: storageFile.path,
         storage_url: storageFile.publicUrl,
         gdrive_file_id: storageFile.fileId || null,

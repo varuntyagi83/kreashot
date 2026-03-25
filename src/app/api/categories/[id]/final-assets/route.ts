@@ -1,4 +1,4 @@
-// Extend route timeout for Python compositor + GDrive upload
+// Extend route timeout for Python compositor + GCS upload
 // Supports composite or direct angled-shot base images
 export const maxDuration = 300
 
@@ -186,7 +186,7 @@ export async function POST(
           width: sp.width,
           height: sp.height,
           composition_data: sp.compositionData,
-          storage_provider: 'gdrive',
+          storage_provider: 'gcs',
           storage_path: sp.storagePath,
           storage_url: sp.storageUrl,
           gdrive_file_id: sp.gdriveFileId,
@@ -424,7 +424,7 @@ export async function POST(
 
           let fontBuffer = await fetchFont(layer.font_url)
 
-          // Google Drive may return an HTML confirmation page for font files.
+          // GCS may return an HTML confirmation page for font files.
           // Retry with confirm=t and via drive.usercontent.google.com.
           if (fontBuffer && isHtml(fontBuffer)) {
             console.warn(`🔤 Got HTML response, retrying with confirm=t...`)
@@ -532,8 +532,8 @@ export async function POST(
       ),
     ])
 
-    // 6. Upload to Google Drive
-    console.log('📤 Uploading final asset to Google Drive...')
+    // 6. Upload to GCS
+    console.log('📤 Uploading final asset to GCS...')
 
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const timestamp = Date.now()
@@ -546,7 +546,7 @@ export async function POST(
     const { fileId, publicUrl } = await uploadFile(
       fileBuffer,
       storagePath,
-      { provider: 'gdrive' }
+      { provider: 'gcs' }
     )
 
     // If preview mode: return the generated image without saving to the gallery.
@@ -601,7 +601,7 @@ export async function POST(
           source_copy: copyText.generated_text,
           safe_zones_validated: true,
         },
-        storage_provider: 'gdrive',
+        storage_provider: 'gcs',
         storage_path: storagePath,
         storage_url: publicUrl,
         gdrive_file_id: fileId,
