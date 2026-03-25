@@ -133,4 +133,10 @@
   body {
     @apply bg-background text-foreground;
   }
+  a, button, [role="button"], [role="link"], [role="menuitem"], [role="option"], [role="tab"] {
+    @apply cursor-pointer;
+  }
+  a:hover, button:hover, [role="button"]:hover, [role="link"]:hover, [role="menuitem"]:hover, [role="option"]:hover, [role="tab"]:hover {
+    @apply brightness-95 dark:brightness-110;
+  }
 }
