@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Building2, ChevronsUpDown, Check } from 'lucide-react'
 import {
   DropdownMenu,
@@ -26,7 +25,6 @@ interface CompanyData {
 }
 
 export function CompanySwitcher() {
-  const router = useRouter()
   const [activeCompany, setActiveCompany] = useState<CompanyData | null>(null)
   const [memberships, setMemberships] = useState<CompanyMembership[]>([])
   const [switching, setSwitching] = useState(false)
@@ -65,8 +63,8 @@ export function CompanySwitcher() {
         // Update local state immediately so the switcher reflects the change
         const next = memberships.find((m) => m.company_id === companyId)
         if (next) setActiveCompany({ id: companyId, name: next.name })
-        // Hard-navigate to / so all server components reload with the new company cookie
-        router.push('/')
+        // Full page reload so the new company cookie takes effect across all components
+        window.location.href = '/'
       }
     } finally {
       setSwitching(false)
