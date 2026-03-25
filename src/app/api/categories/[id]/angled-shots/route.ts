@@ -95,11 +95,11 @@ export async function GET(
     const angledShotsWithUrls = (angledShots || []).map((shot) => {
       let publicUrl: string
 
-      // Use Google Drive URL if stored in Google Drive
-      if (shot.storage_provider === 'gdrive' && shot.storage_url) {
+      // Use storage_url directly for gdrive and gcs (already a public URL)
+      if ((shot.storage_provider === 'gdrive' || shot.storage_provider === 'gcs') && shot.storage_url) {
         publicUrl = shot.storage_url
       } else {
-        // Fallback to Supabase Storage URL
+        // Fallback to Supabase Storage URL (legacy supabase-backed records)
         const {
           data: { publicUrl: supabaseUrl },
         } = supabase.storage.from('angled-shots').getPublicUrl(shot.storage_path)
