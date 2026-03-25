@@ -20,10 +20,10 @@ const FORMAT_CONFIG: Record<string, { mime: string; ext: string }> = {
 
 /**
  * GET /api/download
- * Downloads an image from Google Drive, optionally resizes + converts format, and streams back.
+ * Downloads an image from GCS or Google Drive, optionally resizes + converts format, and streams back.
  *
  * Query params:
- *   fileId     — Google Drive file ID (required)
+ *   fileId     — GCS storage_path or Google Drive file ID (required)
  *   filename   — base filename without extension (default: "download")
  *   resolution — Original | 1K | 2K | 4K (default: Original)
  *   format     — JPEG | WebP | PNG (default: JPEG)
@@ -46,14 +46,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'fileId is required' }, { status: 400 })
     }
 
+    // Detect provider: GCS paths contain '/', Drive file IDs do not
+    const isGcsPath = fileId.includes('/')
+
     // C-01: Verify ownership — fileId must belong to the authenticated user
     const tables = ['backgrounds', 'composites', 'angled_shots', 'final_assets'] as const
     let owned = false
     for (const table of tables) {
+      const column = isGcsPath ? 'storage_path' : 'gdrive_file_id'
       const { data } = await supabase
         .from(table)
         .select('id')
-        .eq('gdrive_file_id', fileId)
+        .eq(column, fileId)
         .eq('user_id', user.id)
         .limit(1)
         .maybeSingle()
@@ -66,8 +70,8 @@ export async function GET(request: NextRequest) {
     const fmtConfig = FORMAT_CONFIG[format] ?? FORMAT_CONFIG['JPEG']
     const maxPx     = RESOLUTION_MAP[resolution] ?? null
 
-    // Fetch from Google Drive via API (bypasses CDN rate limits)
-    const buffer = await downloadFile(fileId, { provider: 'gdrive' })
+    // Fetch from GCS or Google Drive
+    const buffer = await downloadFile(fileId, { provider: isGcsPath ? 'gcs' : 'gdrive' })
 
     // M-02: Guard against oversized files before passing to Sharp
     if (buffer.length > 50 * 1024 * 1024) {

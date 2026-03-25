@@ -265,11 +265,11 @@ export async function POST(
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
     const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/composites/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
-    // Upload to Google Drive
-    console.log(`Uploading ${format} composite to Google Drive (folder: ${folderName}): ${fileName}`)
+    // Upload to GCS
+    console.log(`Uploading ${format} composite to GCS (folder: ${folderName}): ${fileName}`)
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: mimeType || 'image/jpeg',
-      provider: 'gdrive',
+      provider: 'gcs',
     })
 
     // Save to database with storage sync fields + format info
@@ -289,10 +289,10 @@ export async function POST(
         format, // NEW: Format field
         width: finalWidth, // NEW: Width field
         height: finalHeight, // NEW: Height field
-        storage_provider: 'gdrive',
+        storage_provider: 'gcs',
         storage_path: storageFile.path,
         storage_url: storageFile.publicUrl,
-        gdrive_file_id: storageFile.fileId || null,
+        gdrive_file_id: null,
         generation_time_ms: generationTimeMs ?? null,
         metadata: {},
       })
@@ -301,13 +301,12 @@ export async function POST(
 
     if (dbError) {
       console.error('Database error:', dbError)
-      // Clean up the orphaned GDrive file since DB insert failed
+      // Clean up the orphaned GCS file since DB insert failed
       try {
-        const fileIdOrPath = storageFile.fileId || storageFile.path
-        console.log(`Cleaning up orphaned GDrive file: ${fileIdOrPath}`)
-        await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+        console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
+        await deleteFile(storageFile.path, { provider: 'gcs' })
       } catch (cleanupError) {
-        console.error('Failed to clean up orphaned GDrive file:', cleanupError)
+        console.error('Failed to clean up orphaned GCS file:', cleanupError)
       }
       return NextResponse.json(
         { error: 'Failed to save composite record' },

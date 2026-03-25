@@ -122,6 +122,16 @@ export async function POST(
           { status: 500 }
         )
       }
+    } else if (productImage.storage_provider === 'gcs') {
+      try {
+        imageBuffer = await downloadFile(productImage.storage_path, { provider: 'gcs' })
+      } catch (error) {
+        console.error('Error downloading from GCS:', error)
+        return NextResponse.json(
+          { error: 'Failed to download product image from GCS' },
+          { status: 500 }
+        )
+      }
     } else {
       const { data: downloadedBlob, error: downloadError } = await supabase.storage
         .from('product-images')
@@ -203,7 +213,7 @@ export async function POST(
 
           const storageFile = await uploadFile(buffer, fileName, {
             contentType: shot.mimeType || 'image/jpeg',
-            provider: 'gdrive',
+            provider: 'gcs',
           })
 
           const displayName = createDisplayName(product.name, shot.angleName)
@@ -223,10 +233,10 @@ export async function POST(
               format: detectedFormat,
               width: actualWidth,
               height: actualHeight,
-              storage_provider: 'gdrive',
+              storage_provider: 'gcs',
               storage_path: storageFile.path,
               storage_url: storageFile.publicUrl,
-              gdrive_file_id: storageFile.fileId || null,
+              gdrive_file_id: null,
               metadata: {},
             })
             .select()
@@ -235,11 +245,10 @@ export async function POST(
           if (dbError) {
             console.error(`DB insert failed for ${shot.angleName}:`, dbError)
             try {
-              const fileIdOrPath = storageFile.fileId || storageFile.path
-              console.log(`Cleaning up orphaned GDrive file: ${fileIdOrPath}`)
-              await deleteFile(fileIdOrPath, { provider: 'gdrive' })
+              console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
+              await deleteFile(storageFile.path, { provider: 'gcs' })
             } catch (cleanupError) {
-              console.error('Failed to clean up orphaned GDrive file:', cleanupError)
+              console.error('Failed to clean up orphaned GCS file:', cleanupError)
             }
             return null
           }

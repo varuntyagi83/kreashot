@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import { createClient } from '@supabase/supabase-js'
+import { deleteFile } from '@/lib/storage'
 
 // Mark route as dynamic to prevent build-time execution
 export const dynamic = 'force-dynamic'
@@ -48,8 +49,6 @@ export async function POST(request: NextRequest) {
       .from('deletion_queue')
       .select('*')
       .eq('status', 'pending')
-      .eq('storage_provider', 'gdrive')
-      .not('gdrive_file_id', 'is', null)
       .order('created_at', { ascending: true })
       .limit(50) // Process 50 at a time
 
@@ -69,16 +68,20 @@ export async function POST(request: NextRequest) {
 
     const results = []
 
-    // Delete each file from Google Drive
     for (const file of queuedFiles) {
       try {
-        console.log(`Deleting ${file.storage_path} (${file.gdrive_file_id})`)
-
-        // Delete from Google Drive
-        await drive.files.delete({
-          fileId: file.gdrive_file_id,
-          supportsAllDrives: true
-        })
+        if (file.storage_provider === 'gcs' && file.storage_path) {
+          console.log(`Deleting from GCS: ${file.storage_path}`)
+          await deleteFile(file.storage_path, { provider: 'gcs' })
+        } else if (file.storage_provider === 'gdrive' && file.gdrive_file_id) {
+          console.log(`Deleting from Drive: ${file.storage_path} (${file.gdrive_file_id})`)
+          await drive.files.delete({ fileId: file.gdrive_file_id, supportsAllDrives: true })
+        } else if (file.storage_path) {
+          console.log(`Deleting via path fallback: ${file.storage_path}`)
+          await deleteFile(file.storage_path, { provider: file.storage_provider })
+        } else {
+          throw new Error('No file ID or path available for deletion')
+        }
 
         // Remove from deletion queue
         const { error: deleteError } = await supabase
@@ -90,32 +93,16 @@ export async function POST(request: NextRequest) {
           console.error(`Error removing from queue: ${deleteError.message}`)
         }
 
-        results.push({
-          path: file.storage_path,
-          success: true
-        })
-
+        results.push({ path: file.storage_path, success: true })
       } catch (error: any) {
         console.error(`Error deleting ${file.storage_path}:`, error.message)
 
         // If file not found (already deleted), remove from queue anyway
         if (error.code === 404 || error.message?.includes('not found')) {
-          await supabase
-            .from('deletion_queue')
-            .delete()
-            .eq('id', file.id)
-
-          results.push({
-            path: file.storage_path,
-            success: true,
-            note: 'File already deleted'
-          })
+          await supabase.from('deletion_queue').delete().eq('id', file.id)
+          results.push({ path: file.storage_path, success: true, note: 'File already deleted' })
         } else {
-          results.push({
-            path: file.storage_path,
-            success: false,
-            error: 'Deletion failed'
-          })
+          results.push({ path: file.storage_path, success: false, error: 'Deletion failed' })
         }
       }
     }
