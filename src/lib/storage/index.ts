@@ -1,23 +1,28 @@
 import { GoogleDriveAdapter } from './gdrive-adapter'
+import { GCSAdapter } from './gcs-adapter'
 import { SupabaseAdapter } from './supabase-adapter'
 import type { StorageAdapter, StorageProvider } from './types'
 
 export * from './types'
 export { GoogleDriveAdapter } from './gdrive-adapter'
+export { GCSAdapter } from './gcs-adapter'
 export { SupabaseAdapter } from './supabase-adapter'
 
 /**
- * Get storage adapter based on configuration
- * Defaults to Google Drive for cost savings
+ * Get storage adapter based on configuration.
+ * Defaults to GCS. Set STORAGE_PROVIDER=gdrive to keep using Google Drive.
  */
 export function getStorageAdapter(
   provider?: StorageProvider,
   bucket?: string
 ): StorageAdapter {
   const selectedProvider =
-    provider || (process.env.STORAGE_PROVIDER as StorageProvider) || 'gdrive'
+    provider || (process.env.STORAGE_PROVIDER as StorageProvider) || 'gcs'
 
   switch (selectedProvider) {
+    case 'gcs':
+      return new GCSAdapter()
+
     case 'gdrive':
       return new GoogleDriveAdapter()
 
@@ -31,8 +36,7 @@ export function getStorageAdapter(
       throw new Error('Local adapter not yet implemented')
 
     default:
-      // Default to Google Drive for free storage
-      return new GoogleDriveAdapter()
+      return new GCSAdapter()
   }
 }
 

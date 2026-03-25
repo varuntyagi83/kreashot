@@ -59,4 +59,4 @@ export interface StorageAdapter {
   exists(path: string): Promise<boolean>
 }
 
-export type StorageProvider = 'supabase' | 'gdrive' | 's3' | 'local'
+export type StorageProvider = 'supabase' | 'gdrive' | 'gcs' | 's3' | 'local'
