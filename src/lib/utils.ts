@@ -16,7 +16,8 @@ export function driveImgSrc(
 ): string {
   const fileId = gdriveFileId || extractDriveFileId(storageUrl)
   if (fileId) return `/api/image-proxy?fileId=${fileId}`
-  return storageUrl || ''
+  // encodeURI encodes spaces and other unsafe chars without breaking valid URL structure
+  return storageUrl ? encodeURI(storageUrl) : ''
 }
 
 /** Extract a Google Drive file ID from any known Drive URL format */
