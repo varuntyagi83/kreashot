@@ -257,15 +257,20 @@ export async function POST(
           const gdriveKey = angledShot.gdrive_file_id || angledShot.storage_path
           if (gdriveKey) {
             try {
-              console.log(`  Downloading angled shot via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
               angledShotBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
             } catch (dlError) {
               console.warn(`Failed to download angled shot "${angledShot.display_name}" from Google Drive:`, dlError)
               errors.push(`Failed to download angled shot "${angledShot.display_name}"`)
             }
           } else {
-            console.warn(`Angled shot "${angledShot.display_name}" has no gdrive_file_id or storage_path`)
             errors.push(`Angled shot "${angledShot.display_name}" could not be retrieved`)
+          }
+        } else if (angledShot.storage_provider === 'gcs') {
+          try {
+            angledShotBuffer = await downloadFile(angledShot.storage_path, { provider: 'gcs' })
+          } catch (dlError) {
+            console.warn(`Failed to download angled shot "${angledShot.display_name}" from GCS:`, dlError)
+            errors.push(`Failed to download angled shot "${angledShot.display_name}"`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -273,8 +278,7 @@ export async function POST(
             .download(angledShot.storage_path)
 
           if (!error && data) {
-            const arrayBuffer = await data.arrayBuffer()
-            angledShotBuffer = Buffer.from(arrayBuffer)
+            angledShotBuffer = Buffer.from(await data.arrayBuffer())
           } else {
             console.warn(`Failed to download angled shot "${angledShot.display_name}" from Supabase:`, error?.message)
             errors.push(`Failed to download angled shot "${angledShot.display_name}"`)
@@ -292,15 +296,20 @@ export async function POST(
           const gdriveKey = background.gdrive_file_id || background.storage_path
           if (gdriveKey) {
             try {
-              console.log(`  Downloading background via gdrive (key: ${gdriveKey.substring(0, 20)}...)`)
               backgroundBuffer = await downloadFile(gdriveKey, { provider: 'gdrive' })
             } catch (dlError) {
               console.warn(`Failed to download background "${background.name}" from Google Drive:`, dlError)
               errors.push(`Failed to download background "${background.name}"`)
             }
           } else {
-            console.warn(`Background "${background.name}" has no gdrive_file_id or storage_path`)
             errors.push(`Background "${background.name}" could not be retrieved`)
+          }
+        } else if (background.storage_provider === 'gcs') {
+          try {
+            backgroundBuffer = await downloadFile(background.storage_path, { provider: 'gcs' })
+          } catch (dlError) {
+            console.warn(`Failed to download background "${background.name}" from GCS:`, dlError)
+            errors.push(`Failed to download background "${background.name}"`)
           }
         } else {
           const { data, error } = await supabase.storage
@@ -308,8 +317,7 @@ export async function POST(
             .download(background.storage_path)
 
           if (!error && data) {
-            const arrayBuffer = await data.arrayBuffer()
-            backgroundBuffer = Buffer.from(arrayBuffer)
+            backgroundBuffer = Buffer.from(await data.arrayBuffer())
           } else {
             console.warn(`Failed to download background "${background.name}" from Supabase:`, error?.message)
             errors.push(`Failed to download background "${background.name}"`)

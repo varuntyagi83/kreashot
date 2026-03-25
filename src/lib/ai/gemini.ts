@@ -449,7 +449,7 @@ ${prompt}`
 
           const imagenBody = {
             instances: [{ prompt: imagenPrompt, negativePrompt }],
-            parameters: { sampleCount: 1, aspectRatio, addWatermark: false },
+            parameters: { sampleCount: 1, aspectRatio },
           }
 
           const controller = new AbortController()

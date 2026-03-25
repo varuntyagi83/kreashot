@@ -35,11 +35,10 @@ export class GCSAdapter implements StorageAdapter {
     const contentType = options?.contentType || 'application/octet-stream'
     const gcsFile = this.storage.bucket(this.bucketName).file(path)
 
+    // Bucket uses uniform access with allUsers → objectViewer IAM binding,
+    // so objects are publicly readable without per-object ACLs.
     await gcsFile.save(buffer, {
       metadata: { contentType },
-      // Makes the object publicly readable — bucket must allow object-level ACLs,
-      // OR set uniform bucket-level public access and remove this line.
-      predefinedAcl: 'publicRead',
     })
 
     return {
