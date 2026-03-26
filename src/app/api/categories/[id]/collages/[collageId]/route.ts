@@ -19,7 +19,7 @@ function isAllowedUrl(url: string): boolean {
   if (url.startsWith('data:')) return true
   try {
     const parsed = new URL(url)
-    if (!['https:', 'http:'].includes(parsed.protocol)) return false
+    if (parsed.protocol !== 'https:') return false
     const hostname = parsed.hostname.toLowerCase()
     return ALLOWED_URL_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
   } catch {
@@ -128,6 +128,16 @@ export async function PUT(
         for (let i = 0; i < body.collage_data.layers.length; i++) {
           const layer = body.collage_data.layers[i]
 
+          // Cap layer.name at 100 chars
+          if (layer.name !== undefined) {
+            if (typeof layer.name !== 'string' || layer.name.length > 100) {
+              return NextResponse.json(
+                { error: `Layer ${i}: name must be a string of 100 characters or fewer` },
+                { status: 400 }
+              )
+            }
+          }
+
           // Cap text_content at 500 chars
           if (layer.text_content !== undefined) {
             if (typeof layer.text_content !== 'string' || layer.text_content.length > 500) {
@@ -193,6 +203,8 @@ export async function PUT(
       .from('collages')
       .update(updateData)
       .eq('id', collageId)
+      .eq('category_id', categoryId)
+      .eq('company_id', companyId)
       .select()
       .single()
 
@@ -248,6 +260,7 @@ export async function DELETE(
       .delete()
       .eq('id', collageId)
       .eq('category_id', categoryId)
+      .eq('company_id', companyId)
 
     if (error) {
       console.error('Failed to delete collage:', error)

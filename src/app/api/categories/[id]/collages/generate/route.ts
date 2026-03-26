@@ -24,7 +24,7 @@ function isAllowedUrl(url: string): boolean {
   if (url.startsWith('data:')) return true
   try {
     const parsed = new URL(url)
-    if (!['https:', 'http:'].includes(parsed.protocol)) return false
+    if (parsed.protocol !== 'https:') return false
     const hostname = parsed.hostname.toLowerCase()
     return ALLOWED_LAYER_URL_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
   } catch {
