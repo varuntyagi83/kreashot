@@ -47,7 +47,7 @@ def _is_allowed_url(url: str) -> bool:
         return True
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in ('https', 'http'):
+        if parsed.scheme != 'https':
             return False
         hostname = (parsed.hostname or '').lower()
         return any(
