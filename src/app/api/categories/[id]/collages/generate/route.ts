@@ -11,6 +11,27 @@ import crypto from 'crypto'
 import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
+const ALLOWED_LAYER_URL_DOMAINS = [
+  'lh3.googleusercontent.com',
+  'drive.google.com',
+  'drive.usercontent.google.com',
+  'storage.googleapis.com',
+  'supabase.co',
+]
+
+function isAllowedUrl(url: string): boolean {
+  if (!url) return false
+  if (url.startsWith('data:')) return true
+  try {
+    const parsed = new URL(url)
+    if (!['https:', 'http:'].includes(parsed.protocol)) return false
+    const hostname = parsed.hostname.toLowerCase()
+    return ALLOWED_LAYER_URL_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+  } catch {
+    return false
+  }
+}
+
 // POST - Generate (render) a collage into a final image
 export async function POST(
   request: NextRequest,
@@ -104,6 +125,10 @@ export async function POST(
         console.warn(`Skipping layer with invalid type: ${layer?.type}`)
         return false
       }
+      if (typeof layer.source_url === 'string' && !isAllowedUrl(layer.source_url)) {
+        console.warn(`Skipping layer with disallowed source_url: ${layer.source_url}`)
+        return false
+      }
       return true
     })
 
@@ -195,33 +220,37 @@ export async function POST(
 
     const fileBuffer = await readFile(result)
 
-    const { fileId, publicUrl } = await uploadFile(
+    const { publicUrl } = await uploadFile(
       fileBuffer,
       storagePath,
       { provider: 'gcs' }
     )
 
     // 5. Update collage record with generated output
-    const { data: updated, error: updateError } = await supabase
-      .from('collages')
-      .update({
-        storage_provider: 'gcs',
-        storage_path: storagePath,
-        storage_url: publicUrl,
-        gdrive_file_id: fileId,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', collageId)
-      .select()
-      .single()
+    let updated: any
+    try {
+      const { data, error: updateError } = await supabase
+        .from('collages')
+        .update({
+          storage_provider: 'gcs',
+          storage_path: storagePath,
+          storage_url: publicUrl,
+          gdrive_file_id: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', collageId)
+        .select()
+        .single()
 
-    if (updateError) {
-      console.error('❌ Database update failed:', updateError)
-      throw updateError
+      if (updateError) {
+        console.error('❌ Database update failed:', updateError)
+        throw updateError
+      }
+      updated = data
+    } finally {
+      // 6. Cleanup temp file — always, even on error
+      await unlink(result).catch(() => {})
     }
-
-    // 6. Cleanup temp file
-    await unlink(result).catch(() => {})
 
     console.log('✅ Collage generated successfully!')
 

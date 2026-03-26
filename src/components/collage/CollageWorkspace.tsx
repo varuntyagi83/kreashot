@@ -259,10 +259,17 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
 
   const dims = FORMAT_DIMENSIONS[selectedFormat] ?? FORMAT_DIMENSIONS['1:1']
 
-  // Sync format from parent
+  // Sync format from parent — guard against silently discarding unsaved layers (L-04)
   useEffect(() => {
+    if (format === selectedFormat) return
+    if (hasChanges && layers.length > 0) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Switching format will discard them. Continue?'
+      )
+      if (!confirmed) return
+    }
     setSelectedFormat(format)
-  }, [format])
+  }, [format]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Track changes
   useEffect(() => {
@@ -515,6 +522,7 @@ export function CollageWorkspace({ categoryId, format = '1:1' }: CollageWorkspac
           onChange={(e) => { setCollageName(e.target.value); setHasChanges(true) }}
           className="max-w-xs font-medium"
           placeholder="Collage name"
+          maxLength={100}
         />
 
         <Button variant="outline" size="sm" onClick={handleNew}>

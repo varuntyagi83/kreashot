@@ -36,6 +36,7 @@ _ALLOWED_DOMAINS = {
     'fonts.gstatic.com',
     'fonts.googleapis.com',
     'supabase.co',  # Fonts stored in brand-assets bucket (same-origin for @font-face)
+    'storage.googleapis.com',  # GCS public URLs for all generated pipeline/collage assets
 }
 
 def _is_allowed_url(url: str) -> bool:

@@ -42,6 +42,7 @@ export function CollagePropertiesPanel({
     composites: ImageAsset[]
   }>({ angledShots: [], backgrounds: [], composites: [] })
   const [urlInput, setUrlInput] = useState('')
+  const [urlError, setUrlError] = useState('')
   const [loadingBrand, setLoadingBrand] = useState(false)
   const [loadingPipeline, setLoadingPipeline] = useState(false)
 
@@ -124,9 +125,23 @@ export function CollagePropertiesPanel({
   }
 
   const handleUrlSubmit = () => {
-    if (urlInput.trim()) {
-      onLayerUpdate({ source_url: urlInput.trim() })
-      setUrlInput('')
+    const trimmed = urlInput.trim()
+    if (!trimmed) return
+    if (!trimmed.startsWith('https://')) {
+      setUrlError('URL must start with https://')
+      return
+    }
+    setUrlError('')
+    onLayerUpdate({ source_url: trimmed })
+    setUrlInput('')
+  }
+
+  const handleUrlBlur = () => {
+    const trimmed = urlInput.trim()
+    if (trimmed && !trimmed.startsWith('https://')) {
+      setUrlError('URL must start with https://')
+    } else {
+      setUrlError('')
     }
   }
 
@@ -325,11 +340,13 @@ export function CollagePropertiesPanel({
               <TabsContent value="url" className="mt-2 space-y-2">
                 <Input
                   value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
+                  onChange={(e) => { setUrlInput(e.target.value); setUrlError('') }}
+                  onBlur={handleUrlBlur}
                   placeholder="https://example.com/image.jpg"
                   className="text-sm"
                   onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
                 />
+                {urlError && <p className="text-xs text-destructive">{urlError}</p>}
                 <Button size="sm" className="w-full" onClick={handleUrlSubmit} disabled={!urlInput.trim()}>
                   Use URL
                 </Button>
@@ -376,11 +393,13 @@ export function CollagePropertiesPanel({
               <TabsContent value="url" className="mt-2 space-y-2">
                 <Input
                   value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
+                  onChange={(e) => { setUrlInput(e.target.value); setUrlError('') }}
+                  onBlur={handleUrlBlur}
                   placeholder="https://example.com/overlay.png"
                   className="text-sm"
                   onKeyDown={(e) => e.key === 'Enter' && handleUrlSubmit()}
                 />
+                {urlError && <p className="text-xs text-destructive">{urlError}</p>}
                 <Button size="sm" className="w-full" onClick={handleUrlSubmit} disabled={!urlInput.trim()}>
                   Use URL
                 </Button>
