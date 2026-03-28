@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -43,7 +44,7 @@ export async function middleware(request: NextRequest) {
 
   // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address
   // leaking into redirect Location headers sent to the browser.
-  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || request.nextUrl.origin).replace(/\/$/, '')
+  const appOrigin = (getBaseUrl() || request.nextUrl.origin).replace(/\/$/, '')
 
   // Redirect to login if user is not authenticated and trying to access protected routes
   // Admin and cleanup API routes use their own Bearer token auth

@@ -19,7 +19,7 @@ async function generateAndSaveComposite() {
 
   // Step 1: Generate composite
   console.log('Step 1: Calling generate API...')
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' // scripts run in Node — no window
   const generateResponse = await fetch(
     `${baseUrl}/api/categories/${CATEGORY_ID}/composites/generate`,
     {

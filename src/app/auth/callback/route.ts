@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
@@ -95,7 +96,7 @@ export async function GET(request: NextRequest) {
             if (companyErr || !company) {
               console.error('[auth/callback] company insert failed:', companyErr)
               // Redirect to /onboarding so the user can retry with a valid name
-              const appOrigin2 = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
+              const appOrigin2 = (getBaseUrl() || requestUrl.origin).replace(/\/$/, '')
               return NextResponse.redirect(new URL('/onboarding', appOrigin2))
             }
             const { error: memberErr } = await getSupabaseAdmin().from('company_members').insert({
@@ -112,13 +113,13 @@ export async function GET(request: NextRequest) {
 
       // Successful confirmation - redirect to dashboard.
       // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address.
-      const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
+      const appOrigin = (getBaseUrl() || requestUrl.origin).replace(/\/$/, '')
       return NextResponse.redirect(new URL(safeNext, appOrigin))
     }
   }
 
   // If there's an error, redirect to login with error message
-  const appOrigin = (process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin).replace(/\/$/, '')
+  const appOrigin = (getBaseUrl() || requestUrl.origin).replace(/\/$/, '')
   return NextResponse.redirect(
     new URL('/auth/login?error=Could not verify email', appOrigin)
   )

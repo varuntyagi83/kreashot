@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 const ALLOWED_FONT_DOMAINS = [
   'lh3.googleusercontent.com',
@@ -66,7 +67,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=86400',
-        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_APP_URL || '',
+        'Access-Control-Allow-Origin': getBaseUrl(),
       },
     })
   } catch (e: any) {
