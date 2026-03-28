@@ -175,9 +175,7 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error generating copy:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    const message = error instanceof Error ? error.message : 'Internal server error'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
