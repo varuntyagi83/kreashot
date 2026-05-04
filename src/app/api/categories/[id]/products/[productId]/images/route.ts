@@ -216,21 +216,19 @@ export async function POST(
 
       const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/${product.slug}/product-images/angled-shots/${formatFolder}/${sanitizedFileName}-${timestamp}.${fileExt}`
 
-      console.log(`📤 Uploading product image to Google Drive: ${storagePath}`)
+      const storageProvider = (process.env.STORAGE_PROVIDER || 'gcs') as 'gcs' | 'gdrive' | 'supabase'
+      console.log(`📤 Uploading product image via ${storageProvider}: ${storagePath}`)
 
       // Use exclusively the magic-byte detected MIME type. At this point detectedMime is
       // guaranteed non-null because the checks above would have returned a 400 otherwise.
       const resolvedMime = detectedMime
 
-      // Upload to Google Drive
       const storageFile = await uploadFile(buffer, storagePath, {
         contentType: resolvedMime,
-        provider: 'gdrive',
       })
 
-      console.log(`✅ Upload successful! File ID: ${storageFile.fileId}`)
+      console.log(`✅ Upload successful! URL: ${storageFile.publicUrl}`)
 
-      // Save to database with Google Drive storage sync fields
       const { data: imageRecord, error: dbError } = await supabase
         .from('product_images')
         .insert({
@@ -239,8 +237,8 @@ export async function POST(
           file_path: storagePath,
           file_size: file.size,
           mime_type: resolvedMime,
-          is_primary: isFirstImage && i === 0, // First image of first upload is primary
-          storage_provider: 'gdrive',
+          is_primary: isFirstImage && i === 0,
+          storage_provider: storageProvider,
           storage_path: storagePath,
           storage_url: storageFile.publicUrl,
           gdrive_file_id: storageFile.fileId || null,
@@ -250,11 +248,11 @@ export async function POST(
         .single()
 
       if (dbError || !imageRecord) {
-        console.error('[product-images] DB insert failed, cleaning up GDrive file:', dbError)
+        console.error('[product-images] DB insert failed, cleaning up storage file:', dbError)
         try {
-          await deleteFile(storageFile.fileId || storagePath, { provider: 'gdrive' })
+          await deleteFile(storageFile.fileId || storagePath)
         } catch (cleanupErr) {
-          console.error('[product-images] GDrive cleanup failed:', cleanupErr)
+          console.error('[product-images] Storage cleanup failed:', cleanupErr)
         }
         // continue to next image rather than crashing the whole batch
         continue

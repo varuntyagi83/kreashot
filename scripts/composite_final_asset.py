@@ -26,7 +26,7 @@ except ImportError:
     _ssl_ctx.check_hostname = False
     _ssl_ctx.verify_mode = ssl.CERT_NONE
 
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
 # ── Security: URL allowlist ──────────────────────────────────────────────────
 _ALLOWED_DOMAINS = {
@@ -136,7 +136,10 @@ def download_image(url):
         image_bytes = base64.b64decode(data)
         return Image.open(BytesIO(image_bytes))
 
-    with urllib.request.urlopen(url, timeout=30, context=_ssl_ctx) as response:
+    # Encode spaces and other unsafe chars in the URL path (GCS paths may contain spaces)
+    parsed = urlparse(url)
+    safe_url = parsed._replace(path=quote(parsed.path, safe='/')).geturl()
+    with urllib.request.urlopen(safe_url, timeout=30, context=_ssl_ctx) as response:
         return Image.open(BytesIO(response.read()))
 
 

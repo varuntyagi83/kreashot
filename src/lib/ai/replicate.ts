@@ -9,8 +9,14 @@
 
 import Replicate from 'replicate'
 
-// Formats handled by Replicate instead of Gemini
-export const REPLICATE_FORMATS = new Set(['3:2', '5:4', '2:3', '21:9'])
+// Formats handled by Replicate instead of Gemini.
+// When USE_IMAGEN4=false AND the Gemini key doesn't support text-to-image generation,
+// set FORCE_REPLICATE_BACKGROUNDS=true to route all formats through Replicate (FLUX).
+const _base = ['3:2', '5:4', '2:3', '21:9']
+const _all = ['1:1', '16:9', '9:16', '4:5', '4:3', '3:4', ..._base]
+export const REPLICATE_FORMATS = new Set(
+  process.env.FORCE_REPLICATE_BACKGROUNDS === 'true' ? _all : _base
+)
 
 const FLUX_MODEL = 'black-forest-labs/flux-1.1-pro' as const
 

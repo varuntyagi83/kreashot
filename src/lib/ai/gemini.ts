@@ -428,9 +428,10 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
           }
         }
 
-        // Imagen 4 supports these aspect ratios natively and produces higher quality backgrounds
+        // Imagen 4 supports these aspect ratios natively and produces higher quality backgrounds.
+        // Set USE_IMAGEN4=false in env to fall back to Gemini when Imagen 4 is not enabled on the API key.
         const IMAGEN_4_RATIOS = new Set(['1:1', '4:3', '3:4', '16:9', '9:16'])
-        const useImagen4 = IMAGEN_4_RATIOS.has(aspectRatio) && (!styleReferenceImages || styleReferenceImages.length === 0) && !isFlatColor
+        const useImagen4 = IMAGEN_4_RATIOS.has(aspectRatio) && (!styleReferenceImages || styleReferenceImages.length === 0) && !isFlatColor && process.env.USE_IMAGEN4 !== 'false'
 
         let generatedBase64: string
         let generatedMimeType: string
@@ -710,14 +711,16 @@ STRICT RULES:
 
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`Cutout extraction failed: ${response.status} - ${errorText.substring(0, 200)}`)
+    // Fall back to the original product image so compositing can still proceed.
+    // This handles expired keys, quota errors, or model unavailability gracefully.
+    console.warn(`  ⚠️  Cutout extraction failed (${response.status}), falling back to original product image: ${errorText.substring(0, 100)}`)
+    return { imageData: productImageData, mimeType: productImageMimeType }
   }
 
   const data = await response.json()
   const imagePart = data.candidates?.[0]?.content?.parts?.find((p: any) => p.inlineData?.data)
 
   if (!imagePart) {
-    // Cutout failed — fall back to original product image so Step 2 can still run
     console.warn('  ⚠️  Cutout extraction returned no image — falling back to original product image')
     return { imageData: productImageData, mimeType: productImageMimeType }
   }
