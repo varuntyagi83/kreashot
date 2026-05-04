@@ -198,7 +198,7 @@ export function FinalAssetsWorkspace({ categoryId, format = '1:1' }: FinalAssets
     [freeformTexts]
   )
   const fontUrlToFamily = useMemo(
-    () => Object.fromEntries(freeformBrandFontUrls.map((url, i) => [url, `AdForgeBrandFont-${i}`])),
+    () => Object.fromEntries(freeformBrandFontUrls.map((url, i) => [url, `KreashotBrandFont-${i}`])),
     [freeformBrandFontUrls]
   )
 

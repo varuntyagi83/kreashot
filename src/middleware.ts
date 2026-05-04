@@ -37,24 +37,30 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protected routes - everything except auth routes and admin/cleanup API routes is protected
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/auth')
-  const isAdminApiRoute = request.nextUrl.pathname.startsWith('/api/admin')
-  const isCleanupApiRoute = request.nextUrl.pathname.startsWith('/api/cleanup')
+  const pathname = request.nextUrl.pathname
+  const isAuthRoute = pathname.startsWith('/auth')
+  const isAdminApiRoute = pathname.startsWith('/api/admin')
+  const isCleanupApiRoute = pathname.startsWith('/api/cleanup')
+  const isLandingPage = pathname === '/'
 
   // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address
   // leaking into redirect Location headers sent to the browser.
   const appOrigin = (getBaseUrl() || request.nextUrl.origin).replace(/\/$/, '')
 
-  // Redirect to login if user is not authenticated and trying to access protected routes
-  // Admin and cleanup API routes use their own Bearer token auth
-  if (!user && !isAuthRoute && !isAdminApiRoute && !isCleanupApiRoute) {
+  // Authenticated users hitting the landing page go straight to the dashboard
+  if (user && isLandingPage) {
+    return NextResponse.redirect(new URL('/dashboard', appOrigin))
+  }
+
+  // Redirect to login if user is not authenticated and trying to access protected routes.
+  // Landing page, auth routes, and API admin/cleanup routes are public.
+  if (!user && !isAuthRoute && !isAdminApiRoute && !isCleanupApiRoute && !isLandingPage) {
     return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 
-  // Redirect to home if user is authenticated and trying to access auth routes
-  if (user && isAuthRoute && !request.nextUrl.pathname.includes('/callback')) {
-    return NextResponse.redirect(new URL('/', appOrigin))
+  // Redirect to dashboard if user is authenticated and trying to access auth routes
+  if (user && isAuthRoute && !pathname.includes('/callback')) {
+    return NextResponse.redirect(new URL('/dashboard', appOrigin))
   }
 
   return response

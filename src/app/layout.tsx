@@ -19,7 +19,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AdForge - AI Ad Creative Pipeline",
+  title: "Kreashot - AI Ad Creative Pipeline",
   description: "End-to-end AI-powered ad creative generation platform",
 };
 

@@ -39,5 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-adforge/.next/
-adforge/node_modules/
+archived_adforge/.next/
+archived_adforge/node_modules/
+archived_adforge/.env*
+archived_adforge/next-env.d.ts

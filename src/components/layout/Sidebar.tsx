@@ -219,7 +219,7 @@ export function Sidebar() {
           <div className="h-7 w-7 rounded-full bg-[#B3D9E8] flex items-center justify-center text-xs font-semibold text-gray-700 shrink-0">
             A
           </div>
-          <span className="text-sm font-medium truncate flex-1">AdForge</span>
+          <span className="text-sm font-medium truncate flex-1">Kreashot</span>
         </div>
       </div>
     </div>

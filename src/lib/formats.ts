@@ -1,5 +1,5 @@
 /**
- * Multi-format configuration for AdForge
+ * Multi-format configuration for Kreashot
  * Supports 1:1, 16:9, 9:16, and 4:5 aspect ratios
  */
 

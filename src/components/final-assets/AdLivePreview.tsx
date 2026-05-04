@@ -120,7 +120,7 @@ export function AdLivePreview({
   }, [fontUrl, freeformLayers])
 
   const urlToFamily = useMemo(
-    () => Object.fromEntries(fontUrlsToLoad.map((url, i) => [url, `AdForgeFont-${i}`])),
+    () => Object.fromEntries(fontUrlsToLoad.map((url, i) => [url, `KreashotFont-${i}`])),
     [fontUrlsToLoad]
   )
 

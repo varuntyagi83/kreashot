@@ -46,7 +46,7 @@ export default function OnboardingPage() {
       })
 
       if (res.ok) {
-        toast.success('Organisation created! Welcome to AdForge.')
+        toast.success('Organisation created! Welcome to Kreashot.')
         router.replace('/')
       } else {
         const data = await res.json()

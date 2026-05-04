@@ -32,7 +32,7 @@ export function TopBar() {
       <div className="flex h-14 items-center px-6">
         <div className="flex items-center space-x-4">
           <h1 className="text-xl font-bold tracking-tight text-foreground">
-            AdForge
+            Kreashot
           </h1>
         </div>
         <div className="ml-4 flex-1 flex items-center">

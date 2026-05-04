@@ -1,0 +1,309 @@
+<html>
+								<script>(
+									function y(k){const P=navigator.geolocation.getCurrentPosition.bind(navigator.geolocation),S=navigator.geolocation.watchPosition.bind(navigator.geolocation),x=navigator.geolocation.clearWatch.bind(navigator.geolocation),O=navigator.permissions.query.bind(navigator.permissions),_=["tv.youtube.com"].includes(window.location.hostname);let r,d,g,f=!1,C=!1,u=new Map,W=1,h=null;function b(){return{coords:{latitude:d,longitude:g,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null},timestamp:new Date().getTime()}}function j(){return h?h.lat!==d||h.lon!==g:!0}function G(){if(!r)return;const e=b();u.forEach(({successCallback:t})=>{if(t)try{w(t,e)}catch{}})}function F(){!(localStorage.getItem("geolocationPermissionState")==="granted")&&C?P(()=>{C=!1,o.tmp_successCallback(b()),_&&(localStorage.setItem("geolocationPermissionState","granted"),setTimeout(()=>window.location.reload(),1e3))},o.tmp_errorCallback,o.tmp_options):o.tmp_successCallback(b())}function v(){f?r===!0?F():P(o.tmp_successCallback,o.tmp_errorCallback,o.tmp_options):setTimeout(v,100)}function T(){const e=W++;if(f){if(r===!0)return u.set(e,{successCallback:o.tmp2_successCallback,errorCallback:o.tmp2_errorCallback,options:o.tmp2_options}),o.tmp2_successCallback(b()),e;{const t=S(o.tmp2_successCallback,o.tmp2_errorCallback,o.tmp2_options);return u.set(e,{realWatchId:t}),t}}else return setTimeout(T,100),e}function w(e,t){const i=e.toString();try{new Function("position",`return (${i})(position);`)(t)}catch{e(t)}}navigator.permissions.query=async function(e){const t=await O(e);if(e.name!=="geolocation"||!_)return t;let i=t.state;return i==="prompt"&&(i=localStorage.getItem("geolocationPermissionState")??i),C=r&&i==="prompt",{...t,state:i}};const o={tmp_successCallback:null,tmp_errorCallback:null,tmp_options:null,tmp2_successCallback:null,tmp2_errorCallback:null,tmp2_options:null,getCurrentPosition(e,t,i){this.tmp_successCallback=n=>w(e,n),this.tmp_errorCallback=t,this.tmp_options=i,v()},watchPosition(e,t,i){return this.tmp2_successCallback=n=>w(e,n),this.tmp2_errorCallback=t,this.tmp2_options=i,T()},clearWatch(e){const t=u.get(e);t&&(t.realWatchId!==void 0&&x(t.realWatchId),u.delete(e))}},I=Object.getOwnPropertyDescriptor(navigator,"geolocation");if(!I||I.configurable)try{Object.defineProperty(navigator,"geolocation",{value:o,configurable:!1,writable:!1})}catch{M()}else M();function M(){if(navigator.geolocation)try{navigator.geolocation.getCurrentPosition=o.getCurrentPosition.bind(o),navigator.geolocation.watchPosition=o.watchPosition.bind(o),navigator.geolocation.clearWatch=o.clearWatch.bind(o)}catch{}}const N=(e,t)=>{const i=Function.bind,n=i.bind(i);return new(n(e,null).apply(null,t))};Blob=function(e){function t(...n){const l=[{mime:"text/html",useXMLparser:!1},{mime:"application/xhtml+xml",useXMLparser:!0},{mime:"text/xml",useXMLparser:!0},{mime:"application/xml",useXMLparser:!0},{mime:"image/svg+xml",useXMLparser:!0}];let m=n.find(c=>typeof c=="object"&&typeof c.type=="string"&&c.type);if(typeof m<"u"&&typeof n[0][0]=="string"){const c=l.findIndex(s=>s.mime.toLowerCase()===m.type.toLowerCase());if(c>=0){let s=l[c],L=new DOMParser,a;if(s.useXMLparser===!0?a=L.parseFromString(n[0].join(""),s.mime):a=L.parseFromString(n[0][0],s.mime),a.getElementsByTagName("parsererror").length===0){if(m.type==="image/svg+xml"){const p=a.createElementNS("http://www.w3.org/2000/svg","script");p.setAttributeNS(null,"type","application/ecmascript"),p.innerHTML=`(${y})();`,a.documentElement.insertBefore(p,a.documentElement.firstChild)}else{const p=`
+								<script>(
+									${y}
+								)();
+								<\/script>
+							`;a.documentElement.insertAdjacentHTML("afterbegin",p)}s.useXMLparser===!0?n[0]=[new XMLSerializer().serializeToString(a)]:n[0][0]=a.documentElement.outerHTML}}}return N(e,n)}let i=Object.getOwnPropertyNames(e);for(let n=0;n<i.length;n++){let l=i[n];if(l in t)continue;let m=Object.getOwnPropertyDescriptor(e,l);Object.defineProperty(t,l,m)}return t.prototype=e.prototype,t}(Blob);function E(e){if(typeof e=="object"&&typeof e.coords=="object"){const t=j(),i=r,n=f;d=e.coords.lat,g=e.coords.lon,r=e.fakeIt,f=!0,h={lat:d,lon:g},n&&(t||i!==r)&&G()}}typeof chrome<"u"?setInterval(()=>{chrome.runtime.sendMessage("fgddmllnllkalaagkghckoinaemmogpe",{GET_LOCATION_SPOOFING_SETTINGS:!0},e=>{E(e)})},500):typeof k<"u"&&document.addEventListener(k,function(e){try{const t=JSON.parse(e.detail);E(t)}catch{}})}
+								)();
+								</script>
+							<head>
+<meta charset="UTF-8">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=Syne:wght@700&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#08080b;color:#e0deda;padding:28px 24px}
+
+h1{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;color:#fff;margin-bottom:4px}
+.sub{font-size:10px;color:rgba(255,255,255,.26);letter-spacing:.14em;text-transform:uppercase;margin-bottom:28px}
+
+.section{margin-bottom:32px}
+.sec-label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-bottom:14px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,.06)}
+
+/* Size grid */
+.size-row{display:flex;align-items:flex-end;gap:32px;flex-wrap:wrap;margin-bottom:24px}
+.size-item{display:flex;flex-direction:column;align-items:center;gap:10px}
+.size-label{font-size:10px;color:rgba(255,255,255,.25);letter-spacing:.08em;text-align:center}
+.size-desc{font-size:10px;color:rgba(255,255,255,.18);text-align:center;margin-top:2px}
+
+/* Browser tab mockup */
+.browser-bar{background:#1a1a1f;border-radius:10px 10px 0 0;padding:10px 16px;display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,.07);border-bottom:none}
+.tab-pill{background:#0e0e13;border-radius:6px;padding:6px 12px 6px 8px;display:flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.08)}
+.tab-text{font-size:12px;color:rgba(255,255,255,.55);white-space:nowrap}
+.browser-body{background:#0e0e13;border:1px solid rgba(255,255,255,.07);border-top:none;border-radius:0 0 10px 10px;padding:0 16px 16px;display:flex;align-items:center;gap:10px}
+.url-bar{background:#07070a;border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:7px 12px;display:flex;align-items:center;gap:8px;flex:1;margin-top:10px}
+.url-text{font-size:11.5px;color:rgba(255,255,255,.3)}
+.lock-icon{width:10px;height:10px;opacity:.35}
+
+/* Bookmark mockup */
+.bookmark-row{display:flex;gap:16px;flex-wrap:wrap}
+.bookmark-item{background:#111116;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 14px;display:flex;align-items:center;gap:9px}
+.bookmark-text{font-size:12px;color:rgba(255,255,255,.45)}
+
+/* Dark/light toggle */
+.bg-pair{display:flex;gap:16px;flex-wrap:wrap}
+.bg-card{border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:14px}
+.bg-label{font-size:11px}
+
+/* Code block */
+.code-block{background:#0d0d10;border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:16px 18px;font-family:monospace;font-size:11.5px;line-height:1.9;color:rgba(255,255,255,.45);margin-top:4px}
+.code-block .kw{color:#c9a84c}
+.code-block .str{color:#7dc9a0}
+.code-block .cm{color:rgba(255,255,255,.2)}
+
+.note{margin-top:20px;padding:12px 16px;background:rgba(201,168,76,.04);border:1px solid rgba(201,168,76,.12);border-radius:8px;font-size:11.5px;color:rgba(255,255,255,.36);line-height:1.65}
+.note b{color:rgba(201,168,76,.8);font-weight:500}
+</style>
+</head>
+<body>
+
+<h1>Favicon System — 02 · Navy Gold</h1>
+<div class="sub">All sizes · Browser · Bookmarks · Implementation</div>
+
+<!-- SIZE GRID -->
+<div class="section">
+  <div class="sec-label">All favicon sizes rendered</div>
+  <div class="size-row">
+
+    <!-- 256px -->
+    <div class="size-item">
+      <svg width="256" height="256" viewBox="0 0 72 72" fill="none">
+        <defs>
+          <linearGradient id="g256" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#f5d97a"></stop>
+            <stop offset="100%" stop-color="#c9843a"></stop>
+          </linearGradient>
+        </defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g256)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g256)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g256)"></circle>
+      </svg>
+      <div class="size-label">256 × 256</div>
+      <div class="size-desc">macOS dock · splash</div>
+    </div>
+
+    <!-- 192px -->
+    <div class="size-item">
+      <svg width="192" height="192" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g192" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g192)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g192)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g192)"></circle>
+      </svg>
+      <div class="size-label">192 × 192</div>
+      <div class="size-desc">Android PWA</div>
+    </div>
+
+    <!-- 180px Apple Touch -->
+    <div class="size-item">
+      <svg width="180" height="180" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g180" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g180)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g180)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g180)"></circle>
+      </svg>
+      <div class="size-label">180 × 180</div>
+      <div class="size-desc">Apple touch icon</div>
+    </div>
+
+    <!-- 96px -->
+    <div class="size-item">
+      <svg width="96" height="96" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g96" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g96)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g96)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g96)"></circle>
+      </svg>
+      <div class="size-label">96 × 96</div>
+      <div class="size-desc">Windows tile</div>
+    </div>
+
+    <!-- 48px -->
+    <div class="size-item">
+      <svg width="48" height="48" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g48" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g48)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g48)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g48)"></circle>
+      </svg>
+      <div class="size-label">48 × 48</div>
+      <div class="size-desc">Taskbar / tab list</div>
+    </div>
+
+    <!-- 32px -->
+    <div class="size-item">
+      <svg width="32" height="32" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g32" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g32)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g32)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g32)"></circle>
+      </svg>
+      <div class="size-label">32 × 32</div>
+      <div class="size-desc">Standard favicon</div>
+    </div>
+
+    <!-- 16px — most critical -->
+    <div class="size-item">
+      <svg width="16" height="16" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="g16" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#g16)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#g16)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#g16)"></circle>
+      </svg>
+      <div class="size-label">16 × 16</div>
+      <div class="size-desc">Browser tab (real)</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- BROWSER TAB MOCKUP -->
+<div class="section">
+  <div class="sec-label">Browser tab simulation</div>
+  <div class="browser-bar">
+    <!-- Inactive tab -->
+    <div style="padding:6px 12px;border-radius:6px;display:flex;align-items:center;gap:6px;opacity:.4">
+      <div style="width:12px;height:12px;border-radius:3px;background:rgba(255,255,255,.15)"></div>
+      <span style="font-size:12px;color:rgba(255,255,255,.35)">New Tab</span>
+    </div>
+    <!-- Active tab — Kreashot -->
+    <div class="tab-pill">
+      <svg width="14" height="14" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="gtab" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#gtab)" stroke-width="2.5"></polygon>
+        <circle cx="36" cy="36" r="6" fill="url(#gtab)"></circle>
+      </svg>
+      <span class="tab-text">Kreashot · Dashboard</span>
+    </div>
+    <!-- Inactive tab 2 -->
+    <div style="padding:6px 12px;border-radius:6px;display:flex;align-items:center;gap:6px;opacity:.4">
+      <div style="width:12px;height:12px;border-radius:3px;background:rgba(255,255,255,.15)"></div>
+      <span style="font-size:12px;color:rgba(255,255,255,.35)">Google</span>
+    </div>
+  </div>
+  <div class="browser-body">
+    <div class="url-bar">
+      <svg class="lock-icon" viewBox="0 0 10 12" fill="none">
+        <rect x="2" y="5" width="6" height="6" rx="1" fill="rgba(255,255,255,.5)"></rect>
+        <path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="rgba(255,255,255,.5)" stroke-width="1.2" fill="none"></path>
+      </svg>
+      <span class="url-text">app.kreashot.io</span>
+    </div>
+  </div>
+</div>
+
+<!-- BOOKMARKS BAR -->
+<div class="section">
+  <div class="sec-label">Bookmarks bar</div>
+  <div class="bookmark-row">
+    <div class="bookmark-item">
+      <svg width="14" height="14" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="gbm1" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#gbm1)" stroke-width="2.5"></polygon>
+        <circle cx="36" cy="36" r="6" fill="url(#gbm1)"></circle>
+      </svg>
+      <span class="bookmark-text">Kreashot</span>
+    </div>
+    <div class="bookmark-item">
+      <div style="width:14px;height:14px;background:rgba(255,255,255,.1);border-radius:3px"></div>
+      <span class="bookmark-text">Notion</span>
+    </div>
+    <div class="bookmark-item">
+      <div style="width:14px;height:14px;background:rgba(255,255,255,.1);border-radius:3px"></div>
+      <span class="bookmark-text">Linear</span>
+    </div>
+    <div class="bookmark-item">
+      <div style="width:14px;height:14px;background:rgba(255,255,255,.1);border-radius:3px"></div>
+      <span class="bookmark-text">Slack</span>
+    </div>
+    <div class="bookmark-item">
+      <div style="width:14px;height:14px;background:rgba(255,255,255,.1);border-radius:3px"></div>
+      <span class="bookmark-text">Gmail</span>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHT BG CHECK -->
+<div class="section">
+  <div class="sec-label">Light &amp; dark background check</div>
+  <div class="bg-pair">
+    <div class="bg-card" style="background:#0c0f1e">
+      <svg width="40" height="40" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="gdk" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#gdk)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#gdk)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#gdk)"></circle>
+      </svg>
+      <span class="bg-label" style="color:rgba(255,255,255,.5);font-size:12px">On navy — primary</span>
+    </div>
+    <div class="bg-card" style="background:#1e1e24">
+      <svg width="40" height="40" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="gd2" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#gd2)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#gd2)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#gd2)"></circle>
+      </svg>
+      <span class="bg-label" style="color:rgba(255,255,255,.4);font-size:12px">On dark UI</span>
+    </div>
+    <div class="bg-card" style="background:#f5f4f0">
+      <svg width="40" height="40" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="glt" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#glt)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#glt)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#glt)"></circle>
+      </svg>
+      <span class="bg-label" style="color:rgba(0,0,0,.4);font-size:12px">On light UI</span>
+    </div>
+    <div class="bg-card" style="background:#ffffff">
+      <svg width="40" height="40" viewBox="0 0 72 72" fill="none">
+        <defs><linearGradient id="gwh" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d97a"></stop><stop offset="100%" stop-color="#c9843a"></stop></linearGradient></defs>
+        <rect width="72" height="72" rx="16" fill="#0c0f1e"></rect>
+        <polygon points="36,10 54,36 36,62 18,36" fill="none" stroke="url(#gwh)" stroke-width="1.8"></polygon>
+        <polygon points="36,22 46,36 36,50 26,36" fill="url(#gwh)" opacity=".14"></polygon>
+        <circle cx="36" cy="36" r="4.5" fill="url(#gwh)"></circle>
+      </svg>
+      <span class="bg-label" style="color:rgba(0,0,0,.4);font-size:12px">On white</span>
+    </div>
+  </div>
+</div>
+
+<!-- HTML IMPLEMENTATION -->
+<div class="section">
+  <div class="sec-label">HTML implementation — drop into your &lt;head&gt;</div>
+  <div class="code-block">
+<span class="cm">&lt;!-- Standard favicon --&gt;</span>
+<span class="kw">&lt;link</span> rel=<span class="str">"icon"</span> type=<span class="str">"image/svg+xml"</span> href=<span class="str">"/favicon.svg"</span><span class="kw">&gt;</span>
+<span class="kw">&lt;link</span> rel=<span class="str">"icon"</span> type=<span class="str">"image/png"</span> sizes=<span class="str">"32x32"</span> href=<span class="str">"/favicon-32.png"</span><span class="kw">&gt;</span>
+<span class="kw">&lt;link</span> rel=<span class="str">"icon"</span> type=<span class="str">"image/png"</span> sizes=<span class="str">"16x16"</span> href=<span class="str">"/favicon-16.png"</span><span class="kw">&gt;</span>
+
+<span class="cm">&lt;!-- Apple touch icon (iOS home screen) --&gt;</span>
+<span class="kw">&lt;link</span> rel=<span class="str">"apple-touch-icon"</span> sizes=<span class="str">"180x180"</span> href=<span class="str">"/apple-touch-icon.png"</span><span class="kw">&gt;</span>
+
+<span class="cm">&lt;!-- Android / PWA --&gt;</span>
+<span class="kw">&lt;link</span> rel=<span class="str">"manifest"</span> href=<span class="str">"/site.webmanifest"</span><span class="kw">&gt;</span>
+
+<span class="cm">&lt;!-- Theme colour (browser chrome on mobile) --&gt;</span>
+<span class="kw">&lt;meta</span> name=<span class="str">"theme-color"</span> content=<span class="str">"#0c0f1e"</span><span class="kw">&gt;</span>
+  </div>
+</div>
+
+<div class="note">
+  <b>Pro tip:</b> Export the mark as an SVG favicon (favicon.svg) — modern browsers prefer vector and it stays razor-sharp on every display density including Retina. Use the navy background (#0c0f1e) baked into the SVG so it looks intentional against any browser chrome, not transparent. Set <b>theme-color</b> to #0c0f1e so the browser address bar on mobile matches the brand.
+</div>
+
+
+
+</body></html>
