@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { PipelineFilmstrip } from '@/components/pipeline-filmstrip'
 import { FaqAccordion } from '@/components/faq-accordion'
 
@@ -13,12 +14,13 @@ function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; 
   const src = variant === 'light' ? '/kreashot-wordmark-light.png' : '/kreashot-wordmark-dark.png'
   const width = Math.round(height * (498 / 95))
   return (
-    <img
+    <Image
       src={src}
       alt="kreashot"
       width={width}
       height={height}
-      style={{ display: 'block', width: `${width}px`, height: `${height}px` }}
+      style={{ display: 'block' }}
+      priority
     />
   )
 }
@@ -156,10 +158,13 @@ export default function LandingPage() {
 
             {/* Left column: 9:16 portrait — LUMINARY */}
             <div style={{ flex: '0 0 38%', position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
-              <img
+              <Image
                 src="/hero/hero-ad-916.jpg"
                 alt="LUMINARY — 9:16 Stories format"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                fill
+                sizes="20vw"
+                style={{ objectFit: 'cover' }}
+                priority
               />
             </div>
 
@@ -168,10 +173,13 @@ export default function LandingPage() {
 
               {/* 16:9 landscape — BOTANICA */}
               <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '16/9', flexShrink: 0 }}>
-                <img
+                <Image
                   src="/hero/hero-ad-169.jpg"
                   alt="BOTANICA — 16:9 Display format"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  fill
+                  sizes="25vw"
+                  style={{ objectFit: 'cover' }}
+                  priority
                 />
               </div>
 
@@ -180,19 +188,23 @@ export default function LandingPage() {
 
                 {/* 4:5 — MAISON K */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
-                  <img
+                  <Image
                     src="/hero/hero-ad-45.jpg"
                     alt="MAISON K — 4:5 Feed format"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    fill
+                    sizes="12vw"
+                    style={{ objectFit: 'cover' }}
                   />
                 </div>
 
                 {/* 1:1 — SOLEIL */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
-                  <img
+                  <Image
                     src="/hero/hero-ad-11.jpg"
                     alt="SOLEIL — 1:1 Square format"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    fill
+                    sizes="12vw"
+                    style={{ objectFit: 'cover' }}
                   />
                 </div>
 
