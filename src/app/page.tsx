@@ -1,182 +1,506 @@
 import Link from 'next/link'
-import { Sparkles, ImageIcon, Layers, Zap } from 'lucide-react'
+import {
+  Package2,
+  Camera,
+  Layers,
+  ScanLine,
+  FileText,
+  LayoutTemplate,
+  Megaphone,
+  Grid2X2,
+  ArrowRight,
+} from 'lucide-react'
+
+// Brand Direction A: The Studio
+// Colors: Parchment #F5F0E8 | Roast #1A1208 | Studio Gold #C9922A | Forest #2D4A35
+//         Linen #DDD8CE | Taupe #5C5245 | Sage #4A7C59 | Terracotta #B85C38
+// Display: Canela / Playfair Display (var(--font-playfair))
+// Body: Inter (var(--font-inter))
+
+const PIPELINE = [
+  { Icon: Package2, label: 'Products' },
+  { Icon: Camera, label: 'Angled Shots' },
+  { Icon: Layers, label: 'Scenes' },
+  { Icon: ScanLine, label: 'Photoshoots' },
+  { Icon: FileText, label: 'Ad Copy' },
+  { Icon: LayoutTemplate, label: 'Templates' },
+  { Icon: Megaphone, label: 'Ads' },
+  { Icon: Grid2X2, label: 'Collage' },
+]
+
+const STEPS = [
+  {
+    n: '01',
+    title: 'Upload a product photo',
+    body: 'Any angle, any background. Kreashot generates studio-grade angled shots from a single packshot. No studio, no photographer, no scheduling.',
+  },
+  {
+    n: '02',
+    title: 'Get 20 variations in under an hour',
+    body: 'Custom lifestyle backgrounds, matched lighting, your brand kit on every frame. Each composite passes a 4-point quality check before it reaches you.',
+  },
+  {
+    n: '03',
+    title: 'Export to Meta Ads Manager',
+    body: 'Every format: 1:1, 4:5, 16:9, 9:16. Headlines and CTAs written by GPT-4o against your brand voice. One-click CSV export.',
+  },
+]
+
+const DIFFERENTIATORS = [
+  {
+    label: 'Not Canva',
+    body: 'Canva needs a finished product image. We generate the product image.',
+  },
+  {
+    label: 'Not Midjourney',
+    body: 'Midjourney makes art. We make ads with copy, layout, logo, and Meta export.',
+  },
+  {
+    label: 'Not an agency',
+    body: 'We are the production line that lets a one-person performance team behave like an agency.',
+  },
+]
+
+const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
+const bodyFont = 'var(--font-inter), system-ui, sans-serif'
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[#07070f] text-white">
+    <div style={{ backgroundColor: '#F5F0E8', color: '#1A1208', fontFamily: bodyFont, minHeight: '100vh' }}>
 
       {/* Nav */}
-      <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-8 py-5 border-b border-white/5 backdrop-blur-md bg-[#07070f]/80">
-        <div className="flex items-center gap-2.5">
-          <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center shadow-lg shadow-violet-900/50">
-            <span className="text-white font-bold text-sm leading-none">K</span>
-          </div>
-          <span className="text-xl font-bold tracking-tight">Kreashot</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/auth/login"
-            className="text-sm text-white/50 hover:text-white transition-colors px-4 py-2 rounded-lg"
-          >
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        backgroundColor: '#F5F0E8',
+        borderBottom: '1px solid #DDD8CE',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '16px 40px',
+      }}>
+        <Link href="/" style={{
+          fontFamily: displayFont,
+          fontStyle: 'italic',
+          fontSize: '28px',
+          fontWeight: 400,
+          color: '#1A1208',
+          letterSpacing: '-0.01em',
+          textDecoration: 'none',
+        }}>
+          kreashot
+        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <Link href="/auth/login" style={{
+            color: '#5C5245',
+            fontSize: '14px',
+            fontWeight: 500,
+            textDecoration: 'none',
+          }}>
             Sign in
           </Link>
-          <Link
-            href="/auth/signup"
-            className="text-sm bg-violet-600 hover:bg-violet-500 transition-colors text-white px-4 py-2 rounded-lg font-medium shadow-lg shadow-violet-900/30"
-          >
+          <Link href="/auth/signup" style={{
+            backgroundColor: '#B85C38',
+            color: '#F5F0E8',
+            padding: '10px 22px',
+            borderRadius: '6px',
+            fontSize: '14px',
+            fontWeight: 600,
+            textDecoration: 'none',
+            letterSpacing: '0.01em',
+          }}>
             Get started
           </Link>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative flex flex-col items-center justify-center min-h-screen text-center px-6 pt-20">
-        {/* Background glows */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[55%] w-[900px] h-[700px] rounded-full bg-violet-700/10 blur-[130px]" />
-          <div className="absolute top-1/3 left-1/4 w-[500px] h-[400px] rounded-full bg-indigo-600/6 blur-[110px]" />
-          <div className="absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full bg-violet-800/8 blur-[100px]" />
-        </div>
-        {/* Top edge line */}
-        <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-violet-500/20 to-transparent" />
-
-        {/* Badge */}
-        <div className="relative mb-8 inline-flex items-center gap-2 rounded-full border border-violet-500/25 bg-violet-500/8 px-4 py-1.5 text-xs text-violet-300 font-medium tracking-wide">
-          <Sparkles className="h-3 w-3" />
-          AI-powered ad creative pipeline
-        </div>
-
-        {/* Headline */}
-        <h1 className="relative max-w-4xl text-5xl sm:text-6xl lg:text-[72px] font-bold tracking-tight leading-[1.05]">
-          Ad creatives that{' '}
-          <span
-            className="bg-clip-text text-transparent"
-            style={{ backgroundImage: 'linear-gradient(135deg, #a78bfa 0%, #818cf8 50%, #60a5fa 100%)' }}
-          >
-            convert, at scale
-          </span>
-        </h1>
-
-        {/* Subheadline */}
-        <p className="relative mt-7 max-w-lg text-lg text-white/40 leading-relaxed">
-          Upload your product photos, set your brand voice, and generate
-          pixel-perfect ad creatives for every format in minutes.
+      <section style={{
+        maxWidth: '840px',
+        margin: '0 auto',
+        padding: '96px 32px 80px',
+        textAlign: 'center',
+      }}>
+        <p style={{
+          color: '#C9922A',
+          fontSize: '11px',
+          fontWeight: 600,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          marginBottom: '36px',
+        }}>
+          The creative studio your brand can afford to hire
         </p>
 
-        {/* CTAs */}
-        <div className="relative mt-10 flex items-center gap-4 flex-wrap justify-center">
-          <Link
-            href="/auth/signup"
-            className="bg-violet-600 hover:bg-violet-500 transition-all text-white px-8 py-3.5 rounded-xl font-semibold text-sm shadow-xl shadow-violet-900/40"
-          >
-            Get started free
+        <h1 style={{
+          fontFamily: displayFont,
+          fontSize: 'clamp(40px, 6vw, 66px)',
+          fontWeight: 400,
+          lineHeight: 1.08,
+          color: '#1A1208',
+          letterSpacing: '-0.02em',
+          marginBottom: '28px',
+        }}>
+          Upload a product photo.<br />Get 20 ad variations by lunch.
+        </h1>
+
+        <p style={{
+          color: '#5C5245',
+          fontSize: '17px',
+          lineHeight: 1.65,
+          maxWidth: '460px',
+          margin: '0 auto 44px',
+          fontFamily: bodyFont,
+        }}>
+          Gemini generates the images. GPT-4o writes the copy. Your brand kit goes on top.
+          Export to Meta Ads Manager when done.
+        </p>
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
+          <Link href="/auth/signup" style={{
+            backgroundColor: '#B85C38',
+            color: '#F5F0E8',
+            padding: '15px 32px',
+            borderRadius: '6px',
+            fontSize: '15px',
+            fontWeight: 600,
+            textDecoration: 'none',
+          }}>
+            Start for free
           </Link>
-          <Link
-            href="/auth/login"
-            className="border border-white/10 hover:border-white/20 hover:bg-white/5 transition-all text-white/60 hover:text-white px-8 py-3.5 rounded-xl font-medium text-sm"
-          >
-            Sign in &rarr;
+          <Link href="/auth/login" style={{
+            color: '#2D4A35',
+            fontSize: '15px',
+            fontWeight: 500,
+            textDecoration: 'none',
+            borderBottom: '1.5px solid #2D4A35',
+            paddingBottom: '2px',
+          }}>
+            Sign in
           </Link>
         </div>
+      </section>
 
-        {/* Decorative format grid */}
-        <div className="relative mt-24 w-full max-w-4xl mx-auto grid grid-cols-3 md:grid-cols-6 gap-3">
-          {[
-            { aspect: 'aspect-square', from: 'from-violet-900/35', to: 'to-indigo-900/35' },
-            { aspect: 'aspect-video', from: 'from-slate-800/50', to: 'to-slate-900/50' },
-            { aspect: 'aspect-[9/16] max-h-40', from: 'from-indigo-900/30', to: 'to-violet-900/30' },
-            { aspect: 'aspect-[4/5]', from: 'from-violet-900/25', to: 'to-slate-900/40' },
-            { aspect: 'aspect-square', from: 'from-indigo-900/35', to: 'to-violet-800/25' },
-            { aspect: 'aspect-video', from: 'from-violet-900/30', to: 'to-indigo-900/40' },
-          ].map((item, i) => (
-            <div
-              key={i}
-              className={`${item.aspect} rounded-2xl bg-gradient-to-br ${item.from} ${item.to} border border-white/5 flex items-center justify-center opacity-50`}
-            >
-              <div className="h-6 w-6 rounded-md bg-white/8" />
+      {/* Pipeline filmstrip */}
+      <section style={{ backgroundColor: '#1A1208' }}>
+        {/* Header */}
+        <div style={{
+          padding: '20px 40px 12px',
+          borderBottom: '1px solid rgba(221,216,206,0.1)',
+        }}>
+          <p style={{
+            color: '#C9922A',
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            margin: 0,
+          }}>
+            The 8-step pipeline
+          </p>
+        </div>
+
+        {/* Film sprocket holes top */}
+        <div style={{ display: 'flex', gap: '8px', padding: '10px 16px 4px', overflow: 'hidden' }}>
+          {Array.from({ length: 32 }).map((_, i) => (
+            <div key={i} style={{
+              width: '14px', height: '9px', borderRadius: '2px',
+              backgroundColor: 'rgba(245,240,232,0.07)', flexShrink: 0,
+            }} />
+          ))}
+        </div>
+
+        {/* Steps */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px 32px 20px',
+          overflowX: 'auto',
+          gap: 0,
+        }}>
+          {PIPELINE.map(({ Icon, label }, i) => (
+            <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '0 12px' }}>
+                <div style={{
+                  width: '52px', height: '52px',
+                  border: '1.5px solid rgba(221,216,206,0.2)',
+                  borderRadius: '10px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: 'rgba(221,216,206,0.04)',
+                }}>
+                  <Icon size={20} color="#DDD8CE" strokeWidth={1.5} />
+                </div>
+                <span style={{
+                  color: '#DDD8CE',
+                  fontSize: '10px',
+                  fontWeight: 500,
+                  textAlign: 'center',
+                  opacity: 0.65,
+                  whiteSpace: 'nowrap',
+                  fontFamily: bodyFont,
+                }}>
+                  {label}
+                </span>
+              </div>
+              {i < PIPELINE.length - 1 && (
+                <ArrowRight size={12} color="#C9922A" style={{ flexShrink: 0, opacity: 0.8 }} />
+              )}
             </div>
           ))}
         </div>
-        <p className="relative mt-4 text-xs text-white/18 tracking-widest uppercase">
-          1:1 &nbsp;&middot;&nbsp; 16:9 &nbsp;&middot;&nbsp; 9:16 &nbsp;&middot;&nbsp; 4:5
+
+        {/* Film sprocket holes bottom */}
+        <div style={{ display: 'flex', gap: '8px', padding: '4px 16px 10px', overflow: 'hidden' }}>
+          {Array.from({ length: 32 }).map((_, i) => (
+            <div key={i} style={{
+              width: '14px', height: '9px', borderRadius: '2px',
+              backgroundColor: 'rgba(245,240,232,0.07)', flexShrink: 0,
+            }} />
+          ))}
+        </div>
+      </section>
+
+      {/* Editorial quote */}
+      <section style={{
+        backgroundColor: '#2D4A35',
+        padding: '100px 32px',
+        textAlign: 'center',
+      }}>
+        <p style={{
+          fontFamily: displayFont,
+          fontStyle: 'italic',
+          fontSize: 'clamp(22px, 3.5vw, 42px)',
+          fontWeight: 400,
+          color: '#F5F0E8',
+          lineHeight: 1.35,
+          maxWidth: '680px',
+          margin: '0 auto',
+        }}>
+          We made this. No photographer. No studio. No waiting.
+          Production quality is not a claim. It is the output.
         </p>
       </section>
 
-      {/* Features */}
-      <section className="py-28 px-6">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-white mb-3">
-            The full pipeline, in one place
-          </h2>
-          <p className="text-center text-white/30 mb-16 text-base">
-            From raw product photo to campaign-ready creative
+      {/* How it works */}
+      <section style={{ padding: '100px 40px' }}>
+        <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+          <p style={{
+            color: '#C9922A',
+            fontSize: '11px',
+            fontWeight: 700,
+            letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            marginBottom: '16px',
+          }}>
+            How it works
           </p>
+          <h2 style={{
+            fontFamily: displayFont,
+            fontSize: 'clamp(28px, 3.5vw, 42px)',
+            fontWeight: 400,
+            color: '#1A1208',
+            lineHeight: 1.15,
+            letterSpacing: '-0.015em',
+            marginBottom: '64px',
+          }}>
+            From raw packshot to Meta-ready composite
+          </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              {
-                icon: ImageIcon,
-                title: 'AI product photography',
-                desc: 'Generate studio-quality composites with custom backgrounds. No photographer, no studio, no waiting.',
-              },
-              {
-                icon: Layers,
-                title: 'Brand voice at scale',
-                desc: 'Upload your brand kit once. Every headline, tagline, and CTA stays on-brand across every asset you generate.',
-              },
-              {
-                icon: Zap,
-                title: 'Multi-format export',
-                desc: 'Square, portrait, landscape, story. One product shoot, every ad placement, all pixel-perfect.',
-              },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div
-                key={title}
-                className="rounded-2xl border border-white/6 bg-white/[0.025] p-8 hover:bg-white/[0.04] hover:border-white/10 transition-all"
-              >
-                <div className="mb-5 h-11 w-11 rounded-xl bg-violet-600/15 border border-violet-500/20 flex items-center justify-center">
-                  <Icon className="h-5 w-5 text-violet-400" />
-                </div>
-                <h3 className="font-semibold text-base text-white mb-2.5">{title}</h3>
-                <p className="text-sm text-white/35 leading-relaxed">{desc}</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px' }}>
+            {STEPS.map(({ n, title, body }) => (
+              <div key={n}>
+                <p style={{
+                  fontFamily: displayFont,
+                  fontSize: '48px',
+                  fontWeight: 400,
+                  color: '#DDD8CE',
+                  lineHeight: 1,
+                  marginBottom: '20px',
+                }}>
+                  {n}
+                </p>
+                <h3 style={{
+                  fontSize: '17px',
+                  fontWeight: 600,
+                  color: '#1A1208',
+                  marginBottom: '12px',
+                  fontFamily: bodyFont,
+                }}>
+                  {title}
+                </h3>
+                <p style={{
+                  fontSize: '15px',
+                  color: '#5C5245',
+                  lineHeight: 1.7,
+                  fontFamily: bodyFont,
+                }}>
+                  {body}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* CTA banner */}
-      <section className="py-20 px-6">
-        <div className="max-w-2xl mx-auto">
-          <div className="relative rounded-3xl border border-violet-500/15 bg-gradient-to-br from-violet-900/20 via-violet-900/10 to-indigo-900/20 p-16 text-center overflow-hidden">
-            {/* Inner glow */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="w-64 h-64 rounded-full bg-violet-600/10 blur-[80px]" />
-            </div>
-            <h2 className="relative text-4xl font-bold text-white mb-4">Ready to create?</h2>
-            <p className="relative text-white/35 mb-10 text-base leading-relaxed">
-              Set up your brand and launch your first ad creative in under 10 minutes.
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid #DDD8CE', margin: '0 40px' }} />
+
+      {/* What we are not */}
+      <section style={{ padding: '100px 40px' }}>
+        <div style={{
+          maxWidth: '980px', margin: '0 auto',
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'start',
+        }}>
+          <div>
+            <h2 style={{
+              fontFamily: displayFont,
+              fontSize: 'clamp(28px, 3vw, 40px)',
+              fontWeight: 400,
+              color: '#1A1208',
+              lineHeight: 1.2,
+              letterSpacing: '-0.015em',
+            }}>
+              Not Canva. Not Midjourney. Not an agency.
+            </h2>
+            <p style={{
+              color: '#5C5245', fontSize: '15px', lineHeight: 1.65,
+              marginTop: '20px', fontFamily: bodyFont,
+            }}>
+              Every tool in your stack solves a different problem. Kreashot solves the one none of them touch: replacing the $8,000 product photoshoot with a two-minute pipeline.
             </p>
-            <Link
-              href="/auth/signup"
-              className="relative inline-block bg-violet-600 hover:bg-violet-500 transition-colors text-white px-10 py-3.5 rounded-xl font-semibold text-sm shadow-xl shadow-violet-900/50"
-            >
-              Get started free
-            </Link>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
+            {DIFFERENTIATORS.map(({ label, body }, i) => (
+              <div key={label} style={{
+                padding: '28px 0',
+                borderBottom: i < DIFFERENTIATORS.length - 1 ? '1px solid #DDD8CE' : 'none',
+              }}>
+                <p style={{
+                  fontSize: '11px', fontWeight: 700, color: '#C9922A',
+                  letterSpacing: '0.1em', textTransform: 'uppercase',
+                  marginBottom: '8px', fontFamily: bodyFont,
+                }}>
+                  {label}
+                </p>
+                <p style={{ fontSize: '15px', color: '#5C5245', lineHeight: 1.65, fontFamily: bodyFont }}>
+                  {body}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-white/5 py-8 px-8 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="h-6 w-6 rounded-md bg-violet-600 flex items-center justify-center">
-            <span className="text-white font-bold text-xs leading-none">K</span>
-          </div>
-          <span className="text-xs text-white/25">© 2026 Kreashot</span>
+      {/* Numbers strip */}
+      <section style={{
+        backgroundColor: '#F5F0E8',
+        borderTop: '1px solid #DDD8CE',
+        borderBottom: '1px solid #DDD8CE',
+        padding: '48px 40px',
+      }}>
+        <div style={{
+          maxWidth: '980px', margin: '0 auto',
+          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', textAlign: 'center',
+        }}>
+          {[
+            { stat: '20', label: 'ad variations per product shoot' },
+            { stat: '< 2 min', label: 'from upload to first composite' },
+            { stat: '8 steps', label: 'from packshot to Meta export' },
+          ].map(({ stat, label }) => (
+            <div key={stat}>
+              <p style={{
+                fontFamily: displayFont,
+                fontSize: '40px',
+                fontWeight: 400,
+                color: '#1A1208',
+                marginBottom: '8px',
+              }}>
+                {stat}
+              </p>
+              <p style={{ fontSize: '13px', color: '#5C5245', fontFamily: bodyFont }}>{label}</p>
+            </div>
+          ))}
         </div>
-        <span className="text-xs text-white/20">Built by Raygency</span>
+      </section>
+
+      {/* CTA */}
+      <section style={{
+        backgroundColor: '#1A1208',
+        padding: '100px 40px',
+        textAlign: 'center',
+      }}>
+        <p style={{
+          color: '#C9922A',
+          fontSize: '11px',
+          fontWeight: 700,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          marginBottom: '28px',
+        }}>
+          Replace your photoshoot
+        </p>
+        <h2 style={{
+          fontFamily: displayFont,
+          fontSize: 'clamp(30px, 5vw, 54px)',
+          fontWeight: 400,
+          color: '#F5F0E8',
+          lineHeight: 1.1,
+          letterSpacing: '-0.02em',
+          marginBottom: '20px',
+        }}>
+          Upload a product photo.<br />Get export-ready Meta ads.
+        </h2>
+        <p style={{
+          color: '#DDD8CE',
+          opacity: 0.55,
+          fontSize: '16px',
+          marginBottom: '44px',
+          maxWidth: '380px',
+          margin: '0 auto 44px',
+          fontFamily: bodyFont,
+          lineHeight: 1.6,
+        }}>
+          Set up in under 10 minutes. No credit card required.
+        </p>
+        <Link href="/auth/signup" style={{
+          backgroundColor: '#B85C38',
+          color: '#F5F0E8',
+          padding: '16px 40px',
+          borderRadius: '6px',
+          fontSize: '16px',
+          fontWeight: 600,
+          textDecoration: 'none',
+          display: 'inline-block',
+        }}>
+          Start for free
+        </Link>
+      </section>
+
+      {/* Footer */}
+      <footer style={{
+        backgroundColor: '#1A1208',
+        borderTop: '1px solid rgba(221,216,206,0.08)',
+        padding: '28px 40px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <span style={{
+          fontFamily: displayFont,
+          fontStyle: 'italic',
+          fontSize: '20px',
+          fontWeight: 400,
+          color: '#F5F0E8',
+          opacity: 0.6,
+        }}>
+          kreashot
+        </span>
+        <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+          <span style={{ fontSize: '12px', color: '#DDD8CE', opacity: 0.35, fontFamily: bodyFont }}>
+            © 2026 Kreashot
+          </span>
+          <span style={{ fontSize: '12px', color: '#DDD8CE', opacity: 0.35, fontFamily: bodyFont }}>
+            Built by Raygency
+          </span>
+        </div>
       </footer>
+
     </div>
   )
 }
