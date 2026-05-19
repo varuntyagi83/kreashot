@@ -4,14 +4,13 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || ''
-
 async function getSuperAdmin() {
-  if (!SUPER_ADMIN_EMAIL) return null
+  const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.trim()
+  if (!superAdminEmail) return null
   const supabase = await createServerSupabaseClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
-  if (user.email !== SUPER_ADMIN_EMAIL) return null
+  if (!superAdminEmail || user.email !== superAdminEmail) return null
   return user
 }
 

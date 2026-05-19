@@ -24,7 +24,15 @@ async function fetchGeminiWithRetry(
 ): Promise<Response> {
   let lastResponse: Response | null = null
   for (let attempt = 1; attempt <= GEMINI_RETRY_ATTEMPTS; attempt++) {
-    const res = await fetch(url, options)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 90_000)
+    const mergedOptions: RequestInit = { ...options, signal: options.signal ?? controller.signal }
+    let res: Response
+    try {
+      res = await fetch(url, mergedOptions)
+    } finally {
+      clearTimeout(timeoutId)
+    }
     lastResponse = res
     if (res.ok || !GEMINI_RETRY_STATUSES.includes(res.status)) {
       return res

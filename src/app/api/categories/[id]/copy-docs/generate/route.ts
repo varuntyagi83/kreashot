@@ -23,7 +23,7 @@ export async function POST(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`copy-docs:${user.id}`, 20, 60_000)
+    const rateLimit = await checkRateLimit(`copy-docs:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
@@ -174,8 +174,7 @@ export async function POST(
       })),
     })
   } catch (error: any) {
-    console.error('Error generating copy:', error)
-    const message = error instanceof Error ? error.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    console.error('[copy-docs/generate]', error)
+    return NextResponse.json({ error: 'Copy generation failed' }, { status: 500 })
   }
 }

@@ -23,7 +23,7 @@ export async function DELETE(
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }

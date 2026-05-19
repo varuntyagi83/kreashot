@@ -2,6 +2,15 @@
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
+
+async function pLimit<T>(tasks: (() => Promise<T>)[], concurrency: number): Promise<T[]> {
+  const results: T[] = []
+  for (let i = 0; i < tasks.length; i += concurrency) {
+    const batch = tasks.slice(i, i + concurrency)
+    results.push(...await Promise.all(batch.map(fn => fn())))
+  }
+  return results
+}
 import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateAngledShots } from '@/lib/ai/gemini'
@@ -43,7 +52,7 @@ export async function POST(
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
     const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
-    const rateLimit = checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
+    const rateLimit = await checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
@@ -187,8 +196,8 @@ export async function POST(
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
     // Save each shot to GDrive + DB
-    const savedShots = await Promise.all(
-      generatedShots.map(async (shot) => {
+    const savedShots = await pLimit(
+      generatedShots.map((shot) => async () => {
         try {
           const base64Data = shot.imageData.replace(/^data:image\/\w+;base64,/, '')
           const buffer = Buffer.from(base64Data, 'base64')
@@ -258,7 +267,8 @@ export async function POST(
           console.error(`Failed to save ${shot.angleName}:`, err)
           return null
         }
-      })
+      }),
+      3
     )
 
     const saved = savedShots.filter(Boolean)

@@ -35,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rateLimit = checkRateLimit(`list-product-images:${user.id}`, 100, 60_000)
+    const rateLimit = await checkRateLimit(`list-product-images:${user.id}`, 100, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
@@ -124,7 +124,7 @@ export async function POST(
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
     const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
-    const rateLimit = checkRateLimit(`upload:${user.id}`, 20, 60_000)
+    const rateLimit = await checkRateLimit(`upload:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Upload rate limit exceeded' }, { status: 429 })
     }

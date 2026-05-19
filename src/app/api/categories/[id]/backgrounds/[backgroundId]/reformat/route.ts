@@ -36,7 +36,7 @@ export async function POST(
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
     const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
-    const rateLimit = checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
+    const rateLimit = await checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before reformatting more.' },

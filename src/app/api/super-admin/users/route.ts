@@ -4,9 +4,6 @@ import { getSupabaseAdmin } from '@/lib/supabase/admin'
 
 export const dynamic = 'force-dynamic'
 
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || ''
-if (!SUPER_ADMIN_EMAIL) { /* empty env var — all requests will be rejected as Forbidden */ }
-
 /**
  * GET /api/super-admin/users
  * Returns all auth users with their current company memberships.
@@ -14,11 +11,12 @@ if (!SUPER_ADMIN_EMAIL) { /* empty env var — all requests will be rejected as 
  */
 export async function GET() {
   try {
-    if (!SUPER_ADMIN_EMAIL) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.trim()
+    if (!superAdminEmail) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (user.email !== SUPER_ADMIN_EMAIL) {
+    if (!superAdminEmail || user.email !== superAdminEmail) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

@@ -43,6 +43,25 @@ export async function middleware(request: NextRequest) {
   const isCleanupApiRoute = pathname.startsWith('/api/cleanup')
   const isLandingPage = pathname === '/'
 
+  // Admin and cleanup routes bypass session auth because Railway cron jobs have no cookies.
+  // They are protected by a CRON_SECRET bearer token checked inside each route handler.
+  // Guard here: if CRON_SECRET is missing or shorter than 32 chars, reject all admin calls
+  // so a misconfigured deployment never exposes destructive operations.
+  if (isAdminApiRoute || isCleanupApiRoute) {
+    const cronSecret = process.env.CRON_SECRET
+    if (!cronSecret || cronSecret.length < 32) {
+      return NextResponse.json(
+        { error: 'Admin routes disabled: CRON_SECRET not configured' },
+        { status: 503 }
+      )
+    }
+    const authHeader = request.headers.get('authorization')
+    if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return response
+  }
+
   // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address
   // leaking into redirect Location headers sent to the browser.
   const appOrigin = (getBaseUrl() || request.nextUrl.origin).replace(/\/$/, '')
@@ -53,8 +72,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect to login if user is not authenticated and trying to access protected routes.
-  // Landing page, auth routes, and API admin/cleanup routes are public.
-  if (!user && !isAuthRoute && !isAdminApiRoute && !isCleanupApiRoute && !isLandingPage) {
+  if (!user && !isAuthRoute && !isLandingPage) {
     return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 

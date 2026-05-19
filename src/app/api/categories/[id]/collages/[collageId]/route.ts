@@ -43,7 +43,7 @@ export async function GET(
   const companyId = await getCompanyId(supabase, user.id)
   if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-  const rateLimit = checkRateLimit(`collages:${user.id}`, 30, 60_000)
+  const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
   if (!rateLimit.allowed) {
     return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
   }
@@ -80,7 +80,7 @@ export async function PUT(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`collages:${user.id}`, 30, 60_000)
+    const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
@@ -237,7 +237,7 @@ export async function DELETE(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }

@@ -34,16 +34,18 @@ export async function GET() {
     // Fetch user emails + metadata from auth.users via admin API
     // Uses service-role client (supabaseAdmin) — auth.admin requires service role key, not anon key.
     const userIds = (members || []).map((m) => m.user_id)
-    const { data: usersData } = await getSupabaseAdmin().auth.admin.listUsers()
     const usersMap: Record<string, { email: string; full_name?: string }> = {}
-    for (const u of usersData?.users ?? []) {
-      if (userIds.includes(u.id)) {
-        usersMap[u.id] = {
-          email: u.email ?? '',
-          full_name: u.user_metadata?.full_name as string | undefined,
+    await Promise.all(
+      userIds.map(async (uid) => {
+        const { data } = await getSupabaseAdmin().auth.admin.getUserById(uid)
+        if (data?.user) {
+          usersMap[uid] = {
+            email: data.user.email ?? '',
+            full_name: data.user.user_metadata?.full_name as string | undefined,
+          }
         }
-      }
-    }
+      })
+    )
 
     const enriched = (members || []).map((m) => ({
       ...m,

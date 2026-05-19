@@ -11,6 +11,10 @@ import { unlink, readFile, writeFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
 
+function sanitizeTextLayer(text: string): string {
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 2000)
+}
+
 const ALLOWED_FONT_DOMAINS = [
   'lh3.googleusercontent.com',
   'drive.google.com',
@@ -65,7 +69,7 @@ export async function POST(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`preview:${user.id}`, 10, 60_000)
+    const rateLimit = await checkRateLimit(`preview:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before refreshing preview.' },
@@ -197,7 +201,11 @@ export async function POST(
     // Build copy_text
     let copyText: any = { generated_text: '' }
     if (layerTexts && Object.keys(layerTexts).length > 0) {
-      copyText = layerTexts
+      const sanitized: Record<string, string> = {}
+      for (const [k, v] of Object.entries(layerTexts)) {
+        sanitized[k] = typeof v === 'string' ? sanitizeTextLayer(v) : String(v)
+      }
+      copyText = sanitized
     } else if (copyDocId) {
       const { data: copyDoc } = await supabase
         .from('copy_docs')

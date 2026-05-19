@@ -30,7 +30,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const rateLimit = checkRateLimit(`reformat-composite:${user.id}`, 5, 60_000)
+    const rateLimit = await checkRateLimit(`reformat-composite:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before reformatting more.' },

@@ -24,7 +24,7 @@ export async function GET() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const rateLimit = checkRateLimit(`list-guidelines:${user.id}`, 100, 60_000)
+    const rateLimit = await checkRateLimit(`list-guidelines:${user.id}`, 100, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please try again in a minute.' },
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`guidelines-upload:${user.id}`, 5, 60_000)
+    const rateLimit = await checkRateLimit(`guidelines-upload:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Try again in a minute.' },

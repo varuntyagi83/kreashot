@@ -53,7 +53,7 @@ export async function POST(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`brand-voice:${user.id}`, 5, 60_000)
+    const rateLimit = await checkRateLimit(`brand-voice:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }

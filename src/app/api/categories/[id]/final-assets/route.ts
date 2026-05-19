@@ -13,6 +13,10 @@ import path from 'path'
 import crypto from 'crypto'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
+function sanitizeTextLayer(text: string): string {
+  return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 2000)
+}
+
 const ALLOWED_FONT_DOMAINS = [
   'lh3.googleusercontent.com',
   'drive.google.com',
@@ -49,7 +53,7 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const rateLimit = checkRateLimit(`list-final-assets:${user.id}`, 100, 60_000)
+  const rateLimit = await checkRateLimit(`list-final-assets:${user.id}`, 100, 60_000)
   if (!rateLimit.allowed) {
     return NextResponse.json(
       { error: 'Rate limit exceeded. Please try again in a minute.' },
@@ -112,7 +116,7 @@ export async function POST(
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
     const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
-    const rateLimit = checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
+    const rateLimit = await checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
@@ -344,7 +348,11 @@ export async function POST(
     // Fall back to a single copyDoc text for backwards-compat templates.
     let copyText: any = { generated_text: '' }
     if (layerTexts && Object.keys(layerTexts).length > 0) {
-      copyText = layerTexts
+      const sanitized: Record<string, string> = {}
+      for (const [k, v] of Object.entries(layerTexts)) {
+        sanitized[k] = typeof v === 'string' ? sanitizeTextLayer(v) : String(v)
+      }
+      copyText = sanitized
     } else if (copyDocId) {
       const { data: copyDoc } = await supabase
         .from('copy_docs')

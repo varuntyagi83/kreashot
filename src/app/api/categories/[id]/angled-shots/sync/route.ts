@@ -30,7 +30,7 @@ export async function POST(
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`angled-shots-sync:${user.id}`, 3, 60_000)
+    const rateLimit = await checkRateLimit(`angled-shots-sync:${user.id}`, 3, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before syncing again.' },

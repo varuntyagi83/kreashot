@@ -148,7 +148,7 @@ export async function POST() {
     const companyId = await getCompanyId(supabase, user.id)
     if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const rateLimit = checkRateLimit(`seed-overlays:${user.id}`, 10, 60_000)
+    const rateLimit = await checkRateLimit(`seed-overlays:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before seeding more overlays.' },

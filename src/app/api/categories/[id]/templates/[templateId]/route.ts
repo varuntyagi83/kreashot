@@ -222,7 +222,7 @@ export async function DELETE(
     if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
     const { company_id: companyId } = companyInfo
 
-    const rateLimit = checkRateLimit(`delete:${user.id}`, 50, 60_000)
+    const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
