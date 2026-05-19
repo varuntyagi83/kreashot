@@ -179,81 +179,90 @@ export default function LandingPage() {
       </section>
 
       {/* Pipeline filmstrip */}
-      <section style={{ backgroundColor: '#1A1208' }}>
-        {/* Header */}
-        <div style={{
-          padding: '20px 40px 12px',
-          borderBottom: '1px solid rgba(221,216,206,0.1)',
-        }}>
-          <p style={{
-            color: '#C9922A',
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.18em',
-            textTransform: 'uppercase',
-            margin: 0,
-          }}>
-            The 8-step pipeline
-          </p>
+      <section style={{ backgroundColor: '#F5F0E8' }}>
+
+        {/* Top film border: dark strip with label + parchment perforations */}
+        <div style={{ backgroundColor: '#1A1208' }}>
+          <div style={{ padding: '12px 40px 8px' }}>
+            <p style={{
+              color: '#C9922A',
+              fontSize: '10px',
+              fontWeight: 700,
+              letterSpacing: '0.18em',
+              textTransform: 'uppercase',
+              margin: 0,
+            }}>
+              The 8-step pipeline
+            </p>
+          </div>
+          {/* Perforations: parchment rectangles punched through the dark strip */}
+          <div style={{ display: 'flex', gap: '7px', padding: '6px 24px 10px', overflow: 'hidden' }}>
+            {Array.from({ length: 48 }).map((_, i) => (
+              <div key={i} style={{
+                width: '16px', height: '12px', borderRadius: '3px',
+                backgroundColor: '#F5F0E8', flexShrink: 0,
+              }} />
+            ))}
+          </div>
         </div>
 
-        {/* Film sprocket holes top */}
-        <div style={{ display: 'flex', gap: '8px', padding: '10px 16px 4px', overflow: 'hidden' }}>
-          {Array.from({ length: 32 }).map((_, i) => (
-            <div key={i} style={{
-              width: '14px', height: '9px', borderRadius: '2px',
-              backgroundColor: 'rgba(245,240,232,0.07)', flexShrink: 0,
-            }} />
-          ))}
-        </div>
-
-        {/* Steps */}
+        {/* Main content: warm parchment, step icons with dark style */}
         <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '24px 32px 20px',
+          backgroundColor: '#EDE6D9',
+          padding: '28px 40px',
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'center',
           overflowX: 'auto',
-          gap: 0,
         }}>
           {PIPELINE.map(({ Icon, label }, i) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '0 12px' }}>
+            <div key={label} style={{ display: 'flex', alignItems: 'flex-start' }}>
+              {/* Step: icon box + label */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '80px' }}>
                 <div style={{
-                  width: '52px', height: '52px',
-                  border: '1.5px solid rgba(221,216,206,0.2)',
+                  width: '54px', height: '54px',
+                  border: '1.5px solid #C4B49A',
                   borderRadius: '10px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: 'rgba(221,216,206,0.04)',
+                  backgroundColor: '#F5F0E8',
+                  boxShadow: '0 1px 3px rgba(26,18,8,0.08)',
                 }}>
-                  <Icon size={20} color="#DDD8CE" strokeWidth={1.5} />
+                  <Icon size={22} color="#1A1208" strokeWidth={1.5} />
                 </div>
                 <span style={{
-                  color: '#DDD8CE',
+                  color: '#5C5245',
                   fontSize: '10px',
                   fontWeight: 500,
                   textAlign: 'center',
-                  opacity: 0.65,
                   whiteSpace: 'nowrap',
                   fontFamily: bodyFont,
+                  lineHeight: 1.3,
                 }}>
                   {label}
                 </span>
               </div>
+              {/* Arrow aligned to icon center (54px icon + 8px gap → center at 27px from top) */}
               {i < PIPELINE.length - 1 && (
-                <ArrowRight size={12} color="#C9922A" style={{ flexShrink: 0, opacity: 0.8 }} />
+                <div style={{ marginTop: '16px', flexShrink: 0, padding: '0 2px' }}>
+                  <ArrowRight size={13} color="#C9922A" />
+                </div>
               )}
             </div>
           ))}
         </div>
 
-        {/* Film sprocket holes bottom */}
-        <div style={{ display: 'flex', gap: '8px', padding: '4px 16px 10px', overflow: 'hidden' }}>
-          {Array.from({ length: 32 }).map((_, i) => (
-            <div key={i} style={{
-              width: '14px', height: '9px', borderRadius: '2px',
-              backgroundColor: 'rgba(245,240,232,0.07)', flexShrink: 0,
-            }} />
-          ))}
+        {/* Bottom film border: dark strip with parchment perforations */}
+        <div style={{ backgroundColor: '#1A1208' }}>
+          <div style={{ display: 'flex', gap: '7px', padding: '10px 24px 8px', overflow: 'hidden' }}>
+            {Array.from({ length: 48 }).map((_, i) => (
+              <div key={i} style={{
+                width: '16px', height: '12px', borderRadius: '3px',
+                backgroundColor: '#F5F0E8', flexShrink: 0,
+              }} />
+            ))}
+          </div>
         </div>
+
       </section>
 
       {/* Editorial quote */}
