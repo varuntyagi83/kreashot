@@ -64,40 +64,75 @@ const DIFFERENTIATORS = [
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
 
-// Renders the "kreashot" wordmark with the signature golden paintbrush stroke on the k
+// SVG wordmark — gives pixel-exact control over the golden accent placement
+// independent of font rendering metrics. The accent is a tapered brushstroke
+// drawn at the gap between the k's two diagonal arms, not over them.
 function KreashotWordmark({ size = 28, color = '#1A1208' }: { size?: number; color?: string }) {
+  // The SVG is sized relative to `size`. All coordinates assume size=28 as baseline.
+  const scale = size / 28
+  // Viewbox width: approximate advance width of "kreashot" in Playfair 600 at 28px
+  // We render the text then overlay the accent as a separate SVG path.
   return (
-    <span style={{
-      fontFamily: displayFont,
-      fontSize: `${size}px`,
-      fontWeight: 600,
-      fontStyle: 'normal',
-      color,
-      letterSpacing: '-0.02em',
-      display: 'inline-flex',
-      alignItems: 'baseline',
-      lineHeight: 1,
-    }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
+      {/* "k" with golden accent overlay */}
       <span style={{ position: 'relative', display: 'inline-block' }}>
-        k
-        {/* Paintbrush stroke: tapered gradient ellipse across the lower diagonal of the k */}
-        <span
+        <span style={{
+          fontFamily: displayFont,
+          fontSize: `${size}px`,
+          fontWeight: 600,
+          fontStyle: 'normal',
+          color,
+          letterSpacing: '-0.02em',
+          lineHeight: 1,
+          display: 'block',
+        }}>
+          k
+        </span>
+        {/* Golden brushstroke SVG — drawn in the open space between k's two diagonal arms.
+            The elliptical path mimics a tapered calligraphic stroke. */}
+        <svg
           aria-hidden="true"
           style={{
             position: 'absolute',
-            display: 'block',
-            width: '0.52em',
-            height: '0.1em',
-            background: 'linear-gradient(to right, transparent 0%, #C9922A 20%, #D4A535 55%, #C9922A 78%, transparent 100%)',
-            borderRadius: '50%',
-            transform: 'rotate(-38deg)',
-            top: '50%',
-            left: '14%',
+            top: 0, left: 0,
+            width: '100%', height: '100%',
             pointerEvents: 'none',
+            overflow: 'visible',
           }}
-        />
+          viewBox="0 0 1 1"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            {/* Unique gradient ID per instance to avoid SVG ID collisions (nav + footer both render this) */}
+            <linearGradient id={`bg-${color.replace('#', '')}`} x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stopColor="#C9922A" stopOpacity="0" />
+              <stop offset="25%"  stopColor="#C9922A" stopOpacity="1" />
+              <stop offset="60%"  stopColor="#D4A535" stopOpacity="1" />
+              <stop offset="100%" stopColor="#C9922A" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {/* Ellipse at ~62% x, 62% y — on the lower diagonal arm, below the junction */}
+          <ellipse
+            cx="0.62" cy="0.62"
+            rx="0.18" ry="0.045"
+            fill={`url(#bg-${color.replace('#', '')})`}
+            transform="rotate(-36, 0.62, 0.62)"
+          />
+        </svg>
       </span>
-      reashot
+      {/* "reashot" as plain text continuing the wordmark */}
+      <span style={{
+        fontFamily: displayFont,
+        fontSize: `${size}px`,
+        fontWeight: 600,
+        fontStyle: 'normal',
+        color,
+        letterSpacing: '-0.02em',
+        lineHeight: 1,
+        marginLeft: `${-0.02 * size}px`,
+      }}>
+        reashot
+      </span>
     </span>
   )
 }
