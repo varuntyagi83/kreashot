@@ -42,7 +42,7 @@ const STEPS = [
   {
     n: '03',
     title: 'Export to Meta Ads Manager',
-    body: 'Every format: 1:1, 4:5, 16:9, 9:16. Headlines and CTAs written by GPT-4o against your brand voice. One-click CSV export.',
+    body: 'Every format: 1:1, 4:5, 16:9, 9:16. Headlines and CTAs written to your brand voice. One-click CSV export.',
   },
 ]
 
@@ -81,7 +81,7 @@ function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; 
 
 export default function LandingPage() {
   return (
-    <div style={{ backgroundColor: '#F5F0E8', color: '#1A1208', fontFamily: bodyFont, minHeight: '100vh' }}>
+    <div style={{ backgroundColor: '#F5F0E8', color: '#1A1208', fontFamily: bodyFont, minHeight: '100vh', overflowX: 'hidden' }}>
 
       {/* Nav */}
       <nav style={{
@@ -90,6 +90,8 @@ export default function LandingPage() {
         borderBottom: '1px solid #DDD8CE',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 40px',
+        width: '100%',
+        boxSizing: 'border-box',
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
           <KreashotWordmark height={32} variant="dark" />
@@ -156,7 +158,7 @@ export default function LandingPage() {
           margin: '0 auto 44px',
           fontFamily: bodyFont,
         }}>
-          Gemini generates the images. GPT-4o writes the copy. Your brand kit goes on top.
+          AI-generated composites, copy, and layouts — your brand kit on top.
           Export to Meta Ads Manager when done.
         </p>
 
@@ -186,10 +188,10 @@ export default function LandingPage() {
       </section>
 
       {/* Pipeline filmstrip */}
-      <section style={{ backgroundColor: '#F5F0E8' }}>
+      <section style={{ backgroundColor: '#F5F0E8', overflowX: 'hidden', width: '100%' }}>
 
         {/* Top film border: dark strip with label + parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208' }}>
+        <div style={{ backgroundColor: '#1A1208', width: '100%', overflow: 'hidden' }}>
           <div style={{ padding: '12px 40px 8px' }}>
             <p style={{
               color: '#C9922A',
@@ -216,57 +218,59 @@ export default function LandingPage() {
         {/* Main content: warm parchment, steps spread full width */}
         <div style={{
           backgroundColor: '#EDE6D9',
-          padding: '28px 32px',
+          padding: '24px 16px',
           display: 'flex',
           alignItems: 'flex-start',
           width: '100%',
           boxSizing: 'border-box',
-          overflowX: 'auto',
+          overflow: 'hidden',
         }}>
           {PIPELINE.flatMap(({ Icon, label }, i) => [
-            /* Each step gets flex:1 so all 8 spread evenly */
             <div key={label} style={{
-              flex: 1,
+              flex: '1 1 0',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: '8px',
+              gap: '6px',
               minWidth: 0,
             }}>
               <div style={{
-                width: '54px', height: '54px',
+                width: 'clamp(36px, 5.5vw, 52px)',
+                height: 'clamp(36px, 5.5vw, 52px)',
                 border: '1.5px solid #C4B49A',
                 borderRadius: '10px',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 backgroundColor: '#F5F0E8',
                 boxShadow: '0 1px 3px rgba(26,18,8,0.08)',
-                flexShrink: 0,
+                flexShrink: 1,
               }}>
-                <Icon size={22} color="#1A1208" strokeWidth={1.5} />
+                <Icon size={18} color="#1A1208" strokeWidth={1.5} />
               </div>
               <span style={{
                 color: '#5C5245',
-                fontSize: '10px',
+                fontSize: 'clamp(8px, 0.85vw, 11px)',
                 fontWeight: 500,
                 textAlign: 'center',
-                whiteSpace: 'nowrap',
                 fontFamily: bodyFont,
                 lineHeight: 1.3,
+                width: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
               }}>
                 {label}
               </span>
             </div>,
-            /* Arrow sits between steps, vertically aligned to icon center */
             ...(i < PIPELINE.length - 1 ? [
-              <div key={`arr-${i}`} style={{ flexShrink: 0, marginTop: '20px' }}>
-                <ArrowRight size={12} color="#C9922A" />
+              <div key={`arr-${i}`} style={{ flexShrink: 0, marginTop: '15px', padding: '0 1px' }}>
+                <ArrowRight size={9} color="#C9922A" />
               </div>,
             ] : []),
           ])}
         </div>
 
         {/* Bottom film border: dark strip with parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208' }}>
+        <div style={{ backgroundColor: '#1A1208', width: '100%', overflow: 'hidden' }}>
           <div style={{ display: 'flex', gap: '7px', padding: '10px 24px 8px', overflow: 'hidden' }}>
             {Array.from({ length: 48 }).map((_, i) => (
               <div key={i} style={{
