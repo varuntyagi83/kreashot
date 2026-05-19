@@ -55,17 +55,23 @@ export async function checkRateLimit(
   const redis = await getRedis()
 
   if (redis) {
-    const windowSeconds = Math.ceil(windowMs / 1000)
-    const redisKey = `rl:${key}`
-    const count = await redis.incr(redisKey)
-    if (count === 1) {
-      await redis.expire(redisKey, windowSeconds)
+    try {
+      const windowSeconds = Math.ceil(windowMs / 1000)
+      const redisKey = `rl:${key}`
+      const count = await redis.incr(redisKey)
+      if (count === 1) {
+        await redis.expire(redisKey, windowSeconds)
+      }
+      const resetAt = Date.now() + windowMs
+      if (count > maxRequests) {
+        return { allowed: false, remaining: 0, resetAt }
+      }
+      return { allowed: true, remaining: maxRequests - count, resetAt }
+    } catch (err) {
+      // Redis connection dropped — null out the cached client and fall through to in-memory
+      console.error('[rate-limit] Redis call failed, falling back to in-memory:', err)
+      redisClient = null
     }
-    const resetAt = Date.now() + windowMs
-    if (count > maxRequests) {
-      return { allowed: false, remaining: 0, resetAt }
-    }
-    return { allowed: true, remaining: maxRequests - count, resetAt }
   }
 
   // In-memory fallback

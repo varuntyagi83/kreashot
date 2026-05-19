@@ -1,7 +1,7 @@
 import OpenAI from 'openai'
 import type { BrandVoiceProfile } from './brand-voice'
 import { formatBrandVoiceForPrompt } from './brand-voice'
-import { sanitizeForPrompt } from './sanitize'
+import { sanitizeForPrompt, wrapUserContent } from './sanitize'
 
 let openaiClient: OpenAI | null = null
 
@@ -179,7 +179,7 @@ function buildCopyPrompt(
   tone?: string,
   targetAudience?: string
 ): string {
-  const safeBrief = sanitizeForPrompt(brief)
+  const safeBrief = wrapUserContent(brief)
   const safeTone = tone ? sanitizeForPrompt(tone) : undefined
   const safeAudience = targetAudience ? sanitizeForPrompt(targetAudience) : undefined
 
