@@ -64,76 +64,18 @@ const DIFFERENTIATORS = [
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
 
-// SVG wordmark — gives pixel-exact control over the golden accent placement
-// independent of font rendering metrics. The accent is a tapered brushstroke
-// drawn at the gap between the k's two diagonal arms, not over them.
-function KreashotWordmark({ size = 28, color = '#1A1208' }: { size?: number; color?: string }) {
-  // The SVG is sized relative to `size`. All coordinates assume size=28 as baseline.
-  const scale = size / 28
-  // Viewbox width: approximate advance width of "kreashot" in Playfair 600 at 28px
-  // We render the text then overlay the accent as a separate SVG path.
+function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; variant?: 'dark' | 'light' }) {
+  const src = variant === 'light' ? '/kreashot-wordmark-light.png' : '/kreashot-wordmark-dark.png'
+  // Wordmark PNG is 498×95 — maintain aspect ratio
+  const width = Math.round(height * (498 / 95))
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1 }}>
-      {/* "k" with golden accent overlay */}
-      <span style={{ position: 'relative', display: 'inline-block' }}>
-        <span style={{
-          fontFamily: displayFont,
-          fontSize: `${size}px`,
-          fontWeight: 600,
-          fontStyle: 'normal',
-          color,
-          letterSpacing: '-0.02em',
-          lineHeight: 1,
-          display: 'block',
-        }}>
-          k
-        </span>
-        {/* Golden brushstroke SVG — drawn in the open space between k's two diagonal arms.
-            The elliptical path mimics a tapered calligraphic stroke. */}
-        <svg
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: 0, left: 0,
-            width: '100%', height: '100%',
-            pointerEvents: 'none',
-            overflow: 'visible',
-          }}
-          viewBox="0 0 1 1"
-          preserveAspectRatio="none"
-        >
-          <defs>
-            {/* Unique gradient ID per instance to avoid SVG ID collisions (nav + footer both render this) */}
-            <linearGradient id={`bg-${color.replace('#', '')}`} x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%"   stopColor="#C9922A" stopOpacity="0" />
-              <stop offset="25%"  stopColor="#C9922A" stopOpacity="1" />
-              <stop offset="60%"  stopColor="#D4A535" stopOpacity="1" />
-              <stop offset="100%" stopColor="#C9922A" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          {/* Ellipse at ~62% x, 62% y — on the lower diagonal arm, below the junction */}
-          <ellipse
-            cx="0.62" cy="0.62"
-            rx="0.18" ry="0.045"
-            fill={`url(#bg-${color.replace('#', '')})`}
-            transform="rotate(-36, 0.62, 0.62)"
-          />
-        </svg>
-      </span>
-      {/* "reashot" as plain text continuing the wordmark */}
-      <span style={{
-        fontFamily: displayFont,
-        fontSize: `${size}px`,
-        fontWeight: 600,
-        fontStyle: 'normal',
-        color,
-        letterSpacing: '-0.02em',
-        lineHeight: 1,
-        marginLeft: `${-0.02 * size}px`,
-      }}>
-        reashot
-      </span>
-    </span>
+    <img
+      src={src}
+      alt="kreashot"
+      width={width}
+      height={height}
+      style={{ display: 'block', width: `${width}px`, height: `${height}px` }}
+    />
   )
 }
 
@@ -150,7 +92,7 @@ export default function LandingPage() {
         padding: '16px 40px',
       }}>
         <Link href="/" style={{ textDecoration: 'none' }}>
-          <KreashotWordmark size={28} color="#1A1208" />
+          <KreashotWordmark height={32} variant="dark" />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <Link href="/auth/login" style={{
@@ -563,7 +505,7 @@ export default function LandingPage() {
         justifyContent: 'space-between',
       }}>
         <span style={{ opacity: 0.65 }}>
-          <KreashotWordmark size={20} color="#F5F0E8" />
+          <KreashotWordmark height={24} variant="light" />
         </span>
         <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
           <span style={{ fontSize: '12px', color: '#DDD8CE', opacity: 0.35, fontFamily: bodyFont }}>
