@@ -66,7 +66,7 @@ const bodyFont = 'var(--font-inter), system-ui, sans-serif'
 
 function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; variant?: 'dark' | 'light' }) {
   const src = variant === 'light' ? '/kreashot-wordmark-light.png' : '/kreashot-wordmark-dark.png'
-  // Wordmark PNG is 498×95 — maintain aspect ratio
+  // Wordmark PNG is 498x95. Maintain aspect ratio.
   const width = Math.round(height * (498 / 95))
   return (
     <img
@@ -158,7 +158,7 @@ export default function LandingPage() {
           margin: '0 auto 44px',
           fontFamily: bodyFont,
         }}>
-          AI-generated composites, copy, and layouts — your brand kit on top.
+          AI-generated composites, copy, and layouts. Your brand kit on top.
           Export to Meta Ads Manager when done.
         </p>
 
@@ -191,7 +191,7 @@ export default function LandingPage() {
       <section style={{ backgroundColor: '#F5F0E8', overflowX: 'hidden', width: '100%' }}>
 
         {/* Top film border: dark strip with label + parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208', width: '100%', overflow: 'hidden' }}>
+        <div style={{ backgroundColor: '#1A1208', width: '100%' }}>
           <div style={{ padding: '12px 40px 8px' }}>
             <p style={{
               color: '#C9922A',
@@ -204,15 +204,15 @@ export default function LandingPage() {
               The 8-step pipeline
             </p>
           </div>
-          {/* Perforations: parchment rectangles punched through the dark strip */}
-          <div style={{ display: 'flex', gap: '7px', padding: '6px 24px 10px', overflow: 'hidden' }}>
-            {Array.from({ length: 48 }).map((_, i) => (
-              <div key={i} style={{
-                width: '16px', height: '12px', borderRadius: '3px',
-                backgroundColor: '#F5F0E8', flexShrink: 0,
-              }} />
-            ))}
-          </div>
+          {/* SVG perforation pattern: scales to exactly 100% width, no overflow */}
+          <svg width="100%" height="28" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+            <defs>
+              <pattern id="perfs-top" x="12" width="23" height="28" patternUnits="userSpaceOnUse">
+                <rect x="0" y="8" width="16" height="12" rx="3" fill="#F5F0E8" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="28" fill="url(#perfs-top)" />
+          </svg>
         </div>
 
         {/* Main content: warm parchment, steps spread full width */}
@@ -270,15 +270,15 @@ export default function LandingPage() {
         </div>
 
         {/* Bottom film border: dark strip with parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208', width: '100%', overflow: 'hidden' }}>
-          <div style={{ display: 'flex', gap: '7px', padding: '10px 24px 8px', overflow: 'hidden' }}>
-            {Array.from({ length: 48 }).map((_, i) => (
-              <div key={i} style={{
-                width: '16px', height: '12px', borderRadius: '3px',
-                backgroundColor: '#F5F0E8', flexShrink: 0,
-              }} />
-            ))}
-          </div>
+        <div style={{ backgroundColor: '#1A1208', width: '100%' }}>
+          <svg width="100%" height="28" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
+            <defs>
+              <pattern id="perfs-bot" x="12" width="23" height="28" patternUnits="userSpaceOnUse">
+                <rect x="0" y="8" width="16" height="12" rx="3" fill="#F5F0E8" />
+              </pattern>
+            </defs>
+            <rect width="100%" height="28" fill="url(#perfs-bot)" />
+          </svg>
         </div>
 
       </section>
