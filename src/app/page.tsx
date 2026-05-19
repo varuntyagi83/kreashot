@@ -145,90 +145,83 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Right: dark panel — 3 ad format cards (9:16, 1:1, 16:9) */}
+        {/* Right: dark panel — image collage showing 4 ad formats */}
         <div className="krea-hero-visual" style={{
-          backgroundColor: '#1A1208',
+          backgroundColor: '#0F0B06',
           position: 'relative',
-          alignItems: 'center',
-          justifyContent: 'center',
           overflow: 'hidden',
         }}>
-          {/* Subtle dot grid texture */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            backgroundImage: 'radial-gradient(circle, rgba(201,146,42,0.06) 1px, transparent 1px)',
-            backgroundSize: '28px 28px',
-          }} />
+          {/* Absolute fill with 16px inset padding */}
+          <div style={{ position: 'absolute', inset: '16px', display: 'flex', gap: '8px' }}>
 
-          {/* 3 stacked ad format cards */}
-          <div style={{ position: 'relative', width: '300px', height: '260px' }}>
-
-            {/* 9:16 portrait (stories) */}
-            <div style={{
-              position: 'absolute',
-              width: '100px', height: '178px',
-              backgroundColor: '#221708',
-              border: '1px solid rgba(201,146,42,0.18)',
-              borderRadius: '10px',
-              transform: 'rotate(-9deg) translate(-70px, 30px)',
-            }}>
-              <div style={{ margin: '10px', height: '112px', backgroundColor: '#2D1F09', borderRadius: '5px' }} />
-              <div style={{ margin: '10px 10px 5px', height: '7px', backgroundColor: 'rgba(201,146,42,0.2)', borderRadius: '2px' }} />
-              <div style={{ margin: '0 10px', height: '5px', width: '55%', backgroundColor: 'rgba(201,146,42,0.1)', borderRadius: '2px' }} />
-              <div style={{ position: 'absolute', bottom: '10px', left: '10px', right: '10px', height: '22px', backgroundColor: 'rgba(184,92,56,0.4)', borderRadius: '4px' }} />
+            {/* Left column: 9:16 portrait (Stories) */}
+            <div style={{ flex: '0 0 38%', position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
+              <img
+                src="/hero/hero-ad-916.jpg"
+                alt="9:16 Stories format"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+              />
+              <span style={{
+                position: 'absolute', top: '10px', left: '10px',
+                backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+                color: 'rgba(245,240,232,0.9)', fontSize: '10px', fontWeight: 700,
+                letterSpacing: '0.08em', padding: '3px 8px', borderRadius: '4px',
+                fontFamily: bodyFont,
+              }}>9:16</span>
             </div>
 
-            {/* 1:1 square (feed) */}
-            <div style={{
-              position: 'absolute',
-              width: '168px', height: '168px',
-              backgroundColor: '#1E1508',
-              border: '1px solid rgba(201,146,42,0.38)',
-              borderRadius: '10px',
-              transform: 'rotate(-2deg) translate(10px, 40px)',
-              boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
-            }}>
-              <div style={{ margin: '12px', height: '100px', backgroundColor: '#2A1C09', borderRadius: '5px', position: 'relative', overflow: 'hidden' }}>
-                <div style={{
-                  position: 'absolute', bottom: '-10px', left: '50%', transform: 'translateX(-50%)',
-                  width: '80px', height: '80px', borderRadius: '50%',
-                  background: 'radial-gradient(circle, rgba(201,146,42,0.15) 0%, transparent 70%)',
-                }} />
+            {/* Right column: 16:9 on top, then 4:5 + 1:1 below */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+
+              {/* 16:9 landscape */}
+              <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '16/9', flexShrink: 0 }}>
+                <img
+                  src="/hero/hero-ad-169.jpg"
+                  alt="16:9 Display format"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
+                <span style={{
+                  position: 'absolute', top: '10px', left: '10px',
+                  backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+                  color: 'rgba(245,240,232,0.9)', fontSize: '10px', fontWeight: 700,
+                  letterSpacing: '0.08em', padding: '3px 8px', borderRadius: '4px',
+                  fontFamily: bodyFont,
+                }}>16:9</span>
               </div>
-              <div style={{ margin: '10px 12px 5px', height: '8px', backgroundColor: 'rgba(201,146,42,0.28)', borderRadius: '2px', width: '65%' }} />
-              <div style={{ margin: '0 12px', height: '6px', width: '45%', backgroundColor: 'rgba(201,146,42,0.14)', borderRadius: '2px' }} />
-            </div>
 
-            {/* 16:9 landscape (display) */}
-            <div style={{
-              position: 'absolute',
-              width: '220px', height: '124px',
-              backgroundColor: '#1A1208',
-              border: '1px solid rgba(201,146,42,0.55)',
-              borderRadius: '10px',
-              transform: 'rotate(7deg) translate(72px, -30px)',
-              boxShadow: '0 24px 56px rgba(0,0,0,0.65)',
-            }}>
-              <div style={{ margin: '10px 10px 8px', height: '64px', backgroundColor: '#261A08', borderRadius: '5px' }} />
-              <div style={{ margin: '0 10px 5px', height: '7px', backgroundColor: 'rgba(201,146,42,0.38)', borderRadius: '2px', width: '58%' }} />
-              <div style={{ margin: '0 10px', height: '5px', width: '38%', backgroundColor: 'rgba(201,146,42,0.2)', borderRadius: '2px' }} />
-            </div>
-          </div>
+              {/* Bottom: 4:5 and 1:1 side by side */}
+              <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
+                <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
+                  <img
+                    src="/hero/hero-ad-45.jpg"
+                    alt="4:5 Feed format"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  <span style={{
+                    position: 'absolute', top: '10px', left: '10px',
+                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+                    color: 'rgba(245,240,232,0.9)', fontSize: '10px', fontWeight: 700,
+                    letterSpacing: '0.08em', padding: '3px 8px', borderRadius: '4px',
+                    fontFamily: bodyFont,
+                  }}>4:5</span>
+                </div>
+                <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
+                  <img
+                    src="/hero/hero-ad-11.jpg"
+                    alt="1:1 Square format"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                  />
+                  <span style={{
+                    position: 'absolute', top: '10px', left: '10px',
+                    backgroundColor: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(6px)',
+                    color: 'rgba(245,240,232,0.9)', fontSize: '10px', fontWeight: 700,
+                    letterSpacing: '0.08em', padding: '3px 8px', borderRadius: '4px',
+                    fontFamily: bodyFont,
+                  }}>1:1</span>
+                </div>
+              </div>
 
-          {/* Format labels */}
-          <div style={{
-            position: 'absolute', bottom: '32px', left: '32px', right: '32px',
-            display: 'flex', alignItems: 'center', gap: '12px',
-          }}>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201,146,42,0.15)' }} />
-            <span style={{
-              color: 'rgba(201,146,42,0.55)', fontSize: '10px', fontWeight: 600,
-              letterSpacing: '0.14em', textTransform: 'uppercase', flexShrink: 0,
-              fontFamily: bodyFont,
-            }}>
-              9:16 · 1:1 · 16:9 · 4:5
-            </span>
-            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201,146,42,0.15)' }} />
+            </div>
           </div>
         </div>
 
