@@ -3,18 +3,33 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { Check } from 'lucide-react'
 
+const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
+const bodyFont = 'var(--font-inter), system-ui, sans-serif'
+
 const FEATURES = [
-  'AI-generated product composites',
-  'Brand voice consistency at scale',
-  'Multi-format export: 1:1, 16:9, 9:16, 4:5',
+  'Studio-grade product composites in under 2 minutes',
+  'Brand voice consistency across every ad variation',
+  'Export to Meta Ads Manager: 1:1, 4:5, 16:9, 9:16',
 ]
+
+function KreashotWordmark({ height = 28 }: { height?: number }) {
+  const width = Math.round(height * (498 / 95))
+  return (
+    <Image
+      src="/kreashot-wordmark-light.png"
+      alt="Kreashot"
+      width={width}
+      height={height}
+      style={{ display: 'block' }}
+      priority
+    />
+  )
+}
 
 function LoginForm() {
   const [email, setEmail] = useState('')
@@ -39,7 +54,6 @@ function LoginForm() {
       if (error) {
         toast.error(error.message)
       } else {
-        toast.success('Signed in successfully')
         router.push('/dashboard')
         router.refresh()
       }
@@ -51,78 +65,165 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left branding panel */}
-      <div className="hidden lg:flex w-[480px] shrink-0 relative flex-col items-center justify-center p-14 bg-[#07070f] overflow-hidden">
-        {/* Gradient glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[500px] rounded-full bg-violet-700/15 blur-[100px] pointer-events-none" />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-violet-500/30 to-transparent" />
-        {/* Dot grid */}
-        <div
-          className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '28px 28px' }}
-        />
+    <div style={{ minHeight: '100vh', display: 'flex', fontFamily: bodyFont }}>
 
-        <div className="relative z-10 w-full max-w-xs">
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-12">
-            <div className="h-10 w-10 rounded-xl bg-violet-600 flex items-center justify-center shadow-lg shadow-violet-900/50">
-              <span className="text-white font-bold text-lg leading-none">K</span>
+      {/* Left: dark brand panel */}
+      <div style={{
+        width: '480px',
+        flexShrink: 0,
+        backgroundColor: '#1A1208',
+        display: 'flex',
+        flexDirection: 'column',
+        padding: '48px 56px',
+        position: 'relative',
+        overflow: 'hidden',
+      }} className="hidden lg:flex">
+        {/* Subtle radial glow */}
+        <div style={{
+          position: 'absolute',
+          top: '40%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '500px',
+          height: '400px',
+          borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(201,146,42,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+
+        <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <KreashotWordmark height={30} />
+
+          <div style={{ marginTop: 'auto', paddingBottom: '16px' }}>
+            <p style={{
+              color: '#C9922A',
+              fontSize: '11px',
+              fontWeight: 700,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              marginBottom: '20px',
+            }}>
+              The AI creative studio
+            </p>
+            <h2 style={{
+              fontFamily: displayFont,
+              fontSize: 'clamp(28px, 3vw, 38px)',
+              fontWeight: 400,
+              color: '#F5F0E8',
+              lineHeight: 1.15,
+              marginBottom: '16px',
+              letterSpacing: '-0.01em',
+            }}>
+              Product photo to<br />campaign creative<br />in minutes.
+            </h2>
+            <p style={{ color: '#5C5245', fontSize: '14px', lineHeight: 1.6, marginBottom: '40px' }}>
+              No studio. No photographer. No scheduling.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              {FEATURES.map((f) => (
+                <div key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    borderRadius: '50%',
+                    backgroundColor: 'rgba(201,146,42,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    marginTop: '1px',
+                  }}>
+                    <Check size={11} color="#C9922A" strokeWidth={2.5} />
+                  </div>
+                  <span style={{ fontSize: '13px', color: '#DDD8CE', lineHeight: 1.5, opacity: 0.7 }}>{f}</span>
+                </div>
+              ))}
             </div>
-            <span className="text-2xl font-bold text-white tracking-tight">Kreashot</span>
           </div>
 
-          <h2 className="text-3xl font-bold text-white leading-snug mb-3">
-            Ad creatives that convert, at scale
-          </h2>
-          <p className="text-sm text-white/35 leading-relaxed mb-10">
-            From product photo to campaign-ready creative in minutes.
-          </p>
-
-          <div className="space-y-4">
-            {FEATURES.map((f) => (
-              <div key={f} className="flex items-center gap-3">
-                <div className="h-5 w-5 rounded-full bg-violet-600/25 flex items-center justify-center shrink-0">
-                  <Check className="h-3 w-3 text-violet-400" />
-                </div>
-                <span className="text-sm text-white/45">{f}</span>
-              </div>
-            ))}
+          <div style={{ marginTop: 'auto', paddingTop: '48px' }}>
+            <p style={{ fontSize: '11px', color: '#5C5245' }}>
+              &copy; 2026 Kreashot. All rights reserved.
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Right form panel */}
-      <div className="flex-1 flex items-center justify-center p-8 bg-background">
-        <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="lg:hidden flex items-center gap-2 mb-10">
-            <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm leading-none">K</span>
-            </div>
-            <span className="text-xl font-bold tracking-tight">Kreashot</span>
+      {/* Right: form panel */}
+      <div style={{
+        flex: 1,
+        backgroundColor: '#F5F0E8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px 24px',
+      }}>
+        <div style={{ width: '100%', maxWidth: '380px' }}>
+
+          {/* Mobile wordmark */}
+          <div className="lg:hidden" style={{ marginBottom: '40px' }}>
+            <Image
+              src="/kreashot-wordmark-dark.png"
+              alt="Kreashot"
+              width={146}
+              height={28}
+              style={{ display: 'block' }}
+              priority
+            />
           </div>
 
-          <h1 className="text-2xl font-bold text-foreground mb-1">Welcome back</h1>
-          <p className="text-sm text-muted-foreground mb-8">Sign in to your account to continue</p>
+          <h1 style={{
+            fontFamily: displayFont,
+            fontSize: '32px',
+            fontWeight: 400,
+            color: '#1A1208',
+            marginBottom: '8px',
+            letterSpacing: '-0.01em',
+          }}>
+            Welcome back
+          </h1>
+          <p style={{ color: '#5C5245', fontSize: '14px', marginBottom: '36px', lineHeight: 1.5 }}>
+            Sign in to your account to continue
+          </p>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
+          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div>
+              <label htmlFor="email" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1A1208', marginBottom: '8px' }}>
+                Email
+              </label>
+              <input
                 id="email"
                 type="email"
-                placeholder="you@example.com"
+                placeholder="you@company.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={loading}
-                className="h-11"
+                style={{
+                  width: '100%',
+                  height: '44px',
+                  padding: '0 14px',
+                  border: '1.5px solid #DDD8CE',
+                  borderRadius: '8px',
+                  backgroundColor: '#FDFAF5',
+                  color: '#1A1208',
+                  fontSize: '14px',
+                  fontFamily: bodyFont,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = '#C9922A')}
+                onBlur={(e) => (e.target.style.borderColor = '#DDD8CE')}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
+
+            <div>
+              <label htmlFor="password" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1A1208', marginBottom: '8px' }}>
+                Password
+              </label>
+              <input
                 id="password"
                 type="password"
                 placeholder="••••••••"
@@ -130,32 +231,57 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={loading}
-                className="h-11"
+                style={{
+                  width: '100%',
+                  height: '44px',
+                  padding: '0 14px',
+                  border: '1.5px solid #DDD8CE',
+                  borderRadius: '8px',
+                  backgroundColor: '#FDFAF5',
+                  color: '#1A1208',
+                  fontSize: '14px',
+                  fontFamily: bodyFont,
+                  outline: 'none',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.2s',
+                }}
+                onFocus={(e) => (e.target.style.borderColor = '#C9922A')}
+                onBlur={(e) => (e.target.style.borderColor = '#DDD8CE')}
               />
             </div>
 
-            <Button
+            <button
               type="submit"
-              className="w-full h-11 bg-violet-600 hover:bg-violet-500 text-white font-medium"
               disabled={loading}
+              style={{
+                width: '100%',
+                height: '46px',
+                backgroundColor: loading ? '#8B3D22' : '#B85C38',
+                color: '#F5F0E8',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '15px',
+                fontWeight: 600,
+                fontFamily: bodyFont,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background-color 0.2s',
+                letterSpacing: '0.01em',
+              }}
             >
               {loading ? 'Signing in...' : 'Sign in'}
-            </Button>
+            </button>
           </form>
 
-          <p className="mt-6 text-sm text-muted-foreground text-center">
+          <p style={{ marginTop: '24px', fontSize: '14px', color: '#5C5245', textAlign: 'center' }}>
             Don&apos;t have an account?{' '}
-            <Link href="/auth/signup" className="text-violet-600 hover:text-violet-500 font-medium">
+            <Link href="/auth/signup" style={{ color: '#2D4A35', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid #2D4A35' }}>
               Sign up
             </Link>
           </p>
 
-          <div className="mt-8 pt-8 border-t border-border">
-            <Link
-              href="/"
-              className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              ← Back to home
+          <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #DDD8CE' }}>
+            <Link href="/" style={{ fontSize: '13px', color: '#5C5245', textDecoration: 'none' }}>
+              &larr; Back to home
             </Link>
           </div>
         </div>
@@ -167,10 +293,8 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="h-8 w-8 rounded-lg bg-violet-600 flex items-center justify-center">
-          <span className="text-white font-bold text-sm">K</span>
-        </div>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F0E8' }}>
+        <Image src="/kreashot-wordmark-dark.png" alt="Kreashot" width={146} height={28} priority />
       </div>
     }>
       <LoginForm />
