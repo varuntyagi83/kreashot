@@ -1,32 +1,11 @@
 import Link from 'next/link'
-import {
-  Package2,
-  Camera,
-  Layers,
-  ScanLine,
-  FileText,
-  LayoutTemplate,
-  Megaphone,
-  Grid2X2,
-  ArrowRight,
-} from 'lucide-react'
+import { PipelineFilmstrip } from '@/components/pipeline-filmstrip'
 
 // Brand Direction A: The Studio
 // Colors: Parchment #F5F0E8 | Roast #1A1208 | Studio Gold #C9922A | Forest #2D4A35
 //         Linen #DDD8CE | Taupe #5C5245 | Sage #4A7C59 | Terracotta #B85C38
 // Display: Canela / Playfair Display (var(--font-playfair))
 // Body: Inter (var(--font-inter))
-
-const PIPELINE = [
-  { Icon: Package2, label: 'Products' },
-  { Icon: Camera, label: 'Angled Shots' },
-  { Icon: Layers, label: 'Scenes' },
-  { Icon: ScanLine, label: 'Photoshoots' },
-  { Icon: FileText, label: 'Ad Copy' },
-  { Icon: LayoutTemplate, label: 'Templates' },
-  { Icon: Megaphone, label: 'Ads' },
-  { Icon: Grid2X2, label: 'Collage' },
-]
 
 const STEPS = [
   {
@@ -188,100 +167,7 @@ export default function LandingPage() {
       </section>
 
       {/* Pipeline filmstrip */}
-      <section style={{ backgroundColor: '#F5F0E8', overflowX: 'hidden', width: '100%' }}>
-
-        {/* Top film border: dark strip with label + parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208', width: '100%' }}>
-          <div style={{ padding: '12px 40px 8px' }}>
-            <p style={{
-              color: '#C9922A',
-              fontSize: '10px',
-              fontWeight: 700,
-              letterSpacing: '0.18em',
-              textTransform: 'uppercase',
-              margin: 0,
-            }}>
-              The 8-step pipeline
-            </p>
-          </div>
-          {/* SVG perforation pattern: scales to exactly 100% width, no overflow */}
-          <svg width="100%" height="28" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
-            <defs>
-              <pattern id="perfs-top" x="12" width="23" height="28" patternUnits="userSpaceOnUse">
-                <rect x="0" y="8" width="16" height="12" rx="3" fill="#F5F0E8" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="28" fill="url(#perfs-top)" />
-          </svg>
-        </div>
-
-        {/* Main content: warm parchment, steps spread full width */}
-        <div style={{
-          backgroundColor: '#EDE6D9',
-          padding: '24px 16px',
-          display: 'flex',
-          alignItems: 'flex-start',
-          width: '100%',
-          boxSizing: 'border-box',
-          overflow: 'hidden',
-        }}>
-          {PIPELINE.flatMap(({ Icon, label }, i) => [
-            <div key={label} style={{
-              flex: '1 1 0',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '6px',
-              minWidth: 0,
-            }}>
-              <div style={{
-                width: 'clamp(36px, 5.5vw, 52px)',
-                height: 'clamp(36px, 5.5vw, 52px)',
-                border: '1.5px solid #C4B49A',
-                borderRadius: '10px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: '#F5F0E8',
-                boxShadow: '0 1px 3px rgba(26,18,8,0.08)',
-                flexShrink: 1,
-              }}>
-                <Icon size={18} color="#1A1208" strokeWidth={1.5} />
-              </div>
-              <span style={{
-                color: '#5C5245',
-                fontSize: 'clamp(8px, 0.85vw, 11px)',
-                fontWeight: 500,
-                textAlign: 'center',
-                fontFamily: bodyFont,
-                lineHeight: 1.3,
-                width: '100%',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-              }}>
-                {label}
-              </span>
-            </div>,
-            ...(i < PIPELINE.length - 1 ? [
-              <div key={`arr-${i}`} style={{ flexShrink: 0, marginTop: '15px', padding: '0 1px' }}>
-                <ArrowRight size={9} color="#C9922A" />
-              </div>,
-            ] : []),
-          ])}
-        </div>
-
-        {/* Bottom film border: dark strip with parchment perforations */}
-        <div style={{ backgroundColor: '#1A1208', width: '100%' }}>
-          <svg width="100%" height="28" xmlns="http://www.w3.org/2000/svg" style={{ display: 'block' }}>
-            <defs>
-              <pattern id="perfs-bot" x="12" width="23" height="28" patternUnits="userSpaceOnUse">
-                <rect x="0" y="8" width="16" height="12" rx="3" fill="#F5F0E8" />
-              </pattern>
-            </defs>
-            <rect width="100%" height="28" fill="url(#perfs-bot)" />
-          </svg>
-        </div>
-
-      </section>
+      <PipelineFilmstrip />
 
       {/* Editorial quote */}
       <section style={{
