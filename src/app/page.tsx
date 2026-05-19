@@ -1,11 +1,40 @@
 import Link from 'next/link'
 import { PipelineFilmstrip } from '@/components/pipeline-filmstrip'
+import { FaqAccordion } from '@/components/faq-accordion'
 
 // Brand Direction A: The Studio
-// Colors: Parchment #F5F0E8 | Roast #1A1208 | Studio Gold #C9922A | Forest #2D4A35
-//         Linen #DDD8CE | Taupe #5C5245 | Sage #4A7C59 | Terracotta #B85C38
-// Display: Canela / Playfair Display (var(--font-playfair))
-// Body: Inter (var(--font-inter))
+// Parchment #F5F0E8 | Roast #1A1208 | Gold #C9922A | Forest #2D4A35
+// Linen #DDD8CE | Taupe #5C5245 | Sage #4A7C59 | Terracotta #B85C38
+
+const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
+const bodyFont = 'var(--font-inter), system-ui, sans-serif'
+
+function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; variant?: 'dark' | 'light' }) {
+  const src = variant === 'light' ? '/kreashot-wordmark-light.png' : '/kreashot-wordmark-dark.png'
+  const width = Math.round(height * (498 / 95))
+  return (
+    <img
+      src={src}
+      alt="kreashot"
+      width={width}
+      height={height}
+      style={{ display: 'block', width: `${width}px`, height: `${height}px` }}
+    />
+  )
+}
+
+const STATS = [
+  { value: '$8,000', label: 'avg. product shoot cost' },
+  { value: '< 2 min', label: 'from upload to first composite' },
+  { value: '20', label: 'ad variations per product' },
+  { value: '8 steps', label: 'from packshot to Meta export' },
+]
+
+const PAIN_POINTS = [
+  'Studio bookings take 3 weeks to schedule.',
+  'Retouching rounds stretch the timeline to 6 weeks.',
+  'Assets are outdated before the ads go live.',
+]
 
 const STEPS = [
   {
@@ -26,37 +55,10 @@ const STEPS = [
 ]
 
 const DIFFERENTIATORS = [
-  {
-    label: 'Not Canva',
-    body: 'Canva needs a finished product image. We generate the product image.',
-  },
-  {
-    label: 'Not Midjourney',
-    body: 'Midjourney makes art. We make ads with copy, layout, logo, and Meta export.',
-  },
-  {
-    label: 'Not an agency',
-    body: 'We are the production line that lets a one-person performance team behave like an agency.',
-  },
+  { label: 'Not Canva', body: 'Canva needs a finished product image. We generate the product image.' },
+  { label: 'Not Midjourney', body: 'Midjourney makes art. We make ads with copy, layout, logo, and Meta export.' },
+  { label: 'Not an agency', body: 'We are the production line that lets a one-person performance team behave like an agency.' },
 ]
-
-const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
-const bodyFont = 'var(--font-inter), system-ui, sans-serif'
-
-function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; variant?: 'dark' | 'light' }) {
-  const src = variant === 'light' ? '/kreashot-wordmark-light.png' : '/kreashot-wordmark-dark.png'
-  // Wordmark PNG is 498x95. Maintain aspect ratio.
-  const width = Math.round(height * (498 / 95))
-  return (
-    <img
-      src={src}
-      alt="kreashot"
-      width={width}
-      height={height}
-      style={{ display: 'block', width: `${width}px`, height: `${height}px` }}
-    />
-  )
-}
 
 export default function LandingPage() {
   return (
@@ -76,22 +78,13 @@ export default function LandingPage() {
           <KreashotWordmark height={32} variant="dark" />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <Link href="/auth/login" style={{
-            color: '#5C5245',
-            fontSize: '14px',
-            fontWeight: 500,
-            textDecoration: 'none',
-          }}>
+          <Link href="/auth/login" style={{ color: '#5C5245', fontSize: '14px', fontWeight: 500, textDecoration: 'none' }}>
             Sign in
           </Link>
           <Link href="/auth/signup" style={{
-            backgroundColor: '#B85C38',
-            color: '#F5F0E8',
-            padding: '10px 22px',
-            borderRadius: '6px',
-            fontSize: '14px',
-            fontWeight: 600,
-            textDecoration: 'none',
+            backgroundColor: '#B85C38', color: '#F5F0E8',
+            padding: '10px 22px', borderRadius: '6px',
+            fontSize: '14px', fontWeight: 600, textDecoration: 'none',
             letterSpacing: '0.01em',
           }}>
             Get started
@@ -99,128 +92,284 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero */}
+      {/* Hero — split panel */}
+      <div className="krea-hero-grid">
+
+        {/* Left: headline + CTAs */}
+        <div style={{
+          backgroundColor: '#F5F0E8',
+          padding: 'clamp(64px, 8vw, 100px) clamp(32px, 5vw, 80px)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+        }}>
+          <p style={{
+            color: '#C9922A', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: '32px',
+          }}>
+            The creative studio your brand can afford to hire
+          </p>
+          <h1 style={{
+            fontFamily: displayFont,
+            fontSize: 'clamp(44px, 6vw, 80px)',
+            fontWeight: 400,
+            lineHeight: 1.05,
+            color: '#1A1208',
+            letterSpacing: '-0.02em',
+            marginBottom: '28px',
+          }}>
+            Upload a product photo.<br />
+            Get 20 ad variations<br />
+            by lunch.
+          </h1>
+          <p style={{
+            color: '#5C5245', fontSize: '17px', lineHeight: 1.65,
+            maxWidth: '400px', marginBottom: '44px', fontFamily: bodyFont,
+          }}>
+            Studio-grade composites, brand-matched copy, and layouts export-ready for Meta Ads. No photographer. No scheduling. No waiting.
+          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            <Link href="/auth/signup" style={{
+              backgroundColor: '#B85C38', color: '#F5F0E8',
+              padding: '15px 36px', borderRadius: '6px',
+              fontSize: '15px', fontWeight: 600, textDecoration: 'none',
+            }}>
+              Start for free
+            </Link>
+            <Link href="/auth/login" style={{
+              color: '#2D4A35', fontSize: '15px', fontWeight: 500,
+              textDecoration: 'none', borderBottom: '1.5px solid #2D4A35', paddingBottom: '2px',
+            }}>
+              Sign in
+            </Link>
+          </div>
+        </div>
+
+        {/* Right: dark panel — 3 ad format cards (9:16, 1:1, 16:9) */}
+        <div className="krea-hero-visual" style={{
+          backgroundColor: '#1A1208',
+          position: 'relative',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+        }}>
+          {/* Subtle dot grid texture */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: 'radial-gradient(circle, rgba(201,146,42,0.06) 1px, transparent 1px)',
+            backgroundSize: '28px 28px',
+          }} />
+
+          {/* 3 stacked ad format cards */}
+          <div style={{ position: 'relative', width: '300px', height: '260px' }}>
+
+            {/* 9:16 portrait (stories) */}
+            <div style={{
+              position: 'absolute',
+              width: '100px', height: '178px',
+              backgroundColor: '#221708',
+              border: '1px solid rgba(201,146,42,0.18)',
+              borderRadius: '10px',
+              transform: 'rotate(-9deg) translate(-70px, 30px)',
+            }}>
+              <div style={{ margin: '10px', height: '112px', backgroundColor: '#2D1F09', borderRadius: '5px' }} />
+              <div style={{ margin: '10px 10px 5px', height: '7px', backgroundColor: 'rgba(201,146,42,0.2)', borderRadius: '2px' }} />
+              <div style={{ margin: '0 10px', height: '5px', width: '55%', backgroundColor: 'rgba(201,146,42,0.1)', borderRadius: '2px' }} />
+              <div style={{ position: 'absolute', bottom: '10px', left: '10px', right: '10px', height: '22px', backgroundColor: 'rgba(184,92,56,0.4)', borderRadius: '4px' }} />
+            </div>
+
+            {/* 1:1 square (feed) */}
+            <div style={{
+              position: 'absolute',
+              width: '168px', height: '168px',
+              backgroundColor: '#1E1508',
+              border: '1px solid rgba(201,146,42,0.38)',
+              borderRadius: '10px',
+              transform: 'rotate(-2deg) translate(10px, 40px)',
+              boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+            }}>
+              <div style={{ margin: '12px', height: '100px', backgroundColor: '#2A1C09', borderRadius: '5px', position: 'relative', overflow: 'hidden' }}>
+                <div style={{
+                  position: 'absolute', bottom: '-10px', left: '50%', transform: 'translateX(-50%)',
+                  width: '80px', height: '80px', borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(201,146,42,0.15) 0%, transparent 70%)',
+                }} />
+              </div>
+              <div style={{ margin: '10px 12px 5px', height: '8px', backgroundColor: 'rgba(201,146,42,0.28)', borderRadius: '2px', width: '65%' }} />
+              <div style={{ margin: '0 12px', height: '6px', width: '45%', backgroundColor: 'rgba(201,146,42,0.14)', borderRadius: '2px' }} />
+            </div>
+
+            {/* 16:9 landscape (display) */}
+            <div style={{
+              position: 'absolute',
+              width: '220px', height: '124px',
+              backgroundColor: '#1A1208',
+              border: '1px solid rgba(201,146,42,0.55)',
+              borderRadius: '10px',
+              transform: 'rotate(7deg) translate(72px, -30px)',
+              boxShadow: '0 24px 56px rgba(0,0,0,0.65)',
+            }}>
+              <div style={{ margin: '10px 10px 8px', height: '64px', backgroundColor: '#261A08', borderRadius: '5px' }} />
+              <div style={{ margin: '0 10px 5px', height: '7px', backgroundColor: 'rgba(201,146,42,0.38)', borderRadius: '2px', width: '58%' }} />
+              <div style={{ margin: '0 10px', height: '5px', width: '38%', backgroundColor: 'rgba(201,146,42,0.2)', borderRadius: '2px' }} />
+            </div>
+          </div>
+
+          {/* Format labels */}
+          <div style={{
+            position: 'absolute', bottom: '32px', left: '32px', right: '32px',
+            display: 'flex', alignItems: 'center', gap: '12px',
+          }}>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201,146,42,0.15)' }} />
+            <span style={{
+              color: 'rgba(201,146,42,0.55)', fontSize: '10px', fontWeight: 600,
+              letterSpacing: '0.14em', textTransform: 'uppercase', flexShrink: 0,
+              fontFamily: bodyFont,
+            }}>
+              9:16 · 1:1 · 16:9 · 4:5
+            </span>
+            <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(201,146,42,0.15)' }} />
+          </div>
+        </div>
+
+      </div>
+
+      {/* Stat rail */}
+      <div style={{ backgroundColor: '#1A1208', borderTop: '1px solid rgba(201,146,42,0.12)' }}>
+        <div className="krea-stats-grid">
+          {STATS.map(({ value, label }, i) => (
+            <div key={value} style={{
+              padding: 'clamp(28px, 3vw, 40px) 32px',
+              textAlign: 'center',
+              borderRight: i < STATS.length - 1 ? '1px solid rgba(221,216,206,0.07)' : 'none',
+            }}>
+              <p style={{
+                fontFamily: displayFont,
+                fontSize: 'clamp(26px, 3.2vw, 40px)',
+                fontWeight: 400,
+                color: '#C9922A',
+                marginBottom: '6px',
+                lineHeight: 1,
+              }}>
+                {value}
+              </p>
+              <p style={{ fontSize: '11px', color: '#DDD8CE', opacity: 0.45, fontFamily: bodyFont, letterSpacing: '0.02em' }}>
+                {label}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Problem section */}
       <section style={{
-        maxWidth: '840px',
-        margin: '0 auto',
-        padding: '96px 32px 80px',
-        textAlign: 'center',
+        backgroundColor: '#F5F0E8',
+        padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)',
       }}>
-        <p style={{
-          color: '#C9922A',
-          fontSize: '11px',
-          fontWeight: 600,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          marginBottom: '36px',
-        }}>
-          The creative studio your brand can afford to hire
-        </p>
-
-        <h1 style={{
-          fontFamily: displayFont,
-          fontSize: 'clamp(40px, 6vw, 66px)',
-          fontWeight: 400,
-          lineHeight: 1.08,
-          color: '#1A1208',
-          letterSpacing: '-0.02em',
-          marginBottom: '28px',
-        }}>
-          Upload a product photo.<br />Get 20 ad variations by lunch.
-        </h1>
-
-        <p style={{
-          color: '#5C5245',
-          fontSize: '17px',
-          lineHeight: 1.65,
-          maxWidth: '460px',
-          margin: '0 auto 44px',
-          fontFamily: bodyFont,
-        }}>
-          AI-generated composites, copy, and layouts. Your brand kit on top.
-          Export to Meta Ads Manager when done.
-        </p>
-
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', flexWrap: 'wrap' }}>
-          <Link href="/auth/signup" style={{
-            backgroundColor: '#B85C38',
-            color: '#F5F0E8',
-            padding: '15px 32px',
-            borderRadius: '6px',
-            fontSize: '15px',
-            fontWeight: 600,
-            textDecoration: 'none',
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <p style={{
+            color: '#B85C38', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: '40px',
           }}>
-            Start for free
-          </Link>
-          <Link href="/auth/login" style={{
-            color: '#2D4A35',
-            fontSize: '15px',
-            fontWeight: 500,
-            textDecoration: 'none',
-            borderBottom: '1.5px solid #2D4A35',
-            paddingBottom: '2px',
-          }}>
-            Sign in
-          </Link>
+            The problem
+          </p>
+          <div className="krea-two-col">
+            <div>
+              <h2 style={{
+                fontFamily: displayFont,
+                fontSize: 'clamp(30px, 4vw, 52px)',
+                fontWeight: 400,
+                color: '#1A1208',
+                lineHeight: 1.1,
+                letterSpacing: '-0.02em',
+              }}>
+                Most product photoshoots cost more than your monthly ad budget.
+              </h2>
+            </div>
+            <div>
+              <p style={{
+                color: '#5C5245', fontSize: '17px', lineHeight: 1.65,
+                marginBottom: '40px', fontFamily: bodyFont,
+              }}>
+                Brands spend an average of $8,000 per shoot and walk away with assets they use in fewer than 3 campaigns. The rest sits in a folder going stale.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                {PAIN_POINTS.map((point) => (
+                  <div key={point} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
+                    <span style={{
+                      flexShrink: 0,
+                      width: '24px', height: '24px',
+                      borderRadius: '50%',
+                      backgroundColor: 'rgba(184,92,56,0.08)',
+                      border: '1px solid rgba(184,92,56,0.28)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginTop: '1px',
+                    }}>
+                      <span style={{ color: '#B85C38', fontSize: '14px', lineHeight: 1, fontWeight: 600 }}>×</span>
+                    </span>
+                    <p style={{ color: '#5C5245', fontSize: '15px', lineHeight: 1.65, fontFamily: bodyFont, margin: 0 }}>
+                      {point}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* Pipeline filmstrip */}
-      <PipelineFilmstrip />
-
-      {/* Editorial quote */}
-      <section style={{
+      {/* Transition bridge — Forest band */}
+      <div style={{
         backgroundColor: '#2D4A35',
-        padding: '100px 32px',
-        textAlign: 'center',
+        padding: 'clamp(20px, 2.5vw, 28px) clamp(40px, 6vw, 100px)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '20px',
       }}>
+        <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(245,240,232,0.15)' }} />
         <p style={{
           fontFamily: displayFont,
           fontStyle: 'italic',
-          fontSize: 'clamp(22px, 3.5vw, 42px)',
-          fontWeight: 400,
-          color: '#F5F0E8',
-          lineHeight: 1.35,
-          maxWidth: '680px',
-          margin: '0 auto',
+          fontSize: 'clamp(15px, 2vw, 20px)',
+          color: 'rgba(245,240,232,0.8)',
+          flexShrink: 0,
+          margin: 0,
+          letterSpacing: '0.01em',
         }}>
-          We made this. No photographer. No studio. No waiting.
-          Production quality is not a claim. It is the output.
+          There is a different way.
         </p>
-      </section>
+        <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(245,240,232,0.15)' }} />
+      </div>
 
-      {/* How it works */}
-      <section style={{ padding: '100px 40px' }}>
-        <div style={{ maxWidth: '980px', margin: '0 auto' }}>
+      {/* Pipeline filmstrip — unchanged */}
+      <PipelineFilmstrip />
+
+      {/* How it works — unchanged */}
+      <section style={{ padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)' }}>
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
           <p style={{
-            color: '#C9922A',
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            marginBottom: '16px',
+            color: '#C9922A', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '16px',
           }}>
             How it works
           </p>
           <h2 style={{
             fontFamily: displayFont,
-            fontSize: 'clamp(28px, 3.5vw, 42px)',
+            fontSize: 'clamp(28px, 3.5vw, 48px)',
             fontWeight: 400,
             color: '#1A1208',
-            lineHeight: 1.15,
+            lineHeight: 1.1,
             letterSpacing: '-0.015em',
-            marginBottom: '64px',
+            marginBottom: '72px',
           }}>
             From raw packshot to Meta-ready composite
           </h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '48px' }}>
+          <div className="krea-steps-grid">
             {STEPS.map(({ n, title, body }) => (
               <div key={n}>
                 <p style={{
                   fontFamily: displayFont,
-                  fontSize: '48px',
+                  fontSize: '56px',
                   fontWeight: 400,
                   color: '#DDD8CE',
                   lineHeight: 1,
@@ -228,21 +377,10 @@ export default function LandingPage() {
                 }}>
                   {n}
                 </p>
-                <h3 style={{
-                  fontSize: '17px',
-                  fontWeight: 600,
-                  color: '#1A1208',
-                  marginBottom: '12px',
-                  fontFamily: bodyFont,
-                }}>
+                <h3 style={{ fontSize: '17px', fontWeight: 600, color: '#1A1208', marginBottom: '12px', fontFamily: bodyFont }}>
                   {title}
                 </h3>
-                <p style={{
-                  fontSize: '15px',
-                  color: '#5C5245',
-                  lineHeight: 1.7,
-                  fontFamily: bodyFont,
-                }}>
+                <p style={{ fontSize: '15px', color: '#5C5245', lineHeight: 1.7, fontFamily: bodyFont }}>
                   {body}
                 </p>
               </div>
@@ -251,109 +389,135 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Divider */}
-      <div style={{ borderTop: '1px solid #DDD8CE', margin: '0 40px' }} />
-
-      {/* What we are not */}
-      <section style={{ padding: '100px 40px' }}>
-        <div style={{
-          maxWidth: '980px', margin: '0 auto',
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '80px', alignItems: 'start',
-        }}>
-          <div>
-            <h2 style={{
-              fontFamily: displayFont,
-              fontSize: 'clamp(28px, 3vw, 40px)',
-              fontWeight: 400,
-              color: '#1A1208',
-              lineHeight: 1.2,
-              letterSpacing: '-0.015em',
-            }}>
-              Not Canva. Not Midjourney. Not an agency.
-            </h2>
-            <p style={{
-              color: '#5C5245', fontSize: '15px', lineHeight: 1.65,
-              marginTop: '20px', fontFamily: bodyFont,
-            }}>
-              Every tool in your stack solves a different problem. Kreashot solves the one none of them touch: replacing the $8,000 product photoshoot with a two-minute pipeline.
-            </p>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-            {DIFFERENTIATORS.map(({ label, body }, i) => (
-              <div key={label} style={{
-                padding: '28px 0',
-                borderBottom: i < DIFFERENTIATORS.length - 1 ? '1px solid #DDD8CE' : 'none',
-              }}>
-                <p style={{
-                  fontSize: '11px', fontWeight: 700, color: '#C9922A',
-                  letterSpacing: '0.1em', textTransform: 'uppercase',
-                  marginBottom: '8px', fontFamily: bodyFont,
-                }}>
-                  {label}
-                </p>
-                <p style={{ fontSize: '15px', color: '#5C5245', lineHeight: 1.65, fontFamily: bodyFont }}>
-                  {body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Numbers strip */}
+      {/* Mid-page CTA rail — Forest */}
       <section style={{
-        backgroundColor: '#F5F0E8',
-        borderTop: '1px solid #DDD8CE',
-        borderBottom: '1px solid #DDD8CE',
-        padding: '48px 40px',
+        backgroundColor: '#2D4A35',
+        padding: 'clamp(52px, 6vw, 80px) clamp(24px, 5vw, 80px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '40px',
+        flexWrap: 'wrap',
       }}>
-        <div style={{
-          maxWidth: '980px', margin: '0 auto',
-          display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '32px', textAlign: 'center',
+        <p style={{
+          fontFamily: displayFont,
+          fontStyle: 'italic',
+          fontSize: 'clamp(22px, 3vw, 38px)',
+          fontWeight: 400,
+          color: '#F5F0E8',
+          lineHeight: 1.2,
+          margin: 0,
+          maxWidth: '560px',
         }}>
-          {[
-            { stat: '20', label: 'ad variations per product shoot' },
-            { stat: '< 2 min', label: 'from upload to first composite' },
-            { stat: '8 steps', label: 'from packshot to Meta export' },
-          ].map(({ stat, label }) => (
-            <div key={stat}>
-              <p style={{
+          Ready to replace your last photoshoot with a two-minute pipeline?
+        </p>
+        <Link href="/auth/signup" style={{
+          backgroundColor: '#F5F0E8',
+          color: '#1A1208',
+          padding: '15px 36px',
+          borderRadius: '6px',
+          fontSize: '15px',
+          fontWeight: 600,
+          textDecoration: 'none',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}>
+          Start for free
+        </Link>
+      </section>
+
+      {/* Differentiator */}
+      <section style={{ padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)' }}>
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <div className="krea-two-col">
+            <div>
+              <h2 style={{
                 fontFamily: displayFont,
-                fontSize: '40px',
+                fontSize: 'clamp(30px, 3.5vw, 50px)',
                 fontWeight: 400,
                 color: '#1A1208',
-                marginBottom: '8px',
+                lineHeight: 1.08,
+                letterSpacing: '-0.015em',
+                marginBottom: '24px',
               }}>
-                {stat}
+                Not Canva.<br />Not Midjourney.<br />Not an agency.
+              </h2>
+              <p style={{
+                color: '#5C5245', fontSize: '15px', lineHeight: 1.7,
+                fontFamily: bodyFont, maxWidth: '360px',
+              }}>
+                Every tool in your stack solves a different problem. Kreashot solves the one none of them touch: replacing the $8,000 product photoshoot with a two-minute pipeline.
               </p>
-              <p style={{ fontSize: '13px', color: '#5C5245', fontFamily: bodyFont }}>{label}</p>
             </div>
-          ))}
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {DIFFERENTIATORS.map(({ label, body }, i) => (
+                <div key={label} style={{
+                  padding: '28px 0',
+                  borderBottom: i < DIFFERENTIATORS.length - 1 ? '1px solid #DDD8CE' : 'none',
+                }}>
+                  <p style={{
+                    fontSize: '11px', fontWeight: 700, color: '#C9922A',
+                    letterSpacing: '0.1em', textTransform: 'uppercase',
+                    marginBottom: '8px', fontFamily: bodyFont,
+                  }}>
+                    {label}
+                  </p>
+                  <p style={{ fontSize: '15px', color: '#5C5245', lineHeight: 1.65, fontFamily: bodyFont }}>
+                    {body}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* CTA */}
+      {/* FAQ */}
       <section style={{
         backgroundColor: '#1A1208',
-        padding: '100px 40px',
+        padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)',
+      }}>
+        <div style={{ maxWidth: '780px', margin: '0 auto' }}>
+          <p style={{
+            color: '#C9922A', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase', marginBottom: '16px',
+          }}>
+            Common questions
+          </p>
+          <h2 style={{
+            fontFamily: displayFont,
+            fontSize: 'clamp(26px, 3.2vw, 44px)',
+            fontWeight: 400,
+            color: '#F5F0E8',
+            lineHeight: 1.15,
+            letterSpacing: '-0.015em',
+            marginBottom: '56px',
+          }}>
+            Everything you need to know before your first upload.
+          </h2>
+          <FaqAccordion />
+        </div>
+      </section>
+
+      {/* Final CTA */}
+      <section style={{
+        backgroundColor: '#1A1208',
+        borderTop: '1px solid rgba(221,216,206,0.07)',
+        padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)',
         textAlign: 'center',
       }}>
         <p style={{
-          color: '#C9922A',
-          fontSize: '11px',
-          fontWeight: 700,
-          letterSpacing: '0.14em',
-          textTransform: 'uppercase',
-          marginBottom: '28px',
+          color: '#C9922A', fontSize: '11px', fontWeight: 700,
+          letterSpacing: '0.14em', textTransform: 'uppercase', marginBottom: '28px',
         }}>
           Replace your photoshoot
         </p>
         <h2 style={{
           fontFamily: displayFont,
-          fontSize: 'clamp(30px, 5vw, 54px)',
+          fontSize: 'clamp(30px, 5vw, 58px)',
           fontWeight: 400,
           color: '#F5F0E8',
-          lineHeight: 1.1,
+          lineHeight: 1.08,
           letterSpacing: '-0.02em',
           marginBottom: '20px',
         }}>
@@ -361,10 +525,9 @@ export default function LandingPage() {
         </h2>
         <p style={{
           color: '#DDD8CE',
-          opacity: 0.55,
+          opacity: 0.5,
           fontSize: '16px',
-          marginBottom: '44px',
-          maxWidth: '380px',
+          maxWidth: '360px',
           margin: '0 auto 44px',
           fontFamily: bodyFont,
           lineHeight: 1.6,
@@ -374,7 +537,7 @@ export default function LandingPage() {
         <Link href="/auth/signup" style={{
           backgroundColor: '#B85C38',
           color: '#F5F0E8',
-          padding: '16px 40px',
+          padding: '16px 44px',
           borderRadius: '6px',
           fontSize: '16px',
           fontWeight: 600,
@@ -388,11 +551,13 @@ export default function LandingPage() {
       {/* Footer */}
       <footer style={{
         backgroundColor: '#1A1208',
-        borderTop: '1px solid rgba(221,216,206,0.08)',
+        borderTop: '1px solid rgba(221,216,206,0.07)',
         padding: '28px 40px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
       }}>
         <span style={{ opacity: 0.65 }}>
           <KreashotWordmark height={24} variant="light" />

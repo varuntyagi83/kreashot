@@ -126,6 +126,41 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+/* Responsive layout classes — used by the landing page */
+.krea-hero-grid {
+  display: grid;
+  grid-template-columns: 58fr 42fr;
+  min-height: 88vh;
+  align-items: stretch;
+}
+.krea-hero-visual { display: flex; }
+
+.krea-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.krea-steps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+
+.krea-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .krea-hero-grid { grid-template-columns: 1fr; min-height: auto; }
+  .krea-hero-visual { display: none !important; }
+  .krea-two-col { grid-template-columns: 1fr; gap: 40px; }
+  .krea-steps-grid { grid-template-columns: 1fr; gap: 40px; }
+  .krea-stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
 /* Kreashot animation system — reusable across the app */
 @keyframes krea-pop {
   0%   { transform: scale(1)    translateY(0); }
