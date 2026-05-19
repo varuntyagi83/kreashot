@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { FORMATS } from '@/lib/formats'
-import { getCompanyId } from '@/lib/get-company'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 // GET - List all collages for a category
@@ -10,41 +10,29 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: categoryId } = await params
-  const format = request.nextUrl.searchParams.get('format')
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-  const companyId = await getCompanyId(supabase, user.id)
-  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
 
-  const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-  }
+    const format = request.nextUrl.searchParams.get('format') || undefined
 
-  let query = supabase
-    .from('collages')
-    .select('*')
-    .eq('category_id', categoryId)
-    .eq('company_id', companyId)
-    .order('created_at', { ascending: false })
+    const collages = await prisma.collage.findMany({
+      where: { categoryId, companyId, ...(format ? { format } : {}) },
+      orderBy: { createdAt: 'desc' },
+    })
 
-  if (format) {
-    query = query.eq('format', format)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
+    return NextResponse.json({ collages })
+  } catch (error: any) {
     console.error('[collages GET] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  return NextResponse.json({ collages: data })
 }
 
 // POST - Create a new collage design
@@ -53,28 +41,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: categoryId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
@@ -84,7 +65,6 @@ export async function POST(
     if (!Object.keys(FORMATS).includes(format)) {
       return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
-
     if (!name || !name.trim()) {
       return NextResponse.json({ error: 'Name is required' }, { status: 400 })
     }
@@ -92,7 +72,6 @@ export async function POST(
       return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
     }
 
-    // Validate background_color if provided
     if (collage_data?.background_color !== undefined) {
       const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
       if (!hexRegex.test(collage_data.background_color)) {
@@ -111,25 +90,18 @@ export async function POST(
     }
     const { width, height } = FORMAT_DIMENSIONS[format] ?? FORMAT_DIMENSIONS['1:1']
 
-    const { data: collage, error } = await supabase
-      .from('collages')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
+    const collage = await prisma.collage.create({
+      data: {
+        categoryId,
+        userId: user.id,
+        companyId,
         name: name.trim(),
         format,
-        width,
-        height,
-        collage_data: collage_data || { layers: [], background_color: '#FFFFFF' },
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Failed to create collage:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+        storagePath: '',
+        storageUrl: '',
+        metadata: { width, height, collageData: collage_data || { layers: [], background_color: '#FFFFFF' } },
+      },
+    })
 
     return NextResponse.json({ collage, message: 'Collage created successfully' })
   } catch (error: any) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { prisma } from '@/lib/db'
 
 export const dynamic = 'force-dynamic'
 
@@ -17,22 +17,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Find all backgrounds using the old thumbnail URL format
-    const { data: backgrounds, error } = await supabase
-      .from('backgrounds')
-      .select('id, storage_url, gdrive_file_id')
-      .like('storage_url', '%drive.google.com/thumbnail%')
+    const backgrounds = await prisma.background.findMany({
+      where: { storageUrl: { contains: 'drive.google.com/thumbnail' } },
+      select: { id: true, storageUrl: true, gdriveFileId: true },
+    })
 
-    if (error) {
-      console.error('[fix-thumbnail-urls] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    if (!backgrounds || backgrounds.length === 0) {
+    if (backgrounds.length === 0) {
       return NextResponse.json({ message: 'No URLs to fix', updated: 0 })
     }
 
@@ -40,10 +31,10 @@ export async function POST(request: NextRequest) {
     let skipped = 0
 
     for (const bg of backgrounds) {
-      // Extract file ID from either gdrive_file_id column or from the URL
-      let fileId = bg.gdrive_file_id
-      if (!fileId && bg.storage_url) {
-        const match = bg.storage_url.match(/[?&]id=([^&]+)/)
+      // Extract file ID from either gdriveFileId column or from the URL
+      let fileId = bg.gdriveFileId
+      if (!fileId && bg.storageUrl) {
+        const match = bg.storageUrl.match(/[?&]id=([^&]+)/)
         if (match) fileId = match[1]
       }
 
@@ -54,49 +45,51 @@ export async function POST(request: NextRequest) {
 
       const newUrl = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
 
-      const { error: updateError } = await supabase
-        .from('backgrounds')
-        .update({ storage_url: newUrl })
-        .eq('id', bg.id)
-
-      if (updateError) {
-        console.error(`Failed to update ${bg.id}:`, updateError)
-        skipped++
-      } else {
+      try {
+        await prisma.background.update({
+          where: { id: bg.id },
+          data: { storageUrl: newUrl },
+        })
         updated++
+      } catch (updateError) {
+        console.error(`Failed to update background ${bg.id}:`, updateError)
+        skipped++
       }
     }
 
-    // Also fix shot URLs in the same pattern
-    const { data: shots } = await supabase
-      .from('shots')
-      .select('id, storage_url, gdrive_file_id')
-      .like('storage_url', '%drive.google.com/thumbnail%')
+    // Also fix angled shot URLs in the same pattern
+    const shots = await prisma.angledShot.findMany({
+      where: { storageUrl: { contains: 'drive.google.com/thumbnail' } },
+      select: { id: true, storageUrl: true, gdriveFileId: true },
+    })
 
     let shotsUpdated = 0
-    if (shots && shots.length > 0) {
+    if (shots.length > 0) {
       for (const shot of shots) {
-        let fileId = shot.gdrive_file_id
-        if (!fileId && shot.storage_url) {
-          const match = shot.storage_url.match(/[?&]id=([^&]+)/)
+        let fileId = shot.gdriveFileId
+        if (!fileId && shot.storageUrl) {
+          const match = shot.storageUrl.match(/[?&]id=([^&]+)/)
           if (match) fileId = match[1]
         }
         if (!fileId) continue
 
         const newUrl = `https://lh3.googleusercontent.com/d/${fileId}=w2000`
-        const { error: updateError } = await supabase
-          .from('shots')
-          .update({ storage_url: newUrl })
-          .eq('id', shot.id)
-
-        if (!updateError) shotsUpdated++
+        try {
+          await prisma.angledShot.update({
+            where: { id: shot.id },
+            data: { storageUrl: newUrl },
+          })
+          shotsUpdated++
+        } catch {
+          // Non-fatal
+        }
       }
     }
 
     return NextResponse.json({
       message: 'URL migration complete',
       backgrounds: { found: backgrounds.length, updated, skipped },
-      shots: { found: shots?.length || 0, updated: shotsUpdated },
+      shots: { found: shots.length, updated: shotsUpdated },
     })
   } catch (error) {
     console.error('Fix thumbnail URLs error:', error)

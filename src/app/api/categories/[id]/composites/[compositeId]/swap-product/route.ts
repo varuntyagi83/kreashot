@@ -1,8 +1,8 @@
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyInfo } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { generateComposite } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
@@ -31,24 +31,22 @@ function detectMimeType(buffer: Buffer): string {
 
 /**
  * POST /api/categories/[id]/composites/[compositeId]/swap-product
- *
- * Swaps the product in an existing composite with a different angled shot.
- * Regenerates using Gemini with the same background, saves as a new composite.
- *
- * Body: { newAngledShotId: string }
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; compositeId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId, compositeId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`swap-product:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -58,10 +56,6 @@ export async function POST(
       )
     }
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
     const body = await request.json()
     const { newAngledShotId } = body
 
@@ -69,60 +63,58 @@ export async function POST(
       return NextResponse.json({ error: 'newAngledShotId is required' }, { status: 400 })
     }
 
-    // Fetch the original composite
-    const { data: composite } = await supabase
-      .from('composites')
-      .select('*, category:categories!inner(company_id, slug, look_and_feel)')
-      .eq('id', compositeId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const composite = await prisma.composite.findFirst({
+      where: { id: compositeId, categoryId, companyId },
+      include: { category: { select: { slug: true, lookAndFeel: true } } },
+    })
 
     if (!composite) {
       return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
     }
 
-    // Fetch the new angled shot
-    const { data: newShot } = await supabase
-      .from('angled_shots')
-      .select('id, display_name, angle_name, product_id, storage_provider, storage_url, storage_path, gdrive_file_id')
-      .eq('id', newAngledShotId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const newShot = await prisma.angledShot.findFirst({
+      where: { id: newAngledShotId, categoryId, companyId },
+      select: { id: true, displayName: true, angleName: true, productId: true, storageProvider: true, storageUrl: true, storagePath: true, gdriveFileId: true },
+    })
 
     if (!newShot) {
       return NextResponse.json({ error: 'New angled shot not found' }, { status: 404 })
     }
 
-    // Fetch the original background
-    const { data: background } = await supabase
-      .from('backgrounds')
-      .select('id, name, storage_provider, storage_url, storage_path, gdrive_file_id')
-      .eq('id', composite.background_id)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const background = await prisma.background.findFirst({
+      where: { id: composite.backgroundId, categoryId, companyId },
+      select: { id: true, name: true, storageProvider: true, storageUrl: true, storagePath: true, gdriveFileId: true },
+    })
 
     if (!background) {
       return NextResponse.json({ error: 'Background not found' }, { status: 404 })
     }
 
     // Download new angled shot
-    const shotKey = newShot.gdrive_file_id || newShot.storage_path
+    const shotKey = newShot.gdriveFileId || newShot.storagePath
     if (!shotKey) {
       return NextResponse.json({ error: 'New angled shot has no downloadable file' }, { status: 400 })
     }
-    const shotBuffer = await downloadFile(shotKey, { provider: 'gdrive' })
 
-    // Download background
-    const bgKey = background.gdrive_file_id || background.storage_path
+    let shotBuffer: Buffer
+    if (newShot.storageProvider === 'gcs') {
+      shotBuffer = await downloadFile(shotKey, { provider: 'gcs' })
+    } else {
+      shotBuffer = await downloadFile(shotKey, { provider: 'gdrive' })
+    }
+
+    const bgKey = background.gdriveFileId || background.storagePath
     if (!bgKey) {
       return NextResponse.json({ error: 'Background has no downloadable file' }, { status: 400 })
     }
-    const bgBuffer = await downloadFile(bgKey, { provider: 'gdrive' })
 
-    // Downscale for Gemini
+    let bgBuffer: Buffer
+    if (background.storageProvider === 'gcs') {
+      bgBuffer = await downloadFile(bgKey, { provider: 'gcs' })
+    } else {
+      bgBuffer = await downloadFile(bgKey, { provider: 'gdrive' })
+    }
+
     const shotResized = await downscaleForGemini(shotBuffer)
     const bgResized   = await downscaleForGemini(bgBuffer)
 
@@ -131,8 +123,8 @@ export async function POST(
 
     const format = composite.format || '1:1'
     const fmtDims = getFormatDimensions(format)
-    const categorySlug = (composite.category as any).slug
-    const lookAndFeel  = (composite.category as any).look_and_feel || undefined
+    const categorySlug = composite.category.slug
+    const lookAndFeel  = composite.category.lookAndFeel || undefined
 
     const swapPrompt = 'Replace the product in the scene with the new product image, matching the same lighting, camera angle, shadows, and background composition exactly. Keep the scene identical.'
 
@@ -152,13 +144,12 @@ export async function POST(
 
     const generationTimeMs = Date.now() - startTime
 
-    // Save new composite
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-    const newShotName = newShot.display_name || newShot.angle_name
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const newShotName = newShot.displayName || newShot.angleName
     const bgName = background.name
     const folderName = formatToFolderName(format)
     const newSlug = `${categorySlug}-${newShotName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${bgName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-swap-${Date.now()}`
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
     const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
     const outputBuffer = Buffer.from(base64Data, 'base64')
@@ -170,37 +161,26 @@ export async function POST(
 
     const newName = `${newShotName} on ${bgName}`
 
-    const { data: newComposite, error: dbError } = await supabase
-      .from('composites')
-      .insert({
-        category_id: categoryId,
-        company_id: companyId,
-        user_id: user.id,
-        product_id: newShot.product_id || null,
-        angled_shot_id: newAngledShotId,
-        background_id: composite.background_id,
+    const newComposite = await prisma.composite.create({
+      data: {
+        categoryId,
+        companyId,
+        userId: user.id,
+        productId: newShot.productId,
+        angledShotId: newAngledShotId,
+        backgroundId: composite.backgroundId,
         name: newName,
         slug: newSlug,
         description: `Product swap: ${newShotName} in ${bgName} scene`,
-        prompt_used: generated.promptUsed,
+        promptUsed: generated.promptUsed,
         format,
-        width: fmtDims.width,
-        height: fmtDims.height,
-        aspect_ratio: format,
-        generation_time_ms: generationTimeMs,
-        storage_provider: 'gdrive',
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        gdrive_file_id: storageFile.fileId || null,
-        metadata: {},
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error('DB error saving swapped composite:', dbError)
-      return NextResponse.json({ error: 'Failed to save swapped composite' }, { status: 500 })
-    }
+        storageProvider: 'gdrive',
+        storagePath: storageFile.path,
+        storageUrl: storageFile.publicUrl,
+        gdriveFileId: storageFile.fileId || null,
+        metadata: { width: fmtDims.width, height: fmtDims.height, generationTimeMs },
+      },
+    })
 
     return NextResponse.json({
       message: 'Product swapped successfully',

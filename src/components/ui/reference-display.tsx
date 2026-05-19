@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Package, Image as ImageIcon, ExternalLink, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -30,7 +29,6 @@ interface ReferenceDisplayProps {
 
 export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
   const [references, setReferences] = useState<Map<string, ReferenceDetails>>(new Map())
-  const supabase = createClient()
 
   // Parse text to extract references
   const parseReferences = (text: string): ParsedReference[] => {
@@ -71,7 +69,7 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
     return parts
   }
 
-  // Fetch reference details
+  // Fetch reference details via API
   useEffect(() => {
     const parts = parseReferences(text)
     const referencesToFetch = parts.filter((p) => p.type === 'reference')
@@ -87,55 +85,50 @@ export function ReferenceDisplay({ text, className }: ReferenceDisplayProps) {
         const key = `${ref.referenceType}:${ref.referenceId}`
 
         if (ref.referenceType === 'brand-asset') {
-          const { data } = await supabase
-            .from('brand_assets')
-            .select('id, file_name, file_path, mime_type, storage_url, storage_path')
-            .eq('id', ref.referenceId)
-            .single()
-
-          if (data) {
-            // Use stored storage_url if available, otherwise generate from Supabase Storage
-            const preview = data.storage_url ||
-              supabase.storage.from('brand-assets').getPublicUrl(data.storage_path || data.file_path).data.publicUrl
-
-            newReferences.set(key, {
-              id: data.id,
-              type: 'brand-asset',
-              name: data.file_name,
-              preview,
-              isImage: data.mime_type.startsWith('image/'),
-            })
+          try {
+            const res = await fetch(`/api/brand-assets/${ref.referenceId}`)
+            if (res.ok) {
+              const { asset } = await res.json()
+              newReferences.set(key, {
+                id: asset.id,
+                type: 'brand-asset',
+                name: asset.name || asset.fileName,
+                preview: asset.storageUrl,
+                isImage: (asset.mimeType || '').startsWith('image/'),
+              })
+            }
+          } catch {
+            // Non-fatal
           }
         } else if (ref.referenceType === 'product') {
-          const { data } = await supabase
-            .from('products')
-            .select('id, name, category:categories!inner(id, name)')
-            .eq('id', ref.referenceId)
-            .single()
-
-          if (data) {
-            const productData = data as any
-            newReferences.set(key, {
-              id: productData.id,
-              type: 'product',
-              name: productData.name,
-              categoryName: productData.category.name,
-              categoryId: productData.category.id,
-            })
+          try {
+            const res = await fetch(`/api/products/${ref.referenceId}`)
+            if (res.ok) {
+              const { product } = await res.json()
+              newReferences.set(key, {
+                id: product.id,
+                type: 'product',
+                name: product.name,
+                categoryName: product.category?.name,
+                categoryId: product.categoryId,
+              })
+            }
+          } catch {
+            // Non-fatal
           }
         } else if (ref.referenceType === 'guideline') {
-          const { data } = await supabase
-            .from('brand_guidelines')
-            .select('id, name, source_file_name')
-            .eq('id', ref.referenceId)
-            .single()
-
-          if (data) {
-            newReferences.set(key, {
-              id: data.id,
-              type: 'guideline',
-              name: data.name,
-            })
+          try {
+            const res = await fetch(`/api/brand-guidelines/${ref.referenceId}`)
+            if (res.ok) {
+              const { guideline } = await res.json()
+              newReferences.set(key, {
+                id: guideline.id,
+                type: 'guideline',
+                name: guideline.name,
+              })
+            }
+          } catch {
+            // Non-fatal
           }
         }
       }

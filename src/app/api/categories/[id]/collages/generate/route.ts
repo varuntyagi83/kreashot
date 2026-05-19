@@ -2,13 +2,13 @@ export const maxDuration = 300
 
 import { checkRateLimit } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile } from '@/lib/storage'
 import { spawn } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
 import crypto from 'crypto'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 const ALLOWED_LAYER_URL_DOMAINS = [
@@ -16,7 +16,6 @@ const ALLOWED_LAYER_URL_DOMAINS = [
   'drive.google.com',
   'drive.usercontent.google.com',
   'storage.googleapis.com',
-  'supabase.co',
 ]
 
 function isAllowedUrl(url: string): boolean {
@@ -38,17 +37,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: categoryId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`collage-gen:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -65,36 +64,28 @@ export async function POST(
       return NextResponse.json({ error: 'collageId is required' }, { status: 400 })
     }
 
-    // 1. Fetch the collage design
-    const { data: collage, error: fetchError } = await supabase
-      .from('collages')
-      .select('*')
-      .eq('id', collageId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const collage = await prisma.collage.findFirst({
+      where: { id: collageId, categoryId, companyId },
+    })
 
-    if (fetchError || !collage) {
+    if (!collage) {
       return NextResponse.json({ error: 'Collage not found' }, { status: 404 })
     }
 
-    const collageData = typeof collage.collage_data === 'string'
-      ? JSON.parse(collage.collage_data)
-      : collage.collage_data
+    const meta = collage.metadata as any
+    const collageData = typeof meta?.collageData === 'string'
+      ? JSON.parse(meta.collageData)
+      : meta?.collageData || {}
 
     const layers = collageData?.layers || []
     if (layers.length === 0) {
       return NextResponse.json({ error: 'Collage has no layers to render' }, { status: 400 })
     }
 
-    console.log(`🎨 Generating collage "${collage.name}" (${collage.format} ${collage.width}x${collage.height}) with ${layers.length} layers`)
+    const collageWidth = meta?.width || 1080
+    const collageHeight = meta?.height || 1080
+    console.log(`Generating collage "${collage.name}" (${collage.format} ${collageWidth}x${collageHeight}) with ${layers.length} layers`)
 
-    // 2. Build input for the PIL script.
-    // The script expects template_data with layers. For collage, we pass
-    // layers directly — the script handles background, text, overlay, and
-    // the new 'image' layer type.
-    // We inject a synthetic background layer if collage has a background_color
-    // but no explicit background layer.
     const hasBackgroundLayer = layers.some((l: any) => l.type === 'background')
     const effectiveLayers = hasBackgroundLayer
       ? layers
@@ -117,10 +108,9 @@ export async function POST(
         return NextResponse.json({ error: 'Layer name must be 100 characters or fewer' }, { status: 400 })
       }
     }
-    const sanitizedLayers = effectiveLayers || []
 
     const VALID_COLLAGE_LAYER_TYPES = ['image', 'text', 'overlay', 'background', 'background_color']
-    const validatedLayers = sanitizedLayers.filter((layer: any) => {
+    const validatedLayers = effectiveLayers.filter((layer: any) => {
       if (!VALID_COLLAGE_LAYER_TYPES.includes(layer?.type)) {
         console.warn(`Skipping layer with invalid type: ${layer?.type}`)
         return false
@@ -132,7 +122,6 @@ export async function POST(
       return true
     })
 
-    // Build copy_text from text layers (keyed by layer name)
     const copyText: Record<string, string> = {}
     for (const layer of layers) {
       if (layer.type === 'text' && layer.name) {
@@ -144,20 +133,16 @@ export async function POST(
 
     const inputData = {
       template_data: { layers: validatedLayers },
-      composite_url: '',  // no composite — images come from layer source_urls
+      composite_url: '',
       copy_text: copyText,
       logo_url: null,
-      width: collage.width,
-      height: collage.height,
+      width: collageWidth,
+      height: collageHeight,
       output_path: outputPath,
     }
 
-    // 3. Call Python compositing script
-    console.log('🐍 Calling Python compositing script for collage...')
-
     const pythonScript = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
-
-    const PYTHON_TIMEOUT_MS = 120_000 // 2 minutes
+    const PYTHON_TIMEOUT_MS = 120_000
 
     let python: ReturnType<typeof spawn>
     const result = await Promise.race([
@@ -178,11 +163,9 @@ export async function POST(
 
         python.on('close', (code) => {
           if (code !== 0) {
-            console.error('❌ Python script failed:', stderr)
-            console.error('[collages generate] Python script failed. stderr:', stderr)
+            console.error('Python script failed:', stderr)
             reject(new Error('Image processing failed'))
           } else {
-            console.log('✅ Python script output:', stdout)
             const lines = stdout.trim().split('\n')
             const resultLine = lines[lines.length - 1]
             try {
@@ -202,67 +185,45 @@ export async function POST(
       ),
     ])
 
-    // 4. Upload to GCS
-    console.log('📤 Uploading collage to GCS...')
+    // Upload to GCS
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { slug: true },
+    })
 
-    const { data: category } = await supabase
-      .from('categories')
-      .select('slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
-
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
     const categorySlug = category?.slug || 'unknown'
     const timestamp = Date.now()
     const formatFolder = collage.format.replace(':', 'x')
-    const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
+    const storagePath = `${sanitizedCompanyName}/${company.slug}/${categorySlug}/collages/${formatFolder}/collage_${timestamp}.png`
 
     const fileBuffer = await readFile(result)
 
-    const { publicUrl } = await uploadFile(
-      fileBuffer,
-      storagePath,
-      { provider: 'gcs' }
-    )
+    const { publicUrl } = await uploadFile(fileBuffer, storagePath, { provider: 'gcs' })
 
-    // 5. Update collage record with generated output
     let updated: any
     try {
-      const { data, error: updateError } = await supabase
-        .from('collages')
-        .update({
-          storage_provider: 'gcs',
-          storage_path: storagePath,
-          storage_url: publicUrl,
-          gdrive_file_id: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', collageId)
-        .select()
-        .single()
-
-      if (updateError) {
-        console.error('❌ Database update failed:', updateError)
-        throw updateError
-      }
-      updated = data
+      updated = await prisma.collage.update({
+        where: { id: collageId },
+        data: {
+          storageProvider: 'gcs',
+          storagePath,
+          storageUrl: publicUrl,
+          gdriveFileId: null,
+        },
+      })
     } finally {
-      // 6. Cleanup temp file — always, even on error
       await unlink(result).catch(() => {})
     }
 
-    console.log('✅ Collage generated successfully!')
+    console.log('Collage generated successfully!')
 
     return NextResponse.json({
       collage: updated,
       message: 'Collage generated successfully',
     })
   } catch (error: any) {
-    console.error('❌ Error generating collage:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('Error generating collage:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

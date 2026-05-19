@@ -1,75 +1,69 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 // GET /api/references/search?q=query - Search brand assets, guidelines, and products
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
+
     const searchParams = request.nextUrl.searchParams
     const rawQuery = (searchParams.get('q') || '').slice(0, 200)
-    // Escape Postgres LIKE metacharacters so % and _ in user input are treated as literals
-    const query = rawQuery.replace(/[%_\\]/g, '\\$&')
-
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     // Search brand assets
-    const { data: brandAssets } = await supabase
-      .from('brand_assets')
-      .select('id, file_name, file_path, mime_type, storage_url, storage_path')
-      .eq('company_id', companyId)
-      .ilike('file_name', `%${query}%`)
-      .limit(5)
-
-    // Search brand guidelines library
-    const { data: guidelines } = await supabase
-      .from('brand_guidelines')
-      .select('id, name, source_file_name, is_default')
-      .eq('company_id', companyId)
-      .ilike('name', `%${query}%`)
-      .limit(5)
-
-    // Search products across all categories
-    const { data: products } = await supabase
-      .from('products')
-      .select('id, name, slug, category:categories!inner(id, name, company_id)')
-      .eq('category.company_id', companyId)
-      .ilike('name', `%${query}%`)
-      .limit(5)
-
-    // Format results
-    const brandAssetResults = (brandAssets || []).map((asset) => {
-      // Use stored storage_url if available, otherwise generate from Supabase Storage
-      const preview = asset.storage_url ||
-        supabase.storage.from('brand-assets').getPublicUrl(asset.storage_path || asset.file_path).data.publicUrl
-
-      return {
-        id: asset.id,
-        type: 'brand-asset' as const,
-        name: asset.file_name,
-        preview,
-        isImage: asset.mime_type.startsWith('image/'),
-      }
+    const brandAssets = await prisma.brandAsset.findMany({
+      where: {
+        companyId,
+        name: { contains: rawQuery, mode: 'insensitive' },
+      },
+      select: { id: true, name: true, assetType: true, metadata: true, storageUrl: true, storagePath: true },
+      take: 5,
     })
 
-    const guidelineResults = (guidelines || []).map((g) => ({
+    // Search brand guidelines library
+    const guidelines = await prisma.brandGuideline.findMany({
+      where: {
+        companyId,
+        name: { contains: rawQuery, mode: 'insensitive' },
+      },
+      select: { id: true, name: true, sourceFileName: true, isDefault: true },
+      take: 5,
+    })
+
+    // Search products across all categories in company
+    const products = await prisma.product.findMany({
+      where: {
+        companyId,
+        name: { contains: rawQuery, mode: 'insensitive' },
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        category: { select: { id: true, name: true } },
+      },
+      take: 5,
+    })
+
+    // Format results
+    const brandAssetResults = brandAssets.map((asset) => ({
+      id: asset.id,
+      type: 'brand-asset' as const,
+      name: asset.name,
+      preview: asset.storageUrl || asset.storagePath || '',
+      isImage: (asset.metadata as any)?.mimeType?.startsWith('image/') ?? asset.assetType === 'image',
+    }))
+
+    const guidelineResults = guidelines.map((g) => ({
       id: g.id,
       type: 'guideline' as const,
       name: g.name,
       isImage: false,
     }))
 
-    const productResults = (products || []).map((product: any) => ({
+    const productResults = products.map((product) => ({
       id: product.id,
       type: 'product' as const,
       name: product.name,
@@ -82,9 +76,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results })
   } catch (error) {
     console.error('Search error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { deleteFile } from '@/lib/storage'
-import { getCompanyId } from '@/lib/get-company'
 
 // PATCH /api/categories/[id]/products/[productId]/images/[imageId] - Set as primary
 export async function PATCH(
@@ -13,60 +13,29 @@ export async function PATCH(
   }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, productId, imageId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
     // Verify image belongs to company's product
-    const { data: image } = await supabase
-      .from('product_images')
-      .select('*, product:products!inner(category:categories!inner(company_id))')
-      .eq('id', imageId)
-      .eq('product_id', productId)
-      .eq('product.category_id', categoryId)
-      .eq('product.category.company_id', companyId)
-      .single()
+    const image = await prisma.productImage.findFirst({
+      where: {
+        id: imageId,
+        productId,
+        product: { categoryId, companyId },
+      },
+      select: { id: true },
+    })
 
     if (!image) {
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
-    // Remove primary flag from all images for this product
-    await supabase
-      .from('product_images')
-      .update({ is_primary: false })
-      .eq('product_id', productId)
-
-    // Set this image as primary
-    const { data: updatedImage, error } = await supabase
-      .from('product_images')
-      .update({ is_primary: true })
-      .eq('id', imageId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[product images PATCH] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
+    const updatedImage = await prisma.productImage.findUnique({ where: { id: imageId } })
     return NextResponse.json({ image: updatedImage })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -80,86 +49,42 @@ export async function DELETE(
   }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, productId, imageId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
     // Verify image belongs to company's product
-    const { data: image } = await supabase
-      .from('product_images')
-      .select('*, product:products!inner(category:categories!inner(company_id))')
-      .eq('id', imageId)
-      .eq('product_id', productId)
-      .eq('product.category_id', categoryId)
-      .eq('product.category.company_id', companyId)
-      .single()
+    const image = await prisma.productImage.findFirst({
+      where: {
+        id: imageId,
+        productId,
+        product: { categoryId, companyId },
+      },
+    })
 
     if (!image) {
       return NextResponse.json({ error: 'Image not found' }, { status: 404 })
     }
 
-    // Delete from storage (use correct provider based on how the image was stored)
+    // Delete from storage
     try {
-      if (image.storage_provider === 'gdrive' && image.gdrive_file_id) {
-        await deleteFile(image.gdrive_file_id, { provider: 'gdrive' })
-      } else {
-        const { error: storageError } = await supabase.storage
-          .from('product-images')
-          .remove([image.file_path])
-        if (storageError) {
-          console.error('Supabase storage deletion error:', storageError)
-        }
+      if (image.storageProvider === 'gdrive' && image.gdriveFileId) {
+        await deleteFile(image.gdriveFileId, { provider: 'gdrive' })
+      } else if (image.storagePath) {
+        await deleteFile(image.storagePath, { provider: image.storageProvider as any })
       }
     } catch (storageError) {
       console.error('Storage deletion error:', storageError)
       // Continue with database cleanup even if storage deletion fails
     }
 
-    // If this was the primary image, set another image as primary
-    if (image.is_primary) {
-      const { data: nextImage } = await supabase
-        .from('product_images')
-        .select('id')
-        .eq('product_id', productId)
-        .neq('id', imageId)
-        .limit(1)
-        .single()
-
-      if (nextImage) {
-        await supabase
-          .from('product_images')
-          .update({ is_primary: true })
-          .eq('id', nextImage.id)
-      }
-    }
-
     // Delete from database
-    const { error } = await supabase
-      .from('product_images')
-      .delete()
-      .eq('id', imageId)
-
-    if (error) {
-      console.error('[product images DELETE] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    await prisma.productImage.delete({ where: { id: imageId } })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[product images DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

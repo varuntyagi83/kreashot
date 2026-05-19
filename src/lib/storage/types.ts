@@ -1,6 +1,6 @@
 /**
  * Storage adapter types for multi-provider file storage
- * Supports Supabase, Google Drive, S3, and other providers
+ * Supports Google Drive, GCS, S3, and other providers
  */
 
 export interface UploadOptions {
@@ -59,4 +59,4 @@ export interface StorageAdapter {
   exists(path: string): Promise<boolean>
 }
 
-export type StorageProvider = 'supabase' | 'gdrive' | 'gcs' | 's3' | 'local'
+export type StorageProvider = 'gdrive' | 'gcs' | 's3' | 'local'

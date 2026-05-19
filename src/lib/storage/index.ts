@@ -1,12 +1,10 @@
 import { GoogleDriveAdapter } from './gdrive-adapter'
 import { GCSAdapter } from './gcs-adapter'
-import { SupabaseAdapter } from './supabase-adapter'
 import type { StorageAdapter, StorageProvider } from './types'
 
 export * from './types'
 export { GoogleDriveAdapter } from './gdrive-adapter'
 export { GCSAdapter } from './gcs-adapter'
-export { SupabaseAdapter } from './supabase-adapter'
 
 /**
  * Get storage adapter based on configuration.
@@ -25,9 +23,6 @@ export function getStorageAdapter(
 
     case 'gdrive':
       return new GoogleDriveAdapter()
-
-    case 'supabase':
-      return new SupabaseAdapter(bucket || 'product-images')
 
     case 's3':
       throw new Error('S3 adapter not yet implemented')

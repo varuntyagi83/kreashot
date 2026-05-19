@@ -1,52 +1,16 @@
-import { createServerClient } from '@supabase/ssr'
+import { auth } from '@/auth'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll()
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            request.cookies.set(name, value)
-          )
-          response = NextResponse.next({
-            request,
-          })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          )
-        },
-      },
-    }
-  )
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
   const pathname = request.nextUrl.pathname
   const isAuthRoute = pathname.startsWith('/auth')
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isCleanupApiRoute = pathname.startsWith('/api/cleanup')
   const isLandingPage = pathname === '/'
 
-  // Admin and cleanup routes bypass session auth because Railway cron jobs have no cookies.
-  // They are protected by a CRON_SECRET bearer token checked inside each route handler.
-  // Guard here: if CRON_SECRET is missing or shorter than 32 chars, reject all admin calls
-  // so a misconfigured deployment never exposes destructive operations.
+  // Admin and cleanup routes are protected by CRON_SECRET bearer token
   if (isAdminApiRoute || isCleanupApiRoute) {
     const cronSecret = process.env.CRON_SECRET
     if (!cronSecret || cronSecret.length < 32) {
@@ -59,11 +23,16 @@ export async function proxy(request: NextRequest) {
     if (!authHeader || authHeader !== `Bearer ${cronSecret}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-    return response
+    return NextResponse.next()
   }
 
-  // Use NEXT_PUBLIC_APP_URL as base to avoid Railway's internal 0.0.0.0:PORT address
-  // leaking into redirect Location headers sent to the browser.
+  // Auth.js API routes must pass through unmodified
+  if (pathname.startsWith('/api/auth')) {
+    return NextResponse.next()
+  }
+
+  const session = await auth()
+  const user = session?.user
   const appOrigin = (getBaseUrl() || request.nextUrl.origin).replace(/\/$/, '')
 
   // Authenticated users hitting the landing page go straight to the dashboard
@@ -71,22 +40,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', appOrigin))
   }
 
-  // Redirect to login if user is not authenticated and trying to access protected routes.
+  // Redirect to login if unauthenticated and trying to access protected routes
   if (!user && !isAuthRoute && !isLandingPage) {
     return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 
-  // Redirect to dashboard if user is authenticated and trying to access auth routes
-  if (user && isAuthRoute && !pathname.includes('/callback')) {
+  // Redirect to dashboard if authenticated and hitting an auth page
+  if (user && isAuthRoute && !pathname.includes('/verify')) {
     return NextResponse.redirect(new URL('/dashboard', appOrigin))
   }
 
-  return response
+  return NextResponse.next()
 }
 
 export const config = {
   matcher: [
-    // Exclude static assets, images, and the health check endpoint (used by Railway)
     '/((?!_next/static|_next/image|favicon.ico|api/health|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

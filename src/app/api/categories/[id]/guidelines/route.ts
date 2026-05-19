@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile, deleteFile } from '@/lib/storage'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
-// Helper to generate slug from name
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -24,67 +23,38 @@ function detectFileMime(buf: Buffer): string | null {
 
 /**
  * GET /api/categories/[id]/guidelines
- * Lists all guideline documents for a category
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
-
-    // Verify category belongs to company
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get all guidelines for this category
-    const { data: guidelines, error } = await supabase
-      .from('guidelines')
-      .select('*')
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching guidelines:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const guidelines = await prisma.guideline.findMany({
+      where: { categoryId, companyId },
+      orderBy: { createdAt: 'desc' },
+    })
 
     return NextResponse.json({
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-      },
-      guidelines: guidelines || [],
+      category: { id: category.id, name: category.name, slug: category.slug },
+      guidelines,
     })
   } catch (error) {
     console.error('Error fetching guidelines:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -97,33 +67,26 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Parse multipart form data
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const name = formData.get('name') as string | null
@@ -132,11 +95,9 @@ export async function POST(
     if (!file) {
       return NextResponse.json({ error: 'file is required' }, { status: 400 })
     }
-
     if (!name) {
       return NextResponse.json({ error: 'name is required' }, { status: 400 })
     }
-
     if (name.length > 200) {
       return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
@@ -144,35 +105,23 @@ export async function POST(
       return NextResponse.json({ error: 'description must be 1000 characters or fewer' }, { status: 400 })
     }
 
-    // Validate file type
     const allowedTypes = ['image/png', 'image/jpeg', 'application/pdf']
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        {
-          error:
-            'Invalid file type. Only PDF, PNG, and JPEG files are allowed.',
-        },
+        { error: 'Invalid file type. Only PDF, PNG, and JPEG files are allowed.' },
         { status: 400 }
       )
     }
 
-    // Validate file size (max 10MB)
-    const maxSize = 10 * 1024 * 1024 // 10MB
+    const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) {
-      return NextResponse.json(
-        { error: 'File size must be less than 10MB' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'File size must be less than 10MB' }, { status: 400 })
     }
 
     const slug = generateSlug(name)
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-
-    // Get file extension
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
     const ext = file.name.split('.').pop() || 'bin'
-
-    // Upload to GCS
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${category.slug}/guidelines/${slug}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const detectedMime = detectFileMime(buffer)
@@ -186,62 +135,43 @@ export async function POST(
       provider: 'gcs',
     })
 
-    // Save to database
-    const { data: guideline, error: dbError } = await supabase
-      .from('guidelines')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
-        name,
-        description: description || null,
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        storage_provider: 'gcs',
-        gdrive_file_id: storageFile.fileId || null,
-        slug,
-        safe_zones: {},
-        element_positions: {},
-        metadata: {
-          file_type: file.type,
-          file_size: file.size,
-          original_name: file.name,
+    try {
+      const guideline = await prisma.guideline.create({
+        data: {
+          categoryId,
+          userId: user.id,
+          companyId,
+          name,
+          description: description || null,
+          storagePath: storageFile.path,
+          storageUrl: storageFile.publicUrl,
+          storageProvider: 'gcs',
+          gdriveFileId: storageFile.fileId || null,
+          safeZones: {},
+          elementPositions: {},
+          metadata: {
+            file_type: file.type,
+            file_size: file.size,
+            original_name: file.name,
+          },
         },
       })
-      .select()
-      .single()
 
-    if (dbError) {
+      return NextResponse.json(
+        { message: 'Guideline uploaded successfully', guideline },
+        { status: 201 }
+      )
+    } catch (dbError) {
       console.error('Database error:', dbError)
-      // Clean up the orphaned GCS file since DB insert failed
       try {
-        const fileIdOrPath = storageFile.fileId || storageFile.path
-        console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
-        await deleteFile(fileIdOrPath, { provider: 'gcs' })
+        await deleteFile(storageFile.path, { provider: 'gcs' })
       } catch (cleanupError) {
         console.error('Failed to clean up orphaned GCS file:', cleanupError)
       }
-      return NextResponse.json(
-        { error: 'Failed to save guideline' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to save guideline' }, { status: 500 })
     }
-
-    return NextResponse.json(
-      { message: 'Guideline uploaded successfully', guideline },
-      { status: 201 }
-    )
   } catch (error: any) {
     console.error('Error uploading guideline:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-
-/**
- * DELETE /api/categories/[id]/guidelines/[guidelineId]
- * Implemented in separate [guidelineId]/route.ts file
- * (Listed here for documentation purposes)
- */

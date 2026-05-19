@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { createClient } from '@supabase/supabase-js'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 
 // Generate slug from name
 function generateSlug(name: string): string {
@@ -20,40 +19,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string; productId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, productId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const product = await prisma.product.findFirst({
+      where: {
+        id: productId,
+        categoryId,
+        companyId,
+      },
+    })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Get product and verify it belongs to company's category
-    const { data: product, error } = await supabase
-      .from('products')
-      .select('*, category:categories!inner(company_id)')
-      .eq('id', productId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
-
-    if (error || !product) {
+    if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
     return NextResponse.json({ product })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -63,45 +48,27 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; productId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, productId } = await params
-
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
 
     // Verify product belongs to company's category
-    const { data: existingProduct, error: fetchError } = await supabase
-      .from('products')
-      .select('*, category:categories!inner(company_id)')
-      .eq('id', productId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const existingProduct = await prisma.product.findFirst({
+      where: { id: productId, categoryId, companyId },
+      select: { id: true },
+    })
 
-    if (fetchError || !existingProduct) {
+    if (!existingProduct) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Validate required fields
     if (body.name && !body.name.trim()) {
-      return NextResponse.json(
-        { error: 'Product name cannot be empty' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Product name cannot be empty' }, { status: 400 })
     }
 
-    // Prepare update data
     const updateData: any = {}
     if (body.name) {
       updateData.name = body.name.trim()
@@ -111,75 +78,64 @@ export async function PUT(
       updateData.description = body.description?.trim() || null
     }
 
-    // Update product
-    const { data: product, error } = await supabase
-      .from('products')
-      .update(updateData)
-      .eq('id', productId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[products/[productId] PUT] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const product = await prisma.product.update({
+      where: { id: productId },
+      data: updateData,
+    })
 
     return NextResponse.json({ product })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[products/[productId] PUT] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
  * Pre-queue GDrive files owned by a product before cascade delete.
- * Safety net — DB triggers also queue on cascade, but this handles edge cases.
  */
 async function preQueueProductGDriveFiles(productId: string, userId: string): Promise<number> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!supabaseUrl || !serviceKey) return 0
-
-  // Service role required: deletion_queue INSERT must bypass RLS so the queued
-  // file IDs survive the cascade-delete of the parent record. The calling route
-  // has already verified user ownership before invoking this helper.
-  const admin = createClient(supabaseUrl, serviceKey)
   let queued = 0
 
-  // Tables with gdrive_file_id that reference product_id
-  const tables = [
-    { table: 'product_images', type: 'product_image', fk: 'product_id' },
-    { table: 'angled_shots', type: 'angled_shot', fk: 'product_id' },
+  const [productImages, angledShots] = await Promise.all([
+    prisma.productImage.findMany({
+      where: { productId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
+      select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true, userId: true },
+    }),
+    prisma.angledShot.findMany({
+      where: { productId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
+      select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+    }),
+  ])
+
+  const entries = [
+    ...productImages.map((img) => ({
+      resourceType: 'product_image',
+      resourceId: img.id,
+      storageProvider: 'gdrive',
+      storagePath: img.storagePath,
+      gdriveFileId: img.gdriveFileId,
+      storageUrl: img.storageUrl,
+      userId: img.userId || userId,
+      metadata: { product_id: productId, pre_queued: true },
+    })),
+    ...angledShots.map((shot) => ({
+      resourceType: 'angled_shot',
+      resourceId: shot.id,
+      storageProvider: 'gdrive',
+      storagePath: shot.storagePath,
+      gdriveFileId: shot.gdriveFileId,
+      storageUrl: shot.storageUrl,
+      userId,
+      metadata: { product_id: productId, pre_queued: true },
+    })),
   ]
 
-  for (const { table, type, fk } of tables) {
-    const { data: rows } = await admin
-      .from(table)
-      .select('id, storage_provider, storage_path, gdrive_file_id, storage_url')
-      .eq(fk, productId)
-      .eq('storage_provider', 'gdrive')
-      .not('gdrive_file_id', 'is', null)
-
-    if (!rows || rows.length === 0) continue
-
-    const entries = rows.map((row: any) => ({
-      resource_type: type,
-      resource_id: row.id,
-      storage_provider: 'gdrive',
-      storage_path: row.storage_path,
-      gdrive_file_id: row.gdrive_file_id,
-      storage_url: row.storage_url,
-      user_id: userId,
-      metadata: { product_id: productId, pre_queued: true },
-    }))
-
-    const { error } = await admin.from('deletion_queue').insert(entries)
-    if (!error) {
-      queued += entries.length
-    } else {
-      console.error(`Failed to pre-queue ${table} deletions:`, error.message)
+  if (entries.length > 0) {
+    try {
+      await prisma.deletionQueue.createMany({ data: entries, skipDuplicates: true })
+      queued = entries.length
+    } catch (err: any) {
+      console.error('Failed to pre-queue product deletions:', err.message)
     }
   }
 
@@ -192,20 +148,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; productId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId, productId } = await params
-
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
@@ -213,44 +159,25 @@ export async function DELETE(
     }
     console.log(`[audit] DELETE product ${productId} by user ${user.id} at ${new Date().toISOString()}`)
 
-    // Verify product belongs to company's category
-    const { data: product, error: fetchError } = await supabase
-      .from('products')
-      .select('*, category:categories!inner(company_id)')
-      .eq('id', productId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const product = await prisma.product.findFirst({
+      where: { id: productId, categoryId, companyId },
+      select: { id: true },
+    })
 
-    if (fetchError || !product) {
+    if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Pre-queue GDrive files before cascade delete (safety net)
     const queuedCount = await preQueueProductGDriveFiles(productId, user.id)
     if (queuedCount > 0) {
       console.log(`Pre-queued ${queuedCount} GDrive files for deletion (product: ${productId})`)
     }
 
-    // Delete product (cascade will handle related records)
-    // Include company_id guard for defence-in-depth (M-03): prevents deletion if the
-    // product's company changed between the ownership check above and this statement.
-    const { error } = await supabase
-      .from('products')
-      .delete()
-      .eq('id', productId)
-      .eq('company_id', companyId)
-
-    if (error) {
-      console.error('[products/[productId] DELETE] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    await prisma.product.delete({ where: { id: productId } })
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[products/[productId] DELETE] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

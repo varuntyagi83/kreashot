@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyInfo } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
-// Helper to generate slug from name
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -17,147 +16,86 @@ function generateSlug(name: string): string {
 
 /**
  * GET /api/categories/[id]/composites
- * Lists all composites for a category with angled shot and background details
- * Optional query param: ?format=1:1 to filter by format
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    // Verify category belongs to company
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get optional format filter from query params
     const { searchParams } = new URL(request.url)
-    const formatFilter = searchParams.get('format')
+    const formatFilter = searchParams.get('format') || undefined
 
-    // Build query
-    let query = supabase
-      .from('composites')
-      .select(`
-        *,
-        angled_shot:angled_shot_id (
-          id,
-          angle_name,
-          angle_description,
-          format
-        ),
-        background:background_id (
-          id,
-          name,
-          description,
-          format
-        )
-      `)
-      .eq('category_id', categoryId)
-
-    // Apply format filter if provided
-    if (formatFilter) {
-      query = query.eq('format', formatFilter)
-      console.log(`Filtering composites by format: ${formatFilter}`)
-    }
-
-    // Execute query
-    const { data: composites, error } = await query.order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching composites:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    // Get public URLs for the images
-    const compositesWithUrls = (composites || []).map((composite) => {
-      let publicUrl: string
-
-      publicUrl = composite.storage_url || ''
-
-      return {
-        ...composite,
-        public_url: publicUrl,
-      }
+    const composites = await prisma.composite.findMany({
+      where: { categoryId, ...(formatFilter ? { format: formatFilter } : {}) },
+      include: {
+        angledShot: { select: { id: true, angleName: true, angleDescription: true, format: true } },
+        background: { select: { id: true, name: true, description: true, format: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
+    const compositesWithUrls = composites.map((composite) => ({
+      ...composite,
+      public_url: composite.storageUrl || '',
+      storage_path: composite.storagePath,
+      storage_url: composite.storageUrl,
+      storage_provider: composite.storageProvider,
+      gdrive_file_id: composite.gdriveFileId,
+      created_at: composite.createdAt,
+    }))
+
     return NextResponse.json({
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-      },
+      category: { id: category.id, name: category.name, slug: category.slug },
       composites: compositesWithUrls,
     })
   } catch (error) {
     console.error('Error fetching composites:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
  * POST /api/categories/[id]/composites
- * Saves a generated composite to GCS and database
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    // Verify category belongs to company and get slug
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get request body
     const body = await request.json()
     const {
       name,
@@ -168,13 +106,12 @@ export async function POST(
       angledShotId,
       backgroundId,
       productId,
-      format = '1:1', // NEW: Format parameter
+      format = '1:1',
       width,
       height,
       generationTimeMs,
     } = body
 
-    // Validate required fields
     if (!name || !imageData || !angledShotId || !backgroundId) {
       return NextResponse.json(
         { error: 'name, imageData, angledShotId, and backgroundId are required' },
@@ -185,62 +122,39 @@ export async function POST(
       return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
 
-    // Validate image size (50MB max decoded)
-    const MAX_BASE64_LENGTH = 50 * 1024 * 1024 * 1.34 // ~67MB as base64
+    const MAX_BASE64_LENGTH = 50 * 1024 * 1024 * 1.34
     if (imageData.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json(
-        { error: 'Image too large (max 50MB)' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Image too large (max 50MB)' }, { status: 400 })
     }
 
-    // Get format dimensions (use provided width/height or defaults from format config)
     const formatDimensions = getFormatDimensions(format)
     const finalWidth = width || formatDimensions.width
     const finalHeight = height || formatDimensions.height
 
-    console.log(`Saving ${format} composite: ${finalWidth}x${finalHeight}`)
-
-    // Verify angled shot exists and belongs to this category
-    const { data: angledShot } = await supabase
-      .from('angled_shots')
-      .select('id, product_id')
-      .eq('id', angledShotId)
-      .eq('category_id', categoryId)
-      .single()
+    const angledShot = await prisma.angledShot.findFirst({
+      where: { id: angledShotId, categoryId },
+      select: { id: true, productId: true },
+    })
 
     if (!angledShot) {
-      return NextResponse.json(
-        { error: 'Angled shot not found in this category' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Angled shot not found in this category' }, { status: 404 })
     }
 
-    // Verify background exists and belongs to this category
-    const { data: background } = await supabase
-      .from('backgrounds')
-      .select('id')
-      .eq('id', backgroundId)
-      .eq('category_id', categoryId)
-      .single()
+    const background = await prisma.background.findFirst({
+      where: { id: backgroundId, categoryId },
+      select: { id: true },
+    })
 
     if (!background) {
-      return NextResponse.json(
-        { error: 'Background not found in this category' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Background not found in this category' }, { status: 404 })
     }
 
-    // Generate slug
     const slug = generateSlug(name)
 
-    // Check if composite with this slug already exists
-    const { data: existing } = await supabase
-      .from('composites')
-      .select('id')
-      .eq('category_id', categoryId)
-      .eq('slug', slug)
-      .single()
+    const existing = await prisma.composite.findFirst({
+      where: { categoryId, slug },
+      select: { id: true },
+    })
 
     if (existing) {
       return NextResponse.json(
@@ -249,80 +163,60 @@ export async function POST(
       )
     }
 
-    // Convert base64 to buffer
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
 
-    // Generate filename using format-specific folder (x-notation for filesystem)
     const folderName = formatToFolderName(format)
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/composites/${folderName}/${slug}_${Date.now()}.${fileExt}`
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${category.slug}/composites/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
-    // Upload to GCS
-    console.log(`Uploading ${format} composite to GCS (folder: ${folderName}): ${fileName}`)
+    console.log(`Uploading ${format} composite to GCS: ${fileName}`)
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: mimeType || 'image/jpeg',
       provider: 'gcs',
     })
 
-    // Save to database with storage sync fields + format info
-    const { data: composite, error: dbError } = await supabase
-      .from('composites')
-      .insert({
-        category_id: categoryId,
-        company_id: companyId,
-        user_id: user.id,
-        product_id: productId || angledShot.product_id,
-        angled_shot_id: angledShotId,
-        background_id: backgroundId,
-        name,
-        slug,
-        description: description || null,
-        prompt_used: promptUsed || null,
-        format, // NEW: Format field
-        width: finalWidth, // NEW: Width field
-        height: finalHeight, // NEW: Height field
-        storage_provider: 'gcs',
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        gdrive_file_id: null,
-        generation_time_ms: generationTimeMs ?? null,
-        metadata: {},
+    try {
+      const composite = await prisma.composite.create({
+        data: {
+          categoryId,
+          companyId,
+          userId: user.id,
+          productId: productId || angledShot.productId,
+          angledShotId,
+          backgroundId,
+          name,
+          slug,
+          description: description || null,
+          promptUsed: promptUsed || null,
+          format,
+          storageProvider: 'gcs',
+          storagePath: storageFile.path,
+          storageUrl: storageFile.publicUrl,
+          gdriveFileId: null,
+          metadata: { width: finalWidth, height: finalHeight, generationTimeMs: generationTimeMs ?? null },
+        },
       })
-      .select()
-      .single()
 
-    if (dbError) {
+      return NextResponse.json(
+        {
+          message: 'Composite saved successfully',
+          composite: { ...composite, public_url: storageFile.publicUrl },
+        },
+        { status: 201 }
+      )
+    } catch (dbError) {
       console.error('Database error:', dbError)
-      // Clean up the orphaned GCS file since DB insert failed
       try {
-        console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
         await deleteFile(storageFile.path, { provider: 'gcs' })
       } catch (cleanupError) {
         console.error('Failed to clean up orphaned GCS file:', cleanupError)
       }
-      return NextResponse.json(
-        { error: 'Failed to save composite record' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to save composite record' }, { status: 500 })
     }
-
-    return NextResponse.json(
-      {
-        message: 'Composite saved successfully',
-        composite: {
-          ...composite,
-          public_url: storageFile.publicUrl,
-        },
-      },
-      { status: 201 }
-    )
   } catch (error) {
     console.error('Error saving composite:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

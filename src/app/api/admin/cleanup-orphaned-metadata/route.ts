@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { prisma } from '@/lib/db'
 import { google } from 'googleapis'
 
 interface OrphanedRecord {
   id: string
-  gdrive_file_id: string
-  display_name: string
+  gdriveFileId: string
+  displayName: string
 }
 
 interface TableStats {
@@ -16,32 +16,13 @@ interface TableStats {
   skipped: number
 }
 
-async function checkTableForOrphans(
-  supabase: any,
+async function checkTableForOrphans<T extends { id: string; gdriveFileId: string | null; [key: string]: any }>(
+  records: T[],
+  displayField: string,
   drive: any,
-  tableName: string,
-  displayNameField: string,
-  dryRun: boolean
+  dryRun: boolean,
+  deleteMany: (ids: string[]) => Promise<void>
 ): Promise<{ stats: TableStats; orphanedRecords: OrphanedRecord[] }> {
-  // Get all records with Google Drive files
-  const { data: records, error: fetchError } = (await supabase
-    .from(tableName)
-    .select(`id, gdrive_file_id, storage_provider, ${displayNameField}`)
-    .eq('storage_provider', 'gdrive')
-    .not('gdrive_file_id', 'is', null)) as {
-    data: Array<{
-      id: string
-      gdrive_file_id: string
-      storage_provider: string
-      [key: string]: any
-    }> | null
-    error: any
-  }
-
-  if (fetchError) {
-    throw new Error(`Failed to fetch ${tableName}: ${fetchError.message}`)
-  }
-
   if (!records || records.length === 0) {
     return {
       stats: { total: 0, valid: 0, orphaned: 0, deleted: 0, skipped: 0 },
@@ -52,33 +33,21 @@ async function checkTableForOrphans(
   const orphanedRecords: OrphanedRecord[] = []
   let skippedCount = 0
 
-  // Check each file
   for (const record of records) {
     try {
       const response = await drive.files.get({
-        fileId: record.gdrive_file_id!,
+        fileId: record.gdriveFileId!,
         fields: 'id, trashed',
         supportsAllDrives: true,
       })
-
-      // If file is trashed, mark as orphaned
       if (response.data.trashed) {
-        orphanedRecords.push({
-          id: record.id,
-          gdrive_file_id: record.gdrive_file_id,
-          display_name: record[displayNameField] || 'Unknown',
-        })
+        orphanedRecords.push({ id: record.id, gdriveFileId: record.gdriveFileId!, displayName: record[displayField] || 'Unknown' })
       }
     } catch (error: any) {
-      // File not found (404) or other errors - mark as orphaned
       if (error.code === 404 || error.status === 404) {
-        orphanedRecords.push({
-          id: record.id,
-          gdrive_file_id: record.gdrive_file_id,
-          display_name: record[displayNameField] || 'Unknown',
-        })
+        orphanedRecords.push({ id: record.id, gdriveFileId: record.gdriveFileId!, displayName: record[displayField] || 'Unknown' })
       } else {
-        console.error(`Error checking file ${record.gdrive_file_id}:`, error.message)
+        console.error(`Error checking file ${record.gdriveFileId}:`, error.message)
         skippedCount++
       }
     }
@@ -92,19 +61,8 @@ async function checkTableForOrphans(
     skipped: skippedCount,
   }
 
-  // Delete orphaned records if not dry run
   if (!dryRun && orphanedRecords.length > 0) {
-    const idsToDelete = orphanedRecords.map(r => r.id)
-
-    const { error: deleteError } = await supabase
-      .from(tableName)
-      .delete()
-      .in('id', idsToDelete)
-
-    if (deleteError) {
-      throw new Error(`Failed to delete from ${tableName}: ${deleteError.message}`)
-    }
-
+    await deleteMany(orphanedRecords.map((r) => r.id))
     stats.deleted = orphanedRecords.length
   }
 
@@ -112,17 +70,12 @@ async function checkTableForOrphans(
 }
 
 /**
- * Admin endpoint to cleanup orphaned metadata
- * Removes Supabase records where Google Drive files are trashed or missing
- *
- * Usage:
  * POST /api/admin/cleanup-orphaned-metadata
  * Body: { dryRun: true } (optional, defaults to true)
  * Headers: Authorization: Bearer <CRON_SECRET>
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify authorization
     const authHeader = request.headers.get('authorization')
     const expectedToken = process.env.CRON_SECRET
 
@@ -131,14 +84,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => ({}))
-    const dryRun = body.dryRun !== false // Default to true
+    const dryRun = body.dryRun !== false
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
-
-    // Initialize Google Drive
     const auth = new google.auth.GoogleAuth({
       credentials: {
         client_email: process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
@@ -149,89 +96,39 @@ export async function POST(request: NextRequest) {
 
     const drive = google.drive({ version: 'v3', auth })
 
-    // Check all tables with storage sync
-    const angledShotsResult = await checkTableForOrphans(
-      supabase,
-      drive,
-      'angled_shots',
-      'angle_name',
-      dryRun
-    )
+    const [angledShots, productImages, backgrounds, composites] = await Promise.all([
+      prisma.angledShot.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, angleName: true } }),
+      prisma.productImage.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, fileName: true } }),
+      prisma.background.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true } }),
+      prisma.composite.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true } }),
+    ])
 
-    const productImagesResult = await checkTableForOrphans(
-      supabase,
-      drive,
-      'product_images',
-      'file_name',
-      dryRun
-    )
+    const [angledShotsResult, productImagesResult, backgroundsResult, compositesResult] = await Promise.all([
+      checkTableForOrphans(angledShots as any, 'angleName', drive, dryRun, (ids) => prisma.angledShot.deleteMany({ where: { id: { in: ids } } }).then(() => {})),
+      checkTableForOrphans(productImages as any, 'fileName', drive, dryRun, (ids) => prisma.productImage.deleteMany({ where: { id: { in: ids } } }).then(() => {})),
+      checkTableForOrphans(backgrounds as any, 'name', drive, dryRun, (ids) => prisma.background.deleteMany({ where: { id: { in: ids } } }).then(() => {})),
+      checkTableForOrphans(composites as any, 'name', drive, dryRun, (ids) => prisma.composite.deleteMany({ where: { id: { in: ids } } }).then(() => {})),
+    ])
 
-    const backgroundsResult = await checkTableForOrphans(
-      supabase,
-      drive,
-      'backgrounds',
-      'name',
-      dryRun
-    )
-
-    const compositesResult = await checkTableForOrphans(
-      supabase,
-      drive,
-      'composites',
-      'name',
-      dryRun
-    )
-
-    const totalOrphaned =
-      angledShotsResult.stats.orphaned +
-      productImagesResult.stats.orphaned +
-      backgroundsResult.stats.orphaned +
-      compositesResult.stats.orphaned
-    const totalDeleted =
-      angledShotsResult.stats.deleted +
-      productImagesResult.stats.deleted +
-      backgroundsResult.stats.deleted +
-      compositesResult.stats.deleted
-    const totalSkipped =
-      angledShotsResult.stats.skipped +
-      productImagesResult.stats.skipped +
-      backgroundsResult.stats.skipped +
-      compositesResult.stats.skipped
+    const totalOrphaned = angledShotsResult.stats.orphaned + productImagesResult.stats.orphaned + backgroundsResult.stats.orphaned + compositesResult.stats.orphaned
+    const totalDeleted = angledShotsResult.stats.deleted + productImagesResult.stats.deleted + backgroundsResult.stats.deleted + compositesResult.stats.deleted
+    const totalSkipped = angledShotsResult.stats.skipped + productImagesResult.stats.skipped + backgroundsResult.stats.skipped + compositesResult.stats.skipped
 
     return NextResponse.json({
       message: dryRun
         ? `Dry run complete - ${totalOrphaned} records would be deleted`
         : `Cleanup complete - ${totalDeleted} records deleted`,
       dryRun,
-      summary: {
-        totalOrphaned,
-        totalDeleted,
-        totalSkipped,
-      },
+      summary: { totalOrphaned, totalDeleted, totalSkipped },
       tables: {
-        angled_shots: {
-          stats: angledShotsResult.stats,
-          orphanedRecords: angledShotsResult.orphanedRecords,
-        },
-        product_images: {
-          stats: productImagesResult.stats,
-          orphanedRecords: productImagesResult.orphanedRecords,
-        },
-        backgrounds: {
-          stats: backgroundsResult.stats,
-          orphanedRecords: backgroundsResult.orphanedRecords,
-        },
-        composites: {
-          stats: compositesResult.stats,
-          orphanedRecords: compositesResult.orphanedRecords,
-        },
+        angled_shots: { stats: angledShotsResult.stats, orphanedRecords: angledShotsResult.orphanedRecords },
+        product_images: { stats: productImagesResult.stats, orphanedRecords: productImagesResult.orphanedRecords },
+        backgrounds: { stats: backgroundsResult.stats, orphanedRecords: backgroundsResult.orphanedRecords },
+        composites: { stats: compositesResult.stats, orphanedRecords: compositesResult.orphanedRecords },
       },
     })
   } catch (error: any) {
     console.error('Cleanup error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

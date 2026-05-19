@@ -1,63 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 /**
  * DELETE /api/categories/[id]/guidelines/[guidelineId]
- * Deletes a guideline document (trigger will queue Google Drive deletion)
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; guidelineId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, guidelineId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Verify ownership via category
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Delete (trigger will queue Google Drive deletion)
-    const { error: deleteError } = await supabase
-      .from('guidelines')
-      .delete()
-      .eq('id', guidelineId)
-      .eq('category_id', categoryId)
+    const guideline = await prisma.guideline.findFirst({
+      where: { id: guidelineId, categoryId },
+      select: { id: true },
+    })
 
-    if (deleteError) {
-      console.error('Delete error:', deleteError)
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
-      )
+    if (!guideline) {
+      return NextResponse.json({ error: 'Guideline not found' }, { status: 404 })
     }
+
+    await prisma.guideline.delete({ where: { id: guidelineId } })
 
     return NextResponse.json({ message: 'Guideline deleted successfully' })
   } catch (error: any) {
     console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

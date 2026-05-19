@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
@@ -11,34 +11,27 @@ const GEMINI_URL =
 
 /**
  * POST /api/categories/[id]/extract-visual-identity
- * Upload up to 5 brand images; Gemini analyses them and returns a structured
- * visual identity profile. The look_and_feel field is saved to the category.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`visual-identity:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 })
     }
 
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true },
+    })
 
     if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
@@ -51,7 +44,6 @@ export async function POST(
     if (images.length > 5) {
       return NextResponse.json({ error: 'Maximum 5 images allowed' }, { status: 400 })
     }
-
     for (const img of images) {
       if (img.base64 && img.base64.length > 28_000_000) {
         return NextResponse.json({ error: 'Each image must be under 20MB' }, { status: 400 })
@@ -61,7 +53,6 @@ export async function POST(
     const GEMINI_API_KEY = process.env.GOOGLE_GEMINI_API_KEY
     if (!GEMINI_API_KEY) throw new Error('GOOGLE_GEMINI_API_KEY is not set')
 
-    // Build Gemini content parts: images first, then the prompt
     const parts: any[] = images.map((img: { base64: string; mimeType: string }) => ({
       inline_data: {
         data: img.base64.replace(/^data:image\/\w+;base64,/, ''),
@@ -103,7 +94,7 @@ Rules:
           temperature: 0.3,
           maxOutputTokens: 1024,
           responseMimeType: 'application/json',
-          thinkingConfig: { thinkingBudget: 0 }, // disable thinking — we just need the JSON output
+          thinkingConfig: { thinkingBudget: 0 },
         },
       }),
       signal: controller.signal,
@@ -117,16 +108,12 @@ Rules:
 
     const geminiData = await response.json()
 
-    // gemini-2.5-flash may return thinking in parts[0] and the actual answer in parts[1].
-    // Scan all parts for the one containing a JSON object.
     const allParts: any[] = geminiData.candidates?.[0]?.content?.parts || []
     const textPart = allParts.find((p: any) => p.text && p.text.includes('{')) || allParts.find((p: any) => p.text)
     let text: string = textPart?.text || '{}'
 
-    // Strip markdown code fences (Gemini sometimes wraps JSON despite responseMimeType)
     text = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
 
-    // Extract the first JSON object in case there's surrounding text
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) text = jsonMatch[0]
 
@@ -138,17 +125,15 @@ Rules:
       throw new Error('Visual identity extraction returned invalid JSON. Please try again.')
     }
 
-    // Save look_and_feel to the category
     const sanitizedLookAndFeel = sanitizeForPrompt(profile.look_and_feel || '')
     if (sanitizedLookAndFeel) {
-      await supabase
-        .from('categories')
-        .update({ look_and_feel: sanitizedLookAndFeel })
-        .eq('id', categoryId)
-        .eq('company_id', companyId)
+      await prisma.category.updateMany({
+        where: { id: categoryId, companyId },
+        data: { lookAndFeel: sanitizedLookAndFeel },
+      })
     }
 
-    console.log(`✅ Visual identity extracted for category: ${category.name}`)
+    console.log(`Visual identity extracted for category: ${category.name}`)
 
     return NextResponse.json({ visual_identity: profile })
   } catch (error: any) {

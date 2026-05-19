@@ -1,11 +1,10 @@
 // PIL preview endpoint — same compositor as final asset, half resolution, no GDrive upload.
-// Returns base64 PNG directly so the frontend can show a pixel-accurate preview.
 export const maxDuration = 60
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile, writeFile } from 'fs/promises'
 import path from 'path'
@@ -21,7 +20,6 @@ const ALLOWED_FONT_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'supabase.co',
 ]
 
 function isAllowedUrl(url: string): boolean {
@@ -37,7 +35,6 @@ function isAllowedUrl(url: string): boolean {
   }
 }
 
-// Half-resolution dimensions — same aspect ratio as final asset, 2x smaller
 const PREVIEW_DIMENSIONS: Record<string, { width: number; height: number }> = {
   '1:1':  { width: 540,  height: 540  },
   '16:9': { width: 960,  height: 540  },
@@ -45,7 +42,6 @@ const PREVIEW_DIMENSIONS: Record<string, { width: number; height: number }> = {
   '4:5':  { width: 540,  height: 675  },
 }
 
-// Full-resolution reference dimensions (what font_size values are authored against)
 const REFERENCE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   '1:1':  { width: 1080, height: 1080 },
   '16:9': { width: 1920, height: 1080 },
@@ -58,16 +54,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: categoryId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`preview:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
@@ -77,12 +68,10 @@ export async function POST(
       )
     }
 
-    const { data: ownedCategory } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const ownedCategory = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!ownedCategory) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -137,25 +126,17 @@ export async function POST(
     } else {
       let templateRow: any = null
       if (templateId) {
-        const { data } = await supabase
-          .from('templates')
-          .select('*')
-          .eq('id', templateId)
-          .eq('category_id', categoryId)
-          .single()
-        templateRow = data
+        templateRow = await prisma.template.findFirst({
+          where: { id: templateId, categoryId },
+        })
       }
       if (!templateRow) {
-        const { data } = await supabase
-          .from('templates')
-          .select('*')
-          .eq('category_id', categoryId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        templateRow = data
+        templateRow = await prisma.template.findFirst({
+          where: { categoryId },
+          orderBy: { createdAt: 'desc' },
+        })
       }
-      let parsedTemplateData = templateRow?.template_data
+      let parsedTemplateData = templateRow?.templateData
       if (typeof parsedTemplateData === 'string') {
         try { parsedTemplateData = JSON.parse(parsedTemplateData) } catch { parsedTemplateData = null }
       }
@@ -171,24 +152,21 @@ export async function POST(
       }
       compositeUrl = baseImageUrl
     } else if (compositeId) {
-      const { data: composite } = await supabase
-        .from('composites')
-        .select('storage_url')
-        .eq('id', compositeId)
-        .eq('category_id', categoryId)
-        .single()
+      const composite = await prisma.composite.findFirst({
+        where: { id: compositeId, categoryId },
+        select: { storageUrl: true },
+      })
       if (!composite) {
         return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
       }
-      compositeUrl = composite?.storage_url || ''
+      compositeUrl = composite.storageUrl || ''
     } else {
-      const { data: composites } = await supabase
-        .from('composites')
-        .select('storage_url')
-        .eq('category_id', categoryId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-      compositeUrl = composites?.[0]?.storage_url || ''
+      const latest = await prisma.composite.findFirst({
+        where: { categoryId },
+        orderBy: { createdAt: 'desc' },
+        select: { storageUrl: true },
+      })
+      compositeUrl = latest?.storageUrl || ''
     }
 
     if (!compositeUrl) {
@@ -207,13 +185,11 @@ export async function POST(
       }
       copyText = sanitized
     } else if (copyDocId) {
-      const { data: copyDoc } = await supabase
-        .from('copy_docs')
-        .select('generated_text, copy_type')
-        .eq('id', copyDocId)
-        .eq('category_id', categoryId)
-        .single()
-      if (copyDoc) copyText = copyDoc
+      const copyDoc = await prisma.copyDoc.findFirst({
+        where: { id: copyDocId, categoryId },
+        select: { generatedText: true, copyType: true },
+      })
+      if (copyDoc) copyText = { generated_text: copyDoc.generatedText, copy_type: copyDoc.copyType }
     }
 
     const MAX_TEXT_LEN = 1000
@@ -225,7 +201,7 @@ export async function POST(
       }
     }
 
-    // Pre-download brand fonts to /tmp/ (same logic as main route)
+    // Pre-download brand fonts
     const fontCleanup: string[] = []
     for (const layer of template.template_data.layers || []) {
       if (layer.type === 'text' && layer.font_url) {
@@ -279,10 +255,7 @@ export async function POST(
       }
     }
 
-    // Scale font_size values from full-resolution to preview resolution.
-    // font_size is authored in pixels for the full canvas (e.g. 54px on 1080px tall).
-    // The preview canvas is half that size — font sizes must be halved or text
-    // appears twice as large relative to the canvas.
+    // Scale font sizes from full-resolution to preview resolution
     const refDims = REFERENCE_DIMENSIONS[format] ?? REFERENCE_DIMENSIONS['1:1']
     const fontScale = height / refDims.height
     const scaledLayers = (template.template_data.layers || []).map((layer: any) => {
@@ -293,7 +266,6 @@ export async function POST(
     })
     const scaledTemplateData = { ...template.template_data, layers: scaledLayers }
 
-    // Call Python compositor at half resolution
     const outputPath = `/tmp/preview_${crypto.randomUUID()}.png`
     const inputData = {
       template_data: scaledTemplateData,
@@ -348,15 +320,11 @@ export async function POST(
       ),
     ])
 
-    // Read output PNG and return as base64
     const fileBuffer = await readFile(result)
     const previewData = `data:image/png;base64,${fileBuffer.toString('base64')}`
 
-    // Cleanup
     await unlink(result).catch(() => {})
-    for (const fp of fontCleanup) {
-      await unlink(fp).catch(() => {})
-    }
+    for (const fp of fontCleanup) { await unlink(fp).catch(() => {}) }
 
     return NextResponse.json({ previewData })
 

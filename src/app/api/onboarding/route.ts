@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { prisma } from '@/lib/db'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,18 +11,17 @@ export const dynamic = 'force-dynamic'
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const session = await auth()
+    if (!session?.user?.id || !session.user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+    const userId = session.user.id
 
     // Idempotency: if already in a company, just return success
-    const { data: existing } = await supabase
-      .from('company_members')
-      .select('company_id')
-      .eq('user_id', user.id)
-      .single()
+    const existing = await prisma.companyMember.findFirst({
+      where: { userId },
+      select: { companyId: true },
+    })
 
     if (existing) {
       return NextResponse.json({ alreadyOnboarded: true })
@@ -38,34 +37,20 @@ export async function POST(request: NextRequest) {
 
     const name = companyName.trim()
     const baseSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-    const slug = `${baseSlug}-${user.id.slice(0, 8)}`
+    const slug = `${baseSlug}-${userId.slice(0, 8)}`
 
-    // Use admin client — new users have no company_members row yet, so user-session
-    // client is blocked by RLS on the companies table.
-    const admin = getSupabaseAdmin()
+    // Railway Postgres has no RLS — direct Prisma inserts work without admin override
+    const company = await prisma.company.create({
+      data: { name, slug },
+      select: { id: true, name: true, slug: true },
+    })
 
-    const { data: company, error: companyError } = await admin
-      .from('companies')
-      .insert({ name, slug })
-      .select('id')
-      .single()
+    await prisma.companyMember.create({
+      data: { companyId: company.id, userId, role: 'admin' },
+    })
 
-    if (companyError || !company) {
-      console.error('[onboarding POST] company insert error:', companyError)
-      return NextResponse.json({ error: 'Failed to create company' }, { status: 500 })
-    }
-
-    const { error: memberError } = await admin
-      .from('company_members')
-      .insert({ company_id: company.id, user_id: user.id, role: 'admin' })
-
-    if (memberError) {
-      console.error('[onboarding POST] member insert error:', memberError)
-      return NextResponse.json({ error: 'Failed to create membership' }, { status: 500 })
-    }
-
-    console.log(`[onboarding] Created company "${name}" (${company.id}) for user ${user.email}`)
-    return NextResponse.json({ company: { id: company.id, name, slug } }, { status: 201 })
+    console.log(`[onboarding] Created company "${name}" (${company.id}) for user ${session.user.email}`)
+    return NextResponse.json({ company }, { status: 201 })
   } catch (err: any) {
     console.error('[onboarding POST]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

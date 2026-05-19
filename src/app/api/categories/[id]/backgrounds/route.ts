@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile, deleteFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions } from '@/lib/formats'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
-// Helper to generate slug from name
 function generateSlug(name: string): string {
   return name
     .toLowerCase()
@@ -25,84 +24,46 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { searchParams } = new URL(request.url)
+    const formatFilter = searchParams.get('format') || undefined
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    // Verify category belongs to company
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get optional format filter from query params
-    const { searchParams } = new URL(request.url)
-    const formatFilter = searchParams.get('format')
-
-    // Build query
-    let query = supabase
-      .from('backgrounds')
-      .select('*')
-      .eq('category_id', categoryId)
-
-    // Apply format filter if provided
-    if (formatFilter) {
-      query = query.eq('format', formatFilter)
-      console.log(`Filtering backgrounds by format: ${formatFilter}`)
-    }
-
-    // Execute query
-    const { data: backgrounds, error } = await query.order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching backgrounds:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    // Get public URLs for the images (use GCS URLs if available)
-    const backgroundsWithUrls = (backgrounds || []).map((bg) => {
-      let publicUrl: string
-
-      publicUrl = bg.storage_url || ''
-
-      return {
-        ...bg,
-        public_url: publicUrl,
-      }
+    const backgrounds = await prisma.background.findMany({
+      where: { categoryId, ...(formatFilter ? { format: formatFilter } : {}) },
+      orderBy: { createdAt: 'desc' },
     })
 
+    const backgroundsWithUrls = backgrounds.map((bg) => ({
+      ...bg,
+      public_url: bg.storageUrl || '',
+      prompt_used: bg.promptUsed,
+      storage_path: bg.storagePath,
+      storage_url: bg.storageUrl,
+      storage_provider: bg.storageProvider,
+      gdrive_file_id: bg.gdriveFileId,
+      created_at: bg.createdAt,
+    }))
+
     return NextResponse.json({
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-      },
+      category: { id: category.id, name: category.name, slug: category.slug },
       backgrounds: backgroundsWithUrls,
     })
   } catch (error) {
     console.error('Error fetching backgrounds:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -115,35 +76,26 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    // Verify category belongs to company and get slug
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get request body
     const body = await request.json()
     const {
       name,
@@ -151,49 +103,35 @@ export async function POST(
       promptUsed,
       imageData,
       mimeType,
-      format = '1:1', // NEW: Format parameter
+      format = '1:1',
       width,
       height,
       generationTimeMs,
     } = body
 
-    // Get format dimensions (use provided width/height or defaults from format config)
     const formatDimensions = getFormatDimensions(format)
     const finalWidth = width || formatDimensions.width
     const finalHeight = height || formatDimensions.height
 
-    console.log(`Saving ${format} background: ${finalWidth}x${finalHeight}`)
-
-    // Validate required fields
     if (!name || !imageData) {
-      return NextResponse.json(
-        { error: 'name and imageData are required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'name and imageData are required' }, { status: 400 })
     }
     if (name.length > 200) {
       return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
 
-    // Validate image size (50MB max decoded)
-    const MAX_BASE64_LENGTH = 50 * 1024 * 1024 * 1.34 // ~67MB as base64
+    const MAX_BASE64_LENGTH = 50 * 1024 * 1024 * 1.34
     if (imageData.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json(
-        { error: 'Image too large (max 50MB)' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Image too large (max 50MB)' }, { status: 400 })
     }
 
-    // Generate slug
     const slug = generateSlug(name)
 
     // Check if background with this slug already exists
-    const { data: existing } = await supabase
-      .from('backgrounds')
-      .select('id')
-      .eq('category_id', categoryId)
-      .eq('slug', slug)
-      .single()
+    const existing = await prisma.background.findFirst({
+      where: { categoryId, slug },
+      select: { id: true },
+    })
 
     if (existing) {
       return NextResponse.json(
@@ -202,78 +140,57 @@ export async function POST(
       )
     }
 
-    // Convert base64 to buffer
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
 
-    // Generate filename using format-specific folder (x-notation for filesystem)
     const folderName = formatToFolderName(format)
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${category.slug}/backgrounds/${folderName}/${slug}_${Date.now()}.${fileExt}`
 
-    // Upload to GCS
-    console.log(`Uploading ${format} background to GCS (folder: ${folderName}): ${fileName}`)
+    console.log(`Uploading ${format} background to GCS: ${fileName}`)
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: mimeType || 'image/jpeg',
       provider: 'gcs',
     })
 
-    // Save to database with storage sync fields + format info
-    const { data: background, error: dbError } = await supabase
-      .from('backgrounds')
-      .insert({
-        category_id: categoryId,
-        company_id: companyId,
-        user_id: user.id,
-        name,
-        slug,
-        description: description || null,
-        prompt_used: promptUsed || 'Uploaded background',
-        format, // NEW: Format field
-        width: finalWidth, // NEW: Width field
-        height: finalHeight, // NEW: Height field
-        storage_provider: 'gcs',
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        gdrive_file_id: null,
-        generation_time_ms: generationTimeMs ?? null,
-        metadata: {},
+    try {
+      const background = await prisma.background.create({
+        data: {
+          categoryId,
+          companyId,
+          userId: user.id,
+          name,
+          slug,
+          description: description || null,
+          promptUsed: promptUsed || 'Uploaded background',
+          format,
+          storageProvider: 'gcs',
+          storagePath: storageFile.path,
+          storageUrl: storageFile.publicUrl,
+          gdriveFileId: null,
+          metadata: { width: finalWidth, height: finalHeight, generationTimeMs: generationTimeMs ?? null },
+        },
       })
-      .select()
-      .single()
 
-    if (dbError) {
+      return NextResponse.json(
+        {
+          message: 'Background saved successfully',
+          background: { ...background, public_url: storageFile.publicUrl },
+        },
+        { status: 201 }
+      )
+    } catch (dbError) {
       console.error('Database error:', dbError)
-      // Clean up the orphaned GCS file since DB insert failed
       try {
-        console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
         await deleteFile(storageFile.path, { provider: 'gcs' })
       } catch (cleanupError) {
         console.error('Failed to clean up orphaned GCS file:', cleanupError)
       }
-      return NextResponse.json(
-        { error: 'Failed to save background record' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to save background record' }, { status: 500 })
     }
-
-    return NextResponse.json(
-      {
-        message: 'Background saved successfully',
-        background: {
-          ...background,
-          public_url: storageFile.publicUrl,
-        },
-      },
-      { status: 201 }
-    )
   } catch (error) {
     console.error('Error saving background:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

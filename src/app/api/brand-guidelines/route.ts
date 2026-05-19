@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
-import { getCompanyId } from '@/lib/get-company'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -16,13 +16,13 @@ function generateSlug(name: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
-// ── GET — list company's saved brand guidelines ───────────────────────────────
+// ── GET — list company's saved brand guidelines ───────────────────────────────────
 
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`list-guidelines:${user.id}`, 100, 60_000)
     if (!rateLimit.allowed) {
@@ -32,32 +32,30 @@ export async function GET() {
       )
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: guidelines, error } = await supabase
-      .from('brand_guidelines')
-      .select('id, name, source_file_name, extracted_text, color_description, is_default, created_at, updated_at')
-      .eq('company_id', companyId)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[brand-guidelines GET] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const guidelines = await prisma.brandGuideline.findMany({
+      where: { companyId },
+      select: {
+        id: true,
+        name: true,
+        sourceFileName: true,
+        extractedText: true,
+        colorDescription: true,
+        isDefault: true,
+        createdAt: true,
+      },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    })
 
     return NextResponse.json({
-      guidelines: (guidelines || []).map((g) => ({
+      guidelines: guidelines.map((g) => ({
         id: g.id,
         name: g.name,
-        source_file_name: g.source_file_name,
-        text_preview: g.extracted_text.substring(0, 200) + (g.extracted_text.length > 200 ? '...' : ''),
-        text_length: g.extracted_text.length,
-        color_description: g.color_description || null,
-        is_default: g.is_default,
-        created_at: g.created_at,
-        updated_at: g.updated_at,
+        source_file_name: g.sourceFileName,
+        text_preview: g.extractedText ? g.extractedText.substring(0, 200) + (g.extractedText.length > 200 ? '...' : '') : null,
+        text_length: g.extractedText?.length ?? 0,
+        color_description: g.colorDescription || null,
+        is_default: g.isDefault,
+        created_at: g.createdAt,
       })),
     })
   } catch (error: any) {
@@ -70,12 +68,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`guidelines-upload:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -147,46 +142,35 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to brand_guidelines table
-    const { data: guideline, error } = await supabase
-      .from('brand_guidelines')
-      .insert({
-        user_id: user.id,
-        company_id: companyId,
+    const guideline = await prisma.brandGuideline.create({
+      data: {
+        userId: user.id,
+        companyId,
         name: name.trim(),
-        source_file_name: file.name,
-        extracted_text: truncatedText,
-        color_description: colorDescription,
-      })
-      .select('id, name, source_file_name, created_at')
-      .single()
+        sourceFileName: file.name,
+        extractedText: truncatedText,
+        colorDescription: colorDescription || null,
+        storagePath: '',
+        storageUrl: '',
+      },
+      select: { id: true, name: true, sourceFileName: true, createdAt: true },
+    })
 
-    if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
-      }
-      console.error('[brand-guidelines POST] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    // Also register in asset_references for @ search
+    // Also register in asset_references for @ search (fire and forget)
     const slug = generateSlug(name.trim())
-    void Promise.resolve(
-      supabase
-        .from('asset_references')
-        .insert({
-          user_id: user.id,
-          company_id: companyId,
-          category_id: null,
-          reference_id: `@brand-guidelines/${slug}`,
-          asset_type: 'guideline',
-          asset_table_id: guideline.id,
-          storage_url: null,
-          display_name: name.trim(),
-          searchable_text: `${name.trim()} ${file.name} brand guidelines`,
-        })
-    )
-      .then(({ error: refError }) => { if (refError) console.error('[brand-guidelines] asset_references insert failed:', refError) })
-      .catch((err) => console.error('[brand-guidelines] asset_references insert threw:', err))
+    prisma.assetReference.create({
+      data: {
+        userId: user.id,
+        companyId,
+        categoryId: null,
+        referenceId: `@brand-guidelines/${slug}`,
+        assetType: 'guideline',
+        assetTableId: guideline.id,
+        storageUrl: null,
+        displayName: name.trim(),
+        searchableText: `${name.trim()} ${file.name} brand guidelines`,
+      },
+    }).catch((err) => console.error('[brand-guidelines] asset_references insert threw:', err))
 
     console.log(`Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
 
@@ -194,12 +178,15 @@ export async function POST(request: NextRequest) {
       guideline: {
         id: guideline.id,
         name: guideline.name,
-        source_file_name: guideline.source_file_name,
+        source_file_name: guideline.sourceFileName,
         text_length: truncatedText.length,
         was_truncated: wasTruncated,
       },
     }, { status: 201 })
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
+    }
     console.error('[brand-guidelines POST] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

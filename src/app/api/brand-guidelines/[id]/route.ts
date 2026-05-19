@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 
 // ── GET — get single guideline with full text ────────────────────────────────
 
@@ -10,28 +10,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const guideline = await prisma.brandGuideline.findFirst({
+      where: { id, companyId },
+    })
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: guideline, error } = await supabase
-      .from('brand_guidelines')
-      .select('*')
-      .eq('id', id)
-      .eq('company_id', companyId)
-      .single()
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
-      }
-      console.error('[brand-guidelines/[id] GET] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (!guideline) {
+      return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
     }
 
     return NextResponse.json({ guideline })
@@ -48,14 +37,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id } = await params
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
     const updateData: Record<string, unknown> = {}
@@ -65,47 +50,34 @@ export async function PUT(
     }
     if (body.name !== undefined) updateData.name = body.name.trim()
 
-    if (body.is_default === true) {
-      await supabase
-        .from('brand_guidelines')
-        .update({ is_default: false })
-        .eq('company_id', companyId)
-        .eq('is_default', true)
-      updateData.is_default = true
-    } else if (body.is_default === false) {
-      updateData.is_default = false
+    const result = await prisma.brandGuideline.updateMany({
+      where: { id, companyId },
+      data: updateData,
+    })
+
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
     }
 
-    const { data: guideline, error } = await supabase
-      .from('brand_guidelines')
-      .update(updateData)
-      .eq('id', id)
-      .eq('company_id', companyId)
-      .select('id, name, is_default, updated_at')
-      .single()
+    const guideline = await prisma.brandGuideline.findUnique({
+      where: { id },
+      select: { id: true, name: true },
+    })
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
-      }
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
-      }
-      console.error('[brand-guidelines/[id] PUT] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    // Update asset_references display_name if name changed
     if (body.name !== undefined) {
-      await supabase
-        .from('asset_references')
-        .update({ display_name: body.name.trim() })
-        .eq('asset_table_id', id)
-        .eq('asset_type', 'guideline')
+      await prisma.assetReference.updateMany({
+        where: { assetTableId: id, assetType: 'guideline' },
+        data: { displayName: body.name.trim() },
+      })
     }
 
-    return NextResponse.json({ guideline })
+    return NextResponse.json({
+      guideline: { id: guideline!.id, name: guideline!.name },
+    })
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A guideline with this name already exists' }, { status: 409 })
+    }
     console.error('[brand-guidelines/[id] PUT] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -118,14 +90,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id } = await params
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
@@ -133,22 +101,17 @@ export async function DELETE(
     }
 
     // Delete asset_references entry first
-    await supabase
-      .from('asset_references')
-      .delete()
-      .eq('asset_table_id', id)
-      .eq('asset_type', 'guideline')
+    await prisma.assetReference.deleteMany({
+      where: { assetTableId: id, assetType: 'guideline' },
+    })
 
     // Delete the guideline
-    const { error } = await supabase
-      .from('brand_guidelines')
-      .delete()
-      .eq('id', id)
-      .eq('company_id', companyId)
+    const result = await prisma.brandGuideline.deleteMany({
+      where: { id, companyId },
+    })
 
-    if (error) {
-      console.error('[brand-guidelines/[id] DELETE] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Brand guideline not found' }, { status: 404 })
     }
 
     return NextResponse.json({ message: 'Brand guideline deleted' })

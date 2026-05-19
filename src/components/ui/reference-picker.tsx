@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from 'react'
 import { Textarea } from '@/components/ui/textarea'
-import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { Package, Image as ImageIcon, FileText } from 'lucide-react'
 

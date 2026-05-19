@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/replicate'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -12,14 +12,15 @@ import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 /**
  * POST /api/categories/[id]/backgrounds/generate
  * Generates AI backgrounds matching the category's look & feel
- * Phase 3: Background Generation (updated for multi-format support)
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
     if (!categoryId || categoryId === 'undefined' || categoryId === 'null') {
@@ -29,18 +30,6 @@ export async function POST(
       )
     }
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
     const rateLimit = await checkRateLimit(`backgrounds:${user.id}`, 10, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json(
@@ -49,82 +38,49 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to company and get look_and_feel + brand_guidelines + color description (from PDF Vision)
-    const { data: category, error: categoryError } = await supabase
-      .from('categories')
-      .select('id, name, slug, look_and_feel')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
-
-    if (categoryError) {
-      console.error(`[backgrounds/generate] Category query error for id=${categoryId}, company=${companyId}:`, categoryError)
-    }
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true, lookAndFeel: true },
+    })
 
     if (!category) {
-      if (categoryError) console.error('[backgrounds generate] category lookup failed:', categoryError)
-      return NextResponse.json(
-        { error: 'Category not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get request body
     const body = await request.json()
     const {
       prompt,
       userPrompt,
-      lookAndFeel,        // User-edited look & feel from the form
+      lookAndFeel,
       count = 1,
       referenceAssetIds,
-      formats,            // NEW: Array of formats
-      format = '1:1',     // Legacy: single format (backwards compatible)
-      colorWorld,         // NEW: Selected color world (e.g. "World of Green palette")
+      formats,
+      format = '1:1',
+      colorWorld,
     } = body
 
-    // Validate format
     if (format && !Object.keys(FORMATS).includes(format)) {
       return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
-    // Accept either "prompt" or "userPrompt" (frontend sends userPrompt)
     const resolvedPrompt = prompt || userPrompt
 
-    // Normalize formats: accept array or single string for backwards compatibility
     const validFormatKeys = Object.keys(FORMATS)
     const formatsToGenerate: string[] = (formats && Array.isArray(formats) && formats.length > 0)
       ? formats.filter((f: string) => validFormatKeys.includes(f))
       : [validFormatKeys.includes(format) ? format : '1:1']
 
-    console.log(`Formats to generate: ${formatsToGenerate.join(', ')}`)
-
-    // Validation
     if (!resolvedPrompt) {
-      return NextResponse.json(
-        { error: 'prompt is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'prompt is required' }, { status: 400 })
     }
-
     if (typeof resolvedPrompt === 'string' && resolvedPrompt.length > 5000) {
-      return NextResponse.json(
-        { error: 'prompt must be 5000 characters or fewer' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'prompt must be 5000 characters or fewer' }, { status: 400 })
     }
-
     if (lookAndFeel && typeof lookAndFeel === 'string' && lookAndFeel.length > 10000) {
-      return NextResponse.json(
-        { error: 'lookAndFeel must be 10000 characters or fewer' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'lookAndFeel must be 10000 characters or fewer' }, { status: 400 })
     }
-
     if (count < 1 || count > 5) {
-      return NextResponse.json(
-        { error: 'count must be between 1 and 5' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'count must be between 1 and 5' }, { status: 400 })
     }
 
     const totalGenerations = count * formatsToGenerate.length
@@ -135,17 +91,14 @@ export async function POST(
       )
     }
 
-    // Parse @[name](type:id) reference tokens from both prompt and lookAndFeel
     const { cleanText: rawCleanPrompt, references: promptRefs } = parseReferenceTokens(resolvedPrompt)
     const { cleanText: rawCleanLookAndFeel, references: lafRefs } = parseReferenceTokens(
       (lookAndFeel && lookAndFeel.trim()) || ''
     )
 
-    // Sanitize user-supplied text against prompt injection before sending to AI
     const cleanPrompt = sanitizeForPrompt(rawCleanPrompt)
     const cleanLookAndFeel = sanitizeForPrompt(rawCleanLookAndFeel)
 
-    // Collect unique guideline IDs from both fields
     const allRefs = [...promptRefs, ...lafRefs]
     const guidelineRefs = allRefs.filter(r => r.type === 'guideline')
     const uniqueGuidelineIds = [...new Set(guidelineRefs.map(r => r.id))]
@@ -153,174 +106,121 @@ export async function POST(
     let resolvedGuidelinesText = ''
     let resolvedColorDescription = ''
 
-    // Fetch guidelines referenced via @ tokens
     if (uniqueGuidelineIds.length > 0) {
-      const { data: guidelines } = await supabase
-        .from('brand_guidelines')
-        .select('id, name, extracted_text, color_description')
-        .in('id', uniqueGuidelineIds)
-        .eq('company_id', companyId)
+      const guidelines = await prisma.brandGuideline.findMany({
+        where: { id: { in: uniqueGuidelineIds }, companyId },
+        select: { id: true, name: true, extractedText: true, colorDescription: true },
+      })
 
-      if (guidelines?.length) {
+      if (guidelines.length) {
         resolvedGuidelinesText = guidelines
-          .map(g => `--- ${g.name} ---\n${g.extracted_text}`)
+          .map(g => `--- ${g.name} ---\n${g.extractedText}`)
           .join('\n\n')
         resolvedColorDescription = guidelines
-          .map(g => g.color_description)
+          .map(g => g.colorDescription)
           .filter(Boolean)
           .join('\n\n')
-        console.log(`Resolved ${guidelines.length} brand guideline reference(s) (${resolvedGuidelinesText.length} chars, color: ${resolvedColorDescription.length} chars)`)
       }
     }
 
-    // Category-level color description columns no longer exist on the categories table;
-    // color descriptions are fetched from brand_guidelines below when needed.
-
-    // If colorWorld is selected but no color description was loaded (no @ references, no category color),
-    // fetch color descriptions from ALL of the user's guidelines
     if (colorWorld && !resolvedColorDescription) {
-      const { data: allGuidelines } = await supabase
-        .from('brand_guidelines')
-        .select('color_description')
-        .eq('company_id', companyId)
+      const allGuidelines = await prisma.brandGuideline.findMany({
+        where: { companyId },
+        select: { colorDescription: true },
+      })
 
-      if (allGuidelines?.length) {
+      if (allGuidelines.length) {
         resolvedColorDescription = allGuidelines
-          .map(g => g.color_description)
+          .map(g => g.colorDescription)
           .filter(Boolean)
           .join('\n\n')
-        console.log(`Loaded color descriptions from all guidelines for colorWorld "${colorWorld}" (${resolvedColorDescription.length} chars)`)
       }
     }
 
-    // Filter color description to ONLY the selected color world
     if (colorWorld && resolvedColorDescription) {
       const lines = resolvedColorDescription.split('\n').filter(l => l.trim())
       const worldLower = colorWorld.toLowerCase()
       const filtered = lines.filter(line => {
         const lower = line.toLowerCase()
-        // Include lines that mention the selected world (e.g., "World of Green palette: ...")
         if (lower.includes(worldLower)) return true
-        // Include lighting and mood lines (always relevant)
         if (lower.includes('lighting') || lower.includes('mood')) return true
-        // EXCLUDE everything else — especially other "Brand color" lines
-        // that would confuse the model with gold, silver, pink, etc.
         return false
       })
       resolvedColorDescription = filtered.join('\n')
-      console.log(`Filtered to "${colorWorld}": "${resolvedColorDescription}"`)
     }
 
-    // Merge @-referenced guidelines text
     const finalGuidelines = [resolvedGuidelinesText]
       .filter(Boolean).join('\n\n').substring(0, 24000) || undefined
 
-    // Use form-submitted lookAndFeel if provided (cleaned of tokens), otherwise fall back to DB value
-    const resolvedLookAndFeel = cleanLookAndFeel || category.look_and_feel
+    const resolvedLookAndFeel = cleanLookAndFeel || category.lookAndFeel
 
     if (!resolvedLookAndFeel) {
       return NextResponse.json(
-        {
-          error:
-            'Category must have a look_and_feel description. Please edit the category and add one.',
-        },
+        { error: 'Category must have a look_and_feel description. Please edit the category and add one.' },
         { status: 400 }
       )
     }
 
-    // Get reference assets if provided (for style guidance)
+    // Get reference assets if provided
     let styleReferenceImages: Array<{ data: string; mimeType: string }> = []
 
     if (referenceAssetIds && referenceAssetIds.length > 0) {
-      // Fetch reference images from product_images or angled_shots
-      const { data: productImages } = await supabase
-        .from('product_images')
-        .select('id, file_path, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
-        .eq('company_id', companyId)
-        .in('id', referenceAssetIds)
+      const [productImages, angledShots, brandAssets] = await Promise.all([
+        prisma.productImage.findMany({
+          where: { companyId, id: { in: referenceAssetIds } },
+          select: { id: true, metadata: true, storageProvider: true, storageUrl: true, storagePath: true, gdriveFileId: true },
+        }),
+        prisma.angledShot.findMany({
+          where: { companyId, id: { in: referenceAssetIds } },
+          select: { id: true, storagePath: true, storageProvider: true, storageUrl: true, gdriveFileId: true },
+        }),
+        prisma.brandAsset.findMany({
+          where: { companyId, id: { in: referenceAssetIds } },
+          select: { id: true, storagePath: true, storageUrl: true, metadata: true },
+        }),
+      ])
 
-      const { data: angledShots } = await supabase
-        .from('angled_shots')
-        .select('id, storage_path, storage_provider, storage_url, gdrive_file_id')
-        .eq('company_id', companyId)
-        .in('id', referenceAssetIds)
-
-      // Also check brand_assets table (stored in Supabase Storage)
-      const { data: brandAssets } = await supabase
-        .from('brand_assets')
-        .select('id, storage_path, storage_url, metadata')
-        .eq('company_id', companyId)
-        .in('id', referenceAssetIds)
-
-      const allReferences = [
-        ...(productImages || []),
-        ...(angledShots || []),
-        ...(brandAssets || []).map((ba) => ({
-          ...ba,
-          storage_provider: 'supabase' as const,
-          file_path: ba.storage_path,
-          mime_type: ba.metadata?.file_type || 'image/jpeg',
-        })),
-      ]
-
-      // Download and convert to base64
-      for (const ref of allReferences) {
+      for (const ref of productImages) {
         try {
           let imageBuffer: Buffer | null = null
-
-          // Download from appropriate storage — prefer gdrive_file_id for direct download
-          if (ref.storage_provider === 'gdrive') {
-            const gdriveKey = ('gdrive_file_id' in ref ? ref.gdrive_file_id : null) || ref.storage_path
-            if (!gdriveKey) continue
-            try {
-              imageBuffer = await downloadFile(gdriveKey as string, { provider: 'gdrive' })
-            } catch (dlError) {
-              console.warn(`Failed to download reference via gdrive adapter: ${dlError}`)
-            }
-          } else {
-            // For Supabase Storage
-            const path = 'file_path' in ref ? ref.file_path : ref.storage_path
-            const bucket =
-              'file_path' in ref ? 'product-images' : 'angled-shots'
-
-            const { data, error } = await supabase.storage
-              .from(bucket)
-              .download(path)
-
-            if (!error && data) {
-              const arrayBuf = await data.arrayBuffer()
-              imageBuffer = Buffer.from(arrayBuf)
-            }
+          if (ref.storageProvider === 'gdrive') {
+            const key = ref.gdriveFileId || ref.storagePath
+            if (key) imageBuffer = await downloadFile(key, { provider: 'gdrive' }).catch(() => null)
+          } else if (ref.storageProvider === 'gcs' && ref.storagePath) {
+            imageBuffer = await downloadFile(ref.storagePath, { provider: 'gcs' }).catch(() => null)
           }
-
           if (imageBuffer) {
-            const base64Image = imageBuffer.toString('base64')
-            const mimeType: string =
-              'mime_type' in ref ? (ref.mime_type as string) : 'image/jpeg'
+            const refMime = (ref.metadata as any)?.mimeType || 'image/jpeg'
             styleReferenceImages.push({
-              data: `data:${mimeType};base64,${base64Image}`,
-              mimeType,
+              data: `data:${refMime};base64,${imageBuffer.toString('base64')}`,
+              mimeType: refMime,
             })
           }
         } catch (error) {
-          console.error(
-            `Failed to fetch reference asset ${ref.id}:`,
-            error
-          )
-          // Continue even if one reference fails
+          console.error(`Failed to fetch reference asset ${ref.id}:`, error)
+        }
+      }
+
+      for (const ref of angledShots) {
+        try {
+          let imageBuffer: Buffer | null = null
+          if (ref.storageProvider === 'gdrive') {
+            const key = ref.gdriveFileId || ref.storagePath
+            if (key) imageBuffer = await downloadFile(key, { provider: 'gdrive' }).catch(() => null)
+          } else if (ref.storageProvider === 'gcs' && ref.storagePath) {
+            imageBuffer = await downloadFile(ref.storagePath, { provider: 'gcs' }).catch(() => null)
+          }
+          if (imageBuffer) {
+            styleReferenceImages.push({
+              data: `data:image/jpeg;base64,${imageBuffer.toString('base64')}`,
+              mimeType: 'image/jpeg',
+            })
+          }
+        } catch (error) {
+          console.error(`Failed to fetch angled shot reference ${ref.id}:`, error)
         }
       }
     }
-
-    // Generate backgrounds for each requested format
-    console.log(
-      `Generating ${count} background(s) x ${formatsToGenerate.length} format(s) for category ${category.name}...`
-    )
-    console.log(`Prompt: ${cleanPrompt}`)
-    console.log(`Look & Feel: ${resolvedLookAndFeel}`)
-    console.log(`Style references: ${styleReferenceImages.length}`)
-    console.log(`Brand guidelines: ${finalGuidelines ? `${finalGuidelines.length} chars` : 'none'}`)
-    console.log(`Formats: ${formatsToGenerate.join(', ')}`)
 
     const allMappedBackgrounds: Array<{
       promptUsed: string
@@ -339,14 +239,11 @@ export async function POST(
       const fmtDimensions = getFormatDimensions(fmt)
       console.log(`  Generating ${count} ${fmt} backgrounds (${fmtDimensions.width}x${fmtDimensions.height})...`)
 
-      // Add a short delay between format batches to avoid Gemini rate limits
       if (fi > 0) {
-        console.log(`  ⏳ Waiting 3s before next format to avoid rate limits...`)
         await new Promise(resolve => setTimeout(resolve, 3000))
       }
 
       try {
-        // Route to Replicate (FLUX) for formats Gemini doesn't support natively
         const fmtStartMs = Date.now()
         const generatedBackgrounds = REPLICATE_FORMATS.has(fmt)
           ? await generateBackgroundsWithReplicate(
@@ -375,13 +272,12 @@ export async function POST(
             mimeType: bg.mimeType,
             format: fmt,
             generationTimeMs: perBgMs,
-            // Legacy field names for backwards compatibility
             image_base64: bg.imageData,
             image_mime_type: bg.mimeType,
           })
         }
       } catch (fmtError) {
-        console.error(`  ❌ Format ${fmt} failed:`, fmtError instanceof Error ? fmtError.message : fmtError)
+        console.error(`  Format ${fmt} failed:`, fmtError instanceof Error ? fmtError.message : fmtError)
         failedFormats.push(fmt)
       }
     }
@@ -397,20 +293,13 @@ export async function POST(
       message: failedFormats.length > 0
         ? `Generated ${allMappedBackgrounds.length} background(s). Failed formats: ${failedFormats.join(', ')}`
         : `Generated ${allMappedBackgrounds.length} background variation(s) across ${formatsToGenerate.length} format(s)`,
-      category: {
-        id: category.id,
-        name: category.name,
-        slug: category.slug,
-      },
+      category: { id: category.id, name: category.name, slug: category.slug },
       backgrounds: allMappedBackgrounds,
       results: allMappedBackgrounds,
       failedFormats: failedFormats.length > 0 ? failedFormats : undefined,
     })
   } catch (error) {
     console.error('Error generating backgrounds:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

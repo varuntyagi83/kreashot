@@ -1,12 +1,11 @@
 // Extend route timeout for Python compositor + GCS upload
-// Supports composite or direct angled-shot base images
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyInfo } from '@/lib/get-company'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
@@ -23,7 +22,6 @@ const ALLOWED_FONT_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'supabase.co', // Fonts in brand-assets bucket (e.g. https://xxx.supabase.co/storage/...)
 ]
 
 function isAllowedUrl(url: string): boolean {
@@ -44,57 +42,42 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params
-  const format = request.nextUrl.searchParams.get('format')
-  const supabase = await createServerSupabaseClient()
+  const { id: categoryId } = await params
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  try {
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-  const rateLimit = await checkRateLimit(`list-final-assets:${user.id}`, 100, 60_000)
-  if (!rateLimit.allowed) {
-    return NextResponse.json(
-      { error: 'Rate limit exceeded. Please try again in a minute.' },
-      { status: 429, headers: { 'Retry-After': '60' } }
-    )
-  }
+    const rateLimit = await checkRateLimit(`list-final-assets:${user.id}`, 100, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again in a minute.' },
+        { status: 429, headers: { 'Retry-After': '60' } }
+      )
+    }
 
-  const companyInfo = await getCompanyInfo(supabase, user.id)
-  if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-  const { company_id: companyId } = companyInfo
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
-  // Verify this category belongs to the authenticated company
-  const { data: category } = await supabase
-    .from('categories')
-    .select('id')
-    .eq('id', id)
-    .eq('company_id', companyId)
-    .single()
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
+    }
 
-  if (!category) {
-    return NextResponse.json({ error: 'Category not found' }, { status: 404 })
-  }
+    const format = request.nextUrl.searchParams.get('format') || undefined
 
-  let query = supabase
-    .from('final_assets')
-    .select('*')
-    .eq('category_id', id)
-    .order('created_at', { ascending: false })
+    const finalAssets = await prisma.finalAsset.findMany({
+      where: { categoryId, ...(format ? { format } : {}) },
+      orderBy: { createdAt: 'desc' },
+    })
 
-  if (format) {
-    query = query.eq('format', format)
-  }
-
-  const { data, error } = await query
-
-  if (error) {
+    return NextResponse.json({ finalAssets })
+  } catch (error: any) {
     console.error('[final-assets GET] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  return NextResponse.json({ finalAssets: data })
 }
 
 // POST - Generate new final asset
@@ -103,18 +86,17 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: categoryId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`final-assets:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -124,13 +106,10 @@ export async function POST(
       )
     }
 
-    // Verify category belongs to the authenticated company
-    const { data: ownedCategory } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const ownedCategory = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!ownedCategory) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -156,7 +135,7 @@ export async function POST(
       )
     }
 
-    // Fast path: save a previously generated preview to the gallery (no Python/Drive re-run)
+    // Fast path: save a previously generated preview to the gallery
     if (body.savePreview) {
       const sp = body.savePreview as {
         storageUrl: string; storagePath: string; gdriveFileId: string
@@ -168,39 +147,28 @@ export async function POST(
         return NextResponse.json({ error: 'Invalid save data' }, { status: 400 })
       }
 
-      // Security (H-02): verify the storage path belongs to this company's namespace.
-      // A malicious caller could supply an arbitrary storagePath / storageUrl to link
-      // another company's file into their gallery. Reject any path that does not start
-      // with the authenticated company's slug prefix.
-      const sanitizedName = sanitizeCompanyName(companyName)
-      if (!sp.storagePath.startsWith(`${sanitizedName}/${companySlug}/`) && !sp.storagePath.startsWith(`${companySlug}/`)) {
+      const sanitizedName = sanitizeCompanyName(company.name)
+      if (!sp.storagePath.startsWith(`${sanitizedName}/${company.slug}/`) && !sp.storagePath.startsWith(`${company.slug}/`)) {
         return NextResponse.json({ error: 'Storage path does not belong to this company' }, { status: 403 })
       }
-      const { data: savedAsset, error: insertError } = await supabase
-        .from('final_assets')
-        .insert({
-          category_id: categoryId,
-          user_id: user.id,
-          company_id: companyId,
-          template_id: sp.templateId ?? null,
-          composite_id: sp.compositeId ?? null,
-          copy_doc_id: sp.copyDocId ?? null,
+
+      const savedAsset = await prisma.finalAsset.create({
+        data: {
+          categoryId,
+          userId: user.id,
+          companyId,
+          compositeId: sp.compositeId ?? null,
+          copyDocId: sp.copyDocId ?? null,
           name: sp.name,
           format: sp.format,
-          width: sp.width,
-          height: sp.height,
-          composition_data: sp.compositionData,
-          storage_provider: 'gcs',
-          storage_path: sp.storagePath,
-          storage_url: sp.storageUrl,
-          gdrive_file_id: sp.gdriveFileId,
-        })
-        .select()
-        .single()
-      if (insertError) {
-        console.error('❌ Save preview insert failed:', insertError)
-        throw insertError
-      }
+          storageProvider: 'gcs',
+          storagePath: sp.storagePath,
+          storageUrl: sp.storageUrl,
+          gdriveFileId: sp.gdriveFileId,
+          metadata: { width: sp.width, height: sp.height, compositionData: sp.compositionData, templateId: sp.templateId ?? null },
+        },
+      })
+
       return NextResponse.json({ finalAsset: savedAsset, message: 'Final asset saved to gallery' })
     }
 
@@ -221,10 +189,7 @@ export async function POST(
       { id: 'text', type: 'text', name: 'tagline', x: 10, y: 80, width: 80, height: 15, z_index: 2, font_size: 48, color: '#000000', text_align: 'center' },
     ]
 
-    console.log('🎨 Generating final asset for category:', categoryId, `(${format} ${width}x${height})`)
-
-    // 1. Resolve layers: customLayers (freeform) > templateId > category template > DEFAULT_LAYERS
-    let template: { id: string | null; template_data: { layers: any[] } }
+    console.log('Generating final asset for category:', categoryId, `(${format} ${width}x${height})`)
 
     const VALID_LAYER_TYPES = ['background', 'product', 'text', 'logo', 'overlay']
     const isValidLayer = (l: any): { ok: boolean; reason?: string } => {
@@ -236,6 +201,8 @@ export async function POST(
       return { ok: true }
     }
 
+    let template: { id: string | null; template_data: { layers: any[] } }
+
     if (customLayers && Array.isArray(customLayers) && customLayers.length > 0) {
       if (customLayers.length > 20) {
         return NextResponse.json({ error: 'Too many layers (max 20)' }, { status: 400 })
@@ -246,93 +213,69 @@ export async function POST(
           return NextResponse.json({ error: `Invalid layer structure: layer[${i}] (type=${customLayers[i]?.type}): ${result.reason}` }, { status: 400 })
         }
       }
-      // Freeform mode — use layers built by the frontend
-      console.log('🎨 Using freeform custom layers')
       template = { id: null, template_data: { layers: customLayers } }
     } else {
       let templateRow: any = null
       if (templateId) {
-        const { data } = await supabase
-          .from('templates')
-          .select('*')
-          .eq('id', templateId)
-          .eq('category_id', categoryId)
-          .single()
-        templateRow = data
-        if (!templateRow) console.warn('⚠️  Specified templateId not found, falling back to category template')
+        templateRow = await prisma.template.findFirst({
+          where: { id: templateId, categoryId },
+        })
+        if (!templateRow) console.warn('Specified templateId not found, falling back to category template')
       }
 
       if (!templateRow) {
-        const { data } = await supabase
-          .from('templates')
-          .select('*')
-          .eq('category_id', categoryId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        templateRow = data
+        templateRow = await prisma.template.findFirst({
+          where: { categoryId },
+          orderBy: { createdAt: 'desc' },
+        })
       }
 
-      // Parse template_data (may be stored as a JSON string in some rows)
-      let parsedTemplateData = templateRow?.template_data
+      let parsedTemplateData = templateRow?.templateData
       if (typeof parsedTemplateData === 'string') {
         try { parsedTemplateData = JSON.parse(parsedTemplateData) } catch { parsedTemplateData = null }
       }
 
-      // If template has no layers (e.g. safe_zones-only templates), inject default layers
       const layers = parsedTemplateData?.layers?.length > 0 ? parsedTemplateData.layers : DEFAULT_LAYERS
 
       template = {
         id: templateRow?.id ?? null,
-        template_data: {
-          ...parsedTemplateData,
-          layers,
-        },
+        template_data: { ...parsedTemplateData, layers },
       }
 
       if (!templateRow) {
-        console.warn('⚠️  No template found, using default layout')
+        console.warn('No template found, using default layout')
       } else if (!parsedTemplateData?.layers?.length) {
-        console.warn('⚠️  Template has no layers, injecting default layout')
+        console.warn('Template has no layers, injecting default layout')
       }
     }
 
-    // 2. Resolve base image: direct URL (angled shot) or composite lookup
+    // Resolve base image
     let compositeUrl: string
     if (baseImageUrl) {
-      // Direct image URL (e.g. angled shot with baked-in background)
       if (!isAllowedUrl(baseImageUrl)) {
         return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
       }
       compositeUrl = baseImageUrl
     } else if (compositeId) {
-      const { data: composite } = await supabase
-        .from('composites')
-        .select('storage_url, gdrive_file_id')
-        .eq('id', compositeId)
-        .eq('category_id', categoryId)
-        .single()
+      const composite = await prisma.composite.findFirst({
+        where: { id: compositeId, categoryId },
+        select: { storageUrl: true, gdriveFileId: true },
+      })
       if (!composite) {
         return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
       }
-      // Prefer drive.usercontent.google.com — unlike the CDN (lh3.googleusercontent.com)
-      // it serves the file immediately after upload without propagation delay.
-      compositeUrl = composite.gdrive_file_id
-        ? `https://drive.usercontent.google.com/download?id=${composite.gdrive_file_id}&export=download`
-        : composite.storage_url || ''
+      compositeUrl = composite.gdriveFileId
+        ? `https://drive.usercontent.google.com/download?id=${composite.gdriveFileId}&export=download`
+        : composite.storageUrl || ''
     } else {
-      // Get latest composite
-      const { data: composites } = await supabase
-        .from('composites')
-        .select('storage_url, gdrive_file_id')
-        .eq('category_id', categoryId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      const latest = composites?.[0]
-      compositeUrl = latest?.gdrive_file_id
-        ? `https://drive.usercontent.google.com/download?id=${latest.gdrive_file_id}&export=download`
-        : latest?.storage_url || ''
+      const latest = await prisma.composite.findFirst({
+        where: { categoryId },
+        orderBy: { createdAt: 'desc' },
+        select: { storageUrl: true, gdriveFileId: true },
+      })
+      compositeUrl = latest?.gdriveFileId
+        ? `https://drive.usercontent.google.com/download?id=${latest.gdriveFileId}&export=download`
+        : latest?.storageUrl || ''
     }
 
     if (!compositeUrl) {
@@ -342,10 +285,7 @@ export async function POST(
       )
     }
 
-    // 3. Build copy_text for Python script.
-    // If per-layer texts were provided (layerTexts map), use those directly.
-    // Each key is a layer name; Python resolves text via copy_text.get(layer_name).
-    // Fall back to a single copyDoc text for backwards-compat templates.
+    // Build copy_text
     let copyText: any = { generated_text: '' }
     if (layerTexts && Object.keys(layerTexts).length > 0) {
       const sanitized: Record<string, string> = {}
@@ -354,16 +294,13 @@ export async function POST(
       }
       copyText = sanitized
     } else if (copyDocId) {
-      const { data: copyDoc } = await supabase
-        .from('copy_docs')
-        .select('generated_text, copy_type')
-        .eq('id', copyDocId)
-        .eq('category_id', categoryId)
-        .single()
-      if (copyDoc) copyText = copyDoc
+      const copyDoc = await prisma.copyDoc.findFirst({
+        where: { id: copyDocId, categoryId },
+        select: { generatedText: true, copyType: true },
+      })
+      if (copyDoc) copyText = { generated_text: copyDoc.generatedText, copy_type: copyDoc.copyType }
     }
 
-    // Validate copy_text field lengths
     const MAX_TEXT_LEN = 1000
     if (copyText && typeof copyText === 'object') {
       for (const [key, val] of Object.entries(copyText)) {
@@ -376,17 +313,9 @@ export async function POST(
       }
     }
 
-    // 4. Get category slug for storage path
-    const { data: category } = await supabase
-      .from('categories')
-      .select('slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const categorySlug = ownedCategory.slug
 
-    const categorySlug = category?.slug || 'unknown'
-
-    // 5. Pre-download any brand fonts so Python gets local file paths (not URLs)
+    // Pre-download brand fonts
     const fontCleanup: string[] = []
     for (const layer of template.template_data.layers || []) {
       if (layer.type === 'text' && layer.font_url) {
@@ -395,22 +324,13 @@ export async function POST(
           continue
         }
         try {
-          console.log(`🔤 Pre-downloading font: ${layer.font_url.substring(0, 80)}...`)
-
           const fetchFont = async (url: string): Promise<Buffer | null> => {
             const ctrl = new AbortController()
             const timer = setTimeout(() => ctrl.abort(), 15_000)
             try {
-              const res = await fetch(url, {
-                signal: ctrl.signal,
-                headers: { 'User-Agent': 'Mozilla/5.0' },
-                redirect: 'follow',
-              })
+              const res = await fetch(url, { signal: ctrl.signal, headers: { 'User-Agent': 'Mozilla/5.0' }, redirect: 'follow' })
               clearTimeout(timer)
-              if (!res.ok) {
-                console.warn(`⚠️ Font download HTTP ${res.status} for: ${url.substring(0, 80)}`)
-                return null
-              }
+              if (!res.ok) return null
               return Buffer.from(await res.arrayBuffer())
             } catch {
               clearTimeout(timer)
@@ -419,10 +339,8 @@ export async function POST(
           }
 
           const isHtml = (buf: Buffer) =>
-            buf.slice(0, 200).includes(Buffer.from('<!DOCTYPE')) ||
-            buf.slice(0, 200).includes(Buffer.from('<html'))
+            buf.slice(0, 200).includes(Buffer.from('<!DOCTYPE')) || buf.slice(0, 200).includes(Buffer.from('<html'))
 
-          // Detect font format from magic bytes; fall back to .ttf
           const detectFontExt = (buf: Buffer): string => {
             if (buf[0] === 0x4F && buf[1] === 0x54 && buf[2] === 0x54 && buf[3] === 0x4F) return '.otf'
             if (buf[0] === 0x77 && buf[1] === 0x4F && buf[2] === 0x46 && buf[3] === 0x46) return '.woff'
@@ -432,18 +350,12 @@ export async function POST(
 
           let fontBuffer = await fetchFont(layer.font_url)
 
-          // GCS may return an HTML confirmation page for font files.
-          // Retry with confirm=t and via drive.usercontent.google.com.
           if (fontBuffer && isHtml(fontBuffer)) {
-            console.warn(`🔤 Got HTML response, retrying with confirm=t...`)
             const fileIdMatch = layer.font_url.match(/[?&]id=([a-zA-Z0-9_-]+)/)
             if (fileIdMatch) {
               const altUrl = `https://drive.usercontent.google.com/download?id=${fileIdMatch[1]}&export=download&confirm=t`
               fontBuffer = await fetchFont(altUrl)
-              if (fontBuffer && isHtml(fontBuffer)) {
-                console.warn(`⚠️ Still got HTML from alt URL, font download failed`)
-                fontBuffer = null
-              }
+              if (fontBuffer && isHtml(fontBuffer)) fontBuffer = null
             } else {
               fontBuffer = null
             }
@@ -452,27 +364,22 @@ export async function POST(
           if (fontBuffer && fontBuffer.length > 100) {
             const ext = detectFontExt(fontBuffer)
             if (ext === '.woff2') {
-              console.warn(`⚠️ WOFF2 font detected for layer ${layer.name ?? layer.id} — PIL does not support WOFF2. Upload a TTF or OTF font instead. Skipping.`)
+              console.warn(`WOFF2 font detected for layer ${layer.name ?? layer.id} — PIL does not support WOFF2. Skipping.`)
               continue
             }
             const fontPath = `/tmp/font_${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`
             const { writeFile } = await import('fs/promises')
             await writeFile(fontPath, fontBuffer)
-            console.log(`🔤 Font saved to ${fontPath} (${fontBuffer.length} bytes, format=${ext}) for layer ${layer.name ?? layer.id}`)
-            layer.font_path = fontPath  // Python will use this local path
+            layer.font_path = fontPath
             fontCleanup.push(fontPath)
-          } else {
-            console.warn(`⚠️ Font download produced no usable bytes for layer ${layer.name ?? layer.id}; font_url will be passed to Python as fallback`)
           }
         } catch (e: any) {
-          console.warn(`⚠️ Font download error for layer ${layer.name ?? layer.id}: ${e.message}; font_url will be passed to Python as fallback`)
+          console.warn(`Font download error for layer ${layer.name ?? layer.id}: ${e.message}`)
         }
       }
     }
 
-    // 6. Call Python compositing script
-    console.log('🐍 Calling Python compositing script...')
-
+    // Call Python compositing script
     const inputData = {
       template_data: template.template_data,
       composite_url: compositeUrl,
@@ -484,11 +391,10 @@ export async function POST(
       output_path: `/tmp/final_asset_${crypto.randomUUID()}.png`
     }
 
-    console.log(`📊 Final asset: template=${inputData.template_data?.layers?.length ?? 0} layers, ${inputData.width}x${inputData.height}`)
+    console.log(`Final asset: ${inputData.template_data?.layers?.length ?? 0} layers, ${inputData.width}x${inputData.height}`)
 
     const pythonScript = path.join(process.cwd(), 'scripts', 'composite_final_asset.py')
-
-    const PYTHON_TIMEOUT_MS = 120_000 // 2 minutes
+    const PYTHON_TIMEOUT_MS = 120_000
 
     let python: ChildProcess
     const result = await Promise.race([
@@ -504,29 +410,21 @@ export async function POST(
         python.stdin.write(JSON.stringify(inputData))
         python.stdin.end()
 
-        python.stdout.on('data', (data) => {
-          stdout += data.toString()
-        })
-
-        python.stderr.on('data', (data) => {
-          stderr += data.toString()
-        })
+        python.stdout.on('data', (data) => { stdout += data.toString() })
+        python.stderr.on('data', (data) => { stderr += data.toString() })
 
         python.on('close', (code) => {
           if (code !== 0) {
-            console.error('❌ Python script failed:', stderr)
-            console.error('Python script failed. stderr:', stderr)
+            console.error('Python script failed:', stderr)
             reject(new Error('Image processing failed'))
           } else {
-            if (stderr) console.log('🐍 Python debug:', stderr)
-            console.log('✅ Python script output:', stdout)
-            // Parse last line as JSON result
+            if (stderr) console.log('Python debug:', stderr)
             const lines = stdout.trim().split('\n')
             const resultLine = lines[lines.length - 1]
             try {
-              const result = JSON.parse(resultLine)
-              resolve(result.output_path)
-            } catch (e) {
+              const r = JSON.parse(resultLine)
+              resolve(r.output_path)
+            } catch {
               resolve(inputData.output_path)
             }
           }
@@ -540,15 +438,12 @@ export async function POST(
       ),
     ])
 
-    // 6. Upload to GCS
-    console.log('📤 Uploading final asset to GCS...')
-
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    // Upload to GCS
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
     const timestamp = Date.now()
-    const formatFolder = format.replace(':', 'x') // '1:1' → '1x1', '16:9' → '16x9'
-    const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
+    const formatFolder = format.replace(':', 'x')
+    const storagePath = `${sanitizedCompanyName}/${company.slug}/${categorySlug}/final-assets/${formatFolder}/asset_${timestamp}.png`
 
-    // Read the file as a Buffer
     const fileBuffer = await readFile(result)
 
     const { fileId, publicUrl } = await uploadFile(
@@ -557,8 +452,7 @@ export async function POST(
       { provider: 'gcs' }
     )
 
-    // If preview mode: return the generated image without saving to the gallery.
-    // The client will show a confirmation dialog; a second call with savePreview saves it.
+    // Preview mode: return without saving to gallery
     if (body.preview === true) {
       await unlink(result).catch(() => {})
       for (const fp of fontCleanup) { await unlink(fp).catch(() => {}) }
@@ -587,59 +481,43 @@ export async function POST(
       })
     }
 
-    // 7. Save to database
-    console.log('💾 Saving to database...')
-
-    const { data: finalAsset, error: insertError } = await supabase
-      .from('final_assets')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
-        template_id: template?.id,
-        composite_id: compositeId,
-        copy_doc_id: copyDocId,
+    // Save to database
+    const finalAsset = await prisma.finalAsset.create({
+      data: {
+        categoryId,
+        userId: user.id,
+        companyId,
+        compositeId: compositeId ?? null,
+        copyDocId: copyDocId ?? null,
         name,
         format,
-        width,
-        height,
-        composition_data: {
-          layers: template.template_data.layers,
-          source_composite: compositeUrl,
-          source_copy: copyText.generated_text,
-          safe_zones_validated: true,
+        storageProvider: 'gcs',
+        storagePath,
+        storageUrl: publicUrl,
+        gdriveFileId: fileId ?? null,
+        metadata: {
+          templateId: template?.id ?? null,
+          width,
+          height,
+          compositionData: {
+            layers: template.template_data.layers,
+            source_composite: compositeUrl,
+            source_copy: typeof copyText === 'object' ? (copyText as any).generated_text ?? null : null,
+            safe_zones_validated: true,
+          },
         },
-        storage_provider: 'gcs',
-        storage_path: storagePath,
-        storage_url: publicUrl,
-        gdrive_file_id: fileId,
-      })
-      .select()
-      .single()
-
-    if (insertError) {
-      console.error('❌ Database insert failed:', insertError)
-      throw insertError
-    }
-
-    // 8. Cleanup temp files (output + pre-downloaded fonts)
-    await unlink(result).catch(() => {})
-    for (const fp of fontCleanup) {
-      await unlink(fp).catch(() => {})
-    }
-
-    console.log('✅ Final asset generated successfully!')
-
-    return NextResponse.json({
-      finalAsset,
-      message: 'Final asset generated successfully'
+      },
     })
 
+    await unlink(result).catch(() => {})
+    for (const fp of fontCleanup) { await unlink(fp).catch(() => {}) }
+
+    console.log('Final asset generated successfully!')
+
+    return NextResponse.json({ finalAsset, message: 'Final asset generated successfully' })
+
   } catch (error: any) {
-    console.error('❌ Error generating final asset:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('Error generating final asset:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

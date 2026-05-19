@@ -5,9 +5,8 @@
  * GET /api/image-proxy?fileId={driveFileId}
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
-import { getSupabaseAdmin } from '@/lib/supabase/admin'
+import { requireSession } from '@/lib/session'
+import { prisma } from '@/lib/db'
 import { google } from 'googleapis'
 
 function getDriveClient() {
@@ -35,11 +34,9 @@ function contentTypeFromBuffer(buf: Buffer): string {
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const ctx = await requireSession()
+  if (ctx instanceof NextResponse) return ctx
+  const { companyId } = ctx
 
   const fileId = request.nextUrl.searchParams.get('fileId')
   if (!fileId || !/^[a-zA-Z0-9_-]+$/.test(fileId)) {
@@ -47,50 +44,33 @@ export async function GET(request: NextRequest) {
   }
 
   // Verify ownership — fileId must belong to the user's active company.
-  // Ownership is company-scoped, not user-scoped: any member of a company
-  // can view assets created by other members of the same company.
-  const companyId = await getCompanyId(supabase, user.id)
-  if (!companyId) {
-    return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  }
-
-  // Use admin client for ownership lookups — RLS on these tables is user_id-based,
-  // which would block members from seeing assets created by their teammates.
-  // The admin client bypasses RLS only for this membership check, not for data access.
-  const admin = getSupabaseAdmin()
+  // Ownership is company-scoped: any member of a company can view assets
+  // created by other members of the same company.
   let owned = false
 
-  // angled_shots, backgrounds, composites: scoped via category → company
-  for (const table of ['angled_shots', 'backgrounds', 'composites'] as const) {
-    const { data: asset } = await admin
-      .from(table)
-      .select('category_id')
-      .eq('gdrive_file_id', fileId)
-      .limit(1)
-      .maybeSingle()
-
-    if (asset?.category_id) {
-      const { data: category } = await admin
-        .from('categories')
-        .select('id')
-        .eq('id', asset.category_id)
-        .eq('company_id', companyId)
-        .maybeSingle()
+  // angled_shots, backgrounds, composites: scoped via category -> company
+  for (const model of ['angledShot', 'background', 'composite'] as const) {
+    const asset = await (prisma[model] as any).findFirst({
+      where: { gdriveFileId: fileId },
+      select: { categoryId: true },
+    })
+    if (asset?.categoryId) {
+      const category = await prisma.category.findFirst({
+        where: { id: asset.categoryId, companyId },
+        select: { id: true },
+      })
       if (category) { owned = true; break }
     }
   }
 
-  // final_assets, collages, product_images, brand_assets: company_id column directly
+  // finalAsset, collage, productImage, brandAsset: companyId column directly
   if (!owned) {
-    for (const table of ['final_assets', 'collages', 'product_images', 'brand_assets'] as const) {
-      const { data } = await admin
-        .from(table)
-        .select('id')
-        .eq('gdrive_file_id', fileId)
-        .eq('company_id', companyId)
-        .limit(1)
-        .maybeSingle()
-      if (data) { owned = true; break }
+    for (const model of ['finalAsset', 'collage', 'productImage', 'brandAsset'] as const) {
+      const asset = await (prisma[model] as any).findFirst({
+        where: { gdriveFileId: fileId, companyId },
+        select: { id: true },
+      })
+      if (asset) { owned = true; break }
     }
   }
 

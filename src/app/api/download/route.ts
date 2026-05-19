@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { requireSession } from '@/lib/session'
+import { prisma } from '@/lib/db'
 import { downloadFile } from '@/lib/storage'
 import sharp from 'sharp'
 
@@ -16,7 +16,7 @@ const RESOLUTION_MAP: Record<string, number | null> = {
 const FORMAT_CONFIG: Record<string, { mime: string; ext: string }> = {
   JPEG: { mime: 'image/jpeg', ext: 'jpg' },
   WebP: { mime: 'image/webp', ext: 'webp' },
-  PNG:  { mime: 'image/png',  ext: 'png'  },
+  PNG: { mime: 'image/png', ext: 'png' },
 }
 
 /**
@@ -31,17 +31,15 @@ const FORMAT_CONFIG: Record<string, { mime: string; ext: string }> = {
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
     const sp = request.nextUrl.searchParams
-    const fileId   = sp.get('fileId')
+    const fileId = sp.get('fileId')
     const filename = sp.get('filename') || 'download'
     const resolution = sp.get('resolution') || 'Original'
-    const format     = sp.get('format')     || 'JPEG'
+    const format = sp.get('format') || 'JPEG'
 
     if (!fileId) {
       return NextResponse.json({ error: 'fileId is required' }, { status: 400 })
@@ -51,37 +49,28 @@ export async function GET(request: NextRequest) {
     const isGcsPath = fileId.includes('/')
 
     // Verify ownership — fileId must belong to the authenticated user's company.
-    // Scope by company_id (not user_id) to stay consistent with all other routes
-    // and prevent cross-company file access by users who know a file path.
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) {
-      return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const fieldName = isGcsPath ? 'storagePath' : 'gdriveFileId'
+    let owned = false
+
+    for (const model of ['background', 'composite', 'angledShot', 'finalAsset'] as const) {
+      const asset = await (prisma[model] as any).findFirst({
+        where: { [fieldName]: fileId, companyId },
+        select: { id: true },
+      })
+      if (asset) { owned = true; break }
     }
 
-    const tables = ['backgrounds', 'composites', 'angled_shots', 'final_assets'] as const
-    let owned = false
-    for (const table of tables) {
-      const column = isGcsPath ? 'storage_path' : 'gdrive_file_id'
-      const { data } = await supabase
-        .from(table)
-        .select('id')
-        .eq(column, fileId)
-        .eq('company_id', companyId)
-        .limit(1)
-        .maybeSingle()
-      if (data) { owned = true; break }
-    }
     if (!owned) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     const fmtConfig = FORMAT_CONFIG[format] ?? FORMAT_CONFIG['JPEG']
-    const maxPx     = RESOLUTION_MAP[resolution] ?? null
+    const maxPx = RESOLUTION_MAP[resolution] ?? null
 
     // Fetch from GCS or Google Drive
     const buffer = await downloadFile(fileId, { provider: isGcsPath ? 'gcs' : 'gdrive' })
 
-    // M-02: Guard against oversized files before passing to Sharp
+    // Guard against oversized files before passing to Sharp
     if (buffer.length > 50 * 1024 * 1024) {
       return NextResponse.json({ error: 'File too large to process' }, { status: 413 })
     }

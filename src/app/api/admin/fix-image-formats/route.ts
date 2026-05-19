@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { prisma } from '@/lib/db'
 import sharp from 'sharp'
 import { downloadFile, uploadFile, deleteFile } from '@/lib/storage'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
@@ -21,10 +21,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
     // Optional: limit to specific product image IDs via request body
     let filterIds: string[] | null = null
     try {
@@ -37,24 +33,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Query product images stored in Google Drive
-    let query = supabase
-      .from('product_images')
-      .select('id, file_name, file_path, storage_path, storage_url, gdrive_file_id, storage_provider, mime_type, product_id')
-      .eq('storage_provider', 'gdrive')
-      .not('gdrive_file_id', 'is', null)
+    const images = await prisma.productImage.findMany({
+      where: {
+        storageProvider: 'gdrive',
+        gdriveFileId: { not: null },
+        ...(filterIds ? { id: { in: filterIds } } : {}),
+      },
+      select: {
+        id: true,
+        fileName: true,
+        storagePath: true,
+        storageUrl: true,
+        gdriveFileId: true,
+        storageProvider: true,
+        metadata: true,
+        productId: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    })
 
-    if (filterIds) {
-      query = query.in('id', filterIds)
-    }
-
-    const { data: images, error } = await query.order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[fix-image-formats] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    if (!images || images.length === 0) {
+    if (images.length === 0) {
       return NextResponse.json({ message: 'No product images found to check', fixed: 0 })
     }
 
@@ -66,7 +64,12 @@ export async function POST(request: NextRequest) {
 
     for (const img of images) {
       checked++
-      const path = img.storage_path || img.file_path
+      const path = img.storagePath
+
+      if (!path) {
+        skipped++
+        continue
+      }
 
       // Extract current format folder from path
       const match = path.match(formatFolderRegex)
@@ -80,9 +83,9 @@ export async function POST(request: NextRequest) {
       // Download the image to detect actual dimensions
       let buffer: Buffer
       try {
-        buffer = await downloadFile(img.gdrive_file_id, { provider: 'gdrive' })
+        buffer = await downloadFile(img.gdriveFileId!, { provider: 'gdrive' })
       } catch (dlError) {
-        console.warn(`⚠️ Could not download ${img.id} (${img.gdrive_file_id}):`, dlError)
+        console.warn(`Could not download ${img.id} (${img.gdriveFileId}):`, dlError)
         skipped++
         continue
       }
@@ -96,9 +99,9 @@ export async function POST(request: NextRequest) {
           continue
         }
         detectedFormat = detectFormatFromDimensions(metadata.width, metadata.height)
-        console.log(`🔍 Image ${img.id}: ${metadata.width}x${metadata.height} → ${detectedFormat} (currently in ${currentFolderFormat})`)
+        console.log(`Image ${img.id}: ${metadata.width}x${metadata.height} -> ${detectedFormat} (currently in ${currentFolderFormat})`)
       } catch (sharpError) {
-        console.warn(`⚠️ Could not read dimensions for ${img.id}:`, sharpError)
+        console.warn(`Could not read dimensions for ${img.id}:`, sharpError)
         skipped++
         continue
       }
@@ -111,7 +114,7 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      console.log(`🔧 Fixing ${img.id}: ${currentFolderFormat} → ${detectedFolder}`)
+      console.log(`Fixing ${img.id}: ${currentFolderFormat} -> ${detectedFolder}`)
 
       // Build new path by replacing the format folder
       const newPath = path.replace(`/${currentFolderFormat}/`, `/${detectedFolder}/`)
@@ -119,46 +122,39 @@ export async function POST(request: NextRequest) {
       // Re-upload to the correct path
       try {
         const newStorageFile = await uploadFile(buffer, newPath, {
-          contentType: img.mime_type || 'image/jpeg',
+          contentType: (img.metadata as any)?.mimeType || 'image/jpeg',
           provider: 'gdrive',
         })
 
         // Update the database record
-        const { error: updateError } = await supabase
-          .from('product_images')
-          .update({
-            file_path: newPath,
-            storage_path: newPath,
-            storage_url: newStorageFile.publicUrl,
-            gdrive_file_id: newStorageFile.fileId,
-          })
-          .eq('id', img.id)
-
-        if (updateError) {
-          console.error(`❌ DB update failed for ${img.id}:`, updateError)
-          skipped++
-          continue
-        }
+        await prisma.productImage.update({
+          where: { id: img.id },
+          data: {
+            storagePath: newPath,
+            storageUrl: newStorageFile.publicUrl,
+            gdriveFileId: newStorageFile.fileId,
+          },
+        })
 
         // Delete the old file from Google Drive
         try {
-          await deleteFile(img.gdrive_file_id, { provider: 'gdrive' })
-          console.log(`🗑️ Deleted old file ${img.gdrive_file_id}`)
+          await deleteFile(img.gdriveFileId!, { provider: 'gdrive' })
+          console.log(`Deleted old file ${img.gdriveFileId}`)
         } catch (delError) {
-          console.warn(`⚠️ Could not delete old file ${img.gdrive_file_id}:`, delError)
+          console.warn(`Could not delete old file ${img.gdriveFileId}:`, delError)
           // Non-fatal — the new file is already in place
         }
 
         fixed++
         details.push({
           id: img.id,
-          file_name: img.file_name,
+          file_name: img.fileName || img.id,
           oldFormat: currentFolderFormat,
           newFormat: detectedFolder,
           newPath,
         })
       } catch (uploadError) {
-        console.error(`❌ Re-upload failed for ${img.id}:`, uploadError)
+        console.error(`Re-upload failed for ${img.id}:`, uploadError)
         skipped++
       }
     }

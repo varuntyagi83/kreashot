@@ -1,57 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getSupabaseAdmin } from '@/lib/supabase/admin'
-import { getCompanyMembership } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 /**
  * GET /api/company/members
- * List all members of the current user's company.
  */
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const membership = await getCompanyMembership(supabase, user.id)
+    const membership = await prisma.companyMember.findFirst({
+      where: { userId: user.id, companyId },
+      select: { role: true },
+    })
     if (!membership) {
       return NextResponse.json({ error: 'No company found' }, { status: 403 })
     }
 
-    const { data: members, error } = await supabase
-      .from('company_members')
-      .select('id, user_id, role, joined_at')
-      .eq('company_id', membership.company_id)
-      .order('joined_at', { ascending: true })
+    const members = await prisma.companyMember.findMany({
+      where: { companyId },
+      orderBy: { joinedAt: 'asc' },
+      select: { id: true, userId: true, role: true, joinedAt: true },
+    })
 
-    if (error) {
-      console.error('[company/members GET]', error)
-      return NextResponse.json({ error: 'Failed to fetch members' }, { status: 500 })
-    }
+    const userIds = members.map((m) => m.userId)
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, email: true, name: true },
+    })
 
-    // Fetch user emails + metadata from auth.users via admin API
-    // Uses service-role client (supabaseAdmin) — auth.admin requires service role key, not anon key.
-    const userIds = (members || []).map((m) => m.user_id)
-    const usersMap: Record<string, { email: string; full_name?: string }> = {}
-    await Promise.all(
-      userIds.map(async (uid) => {
-        const { data } = await getSupabaseAdmin().auth.admin.getUserById(uid)
-        if (data?.user) {
-          usersMap[uid] = {
-            email: data.user.email ?? '',
-            full_name: data.user.user_metadata?.full_name as string | undefined,
-          }
-        }
-      })
-    )
+    const usersMap = Object.fromEntries(users.map((u) => [u.id, u]))
 
-    const enriched = (members || []).map((m) => ({
-      ...m,
-      email: usersMap[m.user_id]?.email ?? '',
-      full_name: usersMap[m.user_id]?.full_name ?? '',
-      is_current_user: m.user_id === user.id,
+    const enriched = members.map((m) => ({
+      id: m.id,
+      user_id: m.userId,
+      role: m.role,
+      joined_at: m.joinedAt,
+      email: usersMap[m.userId]?.email ?? '',
+      full_name: usersMap[m.userId]?.name ?? '',
+      is_current_user: m.userId === user.id,
     }))
 
     return NextResponse.json({ members: enriched, current_role: membership.role })
@@ -63,17 +52,17 @@ export async function GET() {
 
 /**
  * DELETE /api/company/members?userId=...
- * Remove a member. Admin only (except users can remove themselves).
  */
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const membership = await getCompanyMembership(supabase, user.id)
+    const membership = await prisma.companyMember.findFirst({
+      where: { userId: user.id, companyId },
+      select: { role: true },
+    })
     if (!membership) {
       return NextResponse.json({ error: 'No company found' }, { status: 403 })
     }
@@ -84,22 +73,14 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    // Allow: admin can remove anyone, or user can remove themselves
     const isSelf = targetUserId === user.id
     if (!isSelf && membership.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const { error } = await supabase
-      .from('company_members')
-      .delete()
-      .eq('company_id', membership.company_id)
-      .eq('user_id', targetUserId)
-
-    if (error) {
-      console.error('[company/members DELETE]', error)
-      return NextResponse.json({ error: 'Failed to remove member' }, { status: 500 })
-    }
+    await prisma.companyMember.deleteMany({
+      where: { companyId, userId: targetUserId },
+    })
 
     return NextResponse.json({ success: true })
   } catch (err: any) {

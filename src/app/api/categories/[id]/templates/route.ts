@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
 import { FORMATS } from '@/lib/formats'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 export async function GET(
@@ -11,49 +11,26 @@ export async function GET(
 ) {
   try {
     const { id: categoryId } = await params
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId } = companyInfo
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    // Verify category belongs to the authenticated company
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    const searchParams = request.nextUrl.searchParams
-    const format = searchParams.get('format')
+    const format = request.nextUrl.searchParams.get('format') || undefined
 
-    // Build query
-    let query = supabase
-      .from('templates')
-      .select('*')
-      .eq('category_id', categoryId)
-      .order('created_at', { ascending: false })
-
-    // Filter by format if specified
-    if (format) {
-      query = query.eq('format', format)
-    }
-
-    const { data: templates, error } = await query
-
-    if (error) {
-      console.error('Error fetching templates:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const templates = await prisma.template.findMany({
+      where: { categoryId, ...(format ? { format } : {}) },
+      orderBy: { createdAt: 'desc' },
+    })
 
     return NextResponse.json({ templates })
   } catch (error: any) {
@@ -68,31 +45,23 @@ export async function POST(
 ) {
   try {
     const { id: categoryId } = await params
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
+
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
-
-    const {
-      name,
-      description,
-      format,
-      width,
-      height,
-      template_data,
-    } = body
+    const { name, description, format, width, height, template_data } = body
 
     if (!format || !Object.keys(FORMATS).includes(format)) {
       return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
-
     if (name && name.length > 100) {
       return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
     }
@@ -107,75 +76,47 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid template name' }, { status: 400 })
     }
 
-    // Get category slug for storage path
-    const { data: category } = await supabase
-      .from('categories')
-      .select('slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    const categorySlug = category?.slug || 'unknown'
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-
-    // Create template
-    // Convert format from "4:5" to "4x5" for folder naming
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
     const formatFolder = format.replace(':', 'x')
-    const { data: template, error } = await supabase
-      .from('templates')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
-        name: safeName,
-        description,
-        format,
-        width,
-        height,
-        template_data,
-        storage_provider: 'gdrive',
-        storage_path: `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`,
-        storage_url: '', // Will be updated after upload
-        slug: safeName,
-        metadata: {},
-      })
-      .select()
-      .single()
+    const storagePath = `${sanitizedCompanyName}/${company.slug}/${category.slug}/templates/${formatFolder}/${safeName}.json`
 
-    if (error) {
-      console.error('Error creating template:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const template = await prisma.template.create({
+      data: {
+        categoryId,
+        userId: user.id,
+        companyId,
+        name: safeName,
+        format,
+        storageProvider: 'gdrive',
+        storagePath,
+        storageUrl: '',
+        metadata: { description: description || null, width: width || null, height: height || null, templateData: template_data || {}, slug: safeName },
+      },
+    })
 
     // Upload template JSON to Google Drive
     try {
       const gdrive = new GoogleDriveAdapter()
-      const templateJson = JSON.stringify(template_data, null, 2)
-      const templateBuffer = Buffer.from(templateJson, 'utf-8')
+      const templateBuffer = Buffer.from(JSON.stringify(template_data, null, 2), 'utf-8')
+      const uploadResult = await gdrive.upload(templateBuffer, storagePath, { contentType: 'application/json' })
 
-      // Convert format from "4:5" to "4x5" for folder naming
-      const formatFolder = format.replace(':', 'x')
-      const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${safeName}.json`
-      const uploadResult = await gdrive.upload(templateBuffer, storagePath, {
-        contentType: 'application/json',
+      const updatedTemplate = await prisma.template.update({
+        where: { id: template.id },
+        data: { storageUrl: uploadResult.publicUrl },
       })
 
-      // Update template with Google Drive URL
-      const { data: updatedTemplate } = await supabase
-        .from('templates')
-        .update({ storage_url: uploadResult.publicUrl })
-        .eq('id', template.id)
-        .select()
-        .single()
-
-      return NextResponse.json({ template: updatedTemplate || template }, { status: 201 })
+      return NextResponse.json({ template: updatedTemplate }, { status: 201 })
     } catch (uploadError) {
       console.error('Error uploading to Google Drive:', uploadError)
-      // Template is created in DB but not in GDrive - return template anyway
       return NextResponse.json({
         template,
         warning: 'Template created but failed to upload to Google Drive'

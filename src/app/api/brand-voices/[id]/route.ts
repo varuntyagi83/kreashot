@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 // ── GET — fetch full brand voice profile ─────────────────────────────────────
 
@@ -9,25 +9,27 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const voice = await prisma.brandVoice.findFirst({
+      where: { id, companyId },
+      select: { id: true, name: true, isDefault: true, profile: true, createdAt: true },
+    })
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    if (!voice) return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
 
-    const { data: voice, error } = await supabase
-      .from('brand_voices')
-      .select('id, name, is_default, profile, created_at')
-      .eq('id', id)
-      .eq('company_id', companyId)
-      .single()
-
-    if (error || !voice) return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
-
-    return NextResponse.json({ voice })
+    return NextResponse.json({
+      voice: {
+        id: voice.id,
+        name: voice.name,
+        is_default: voice.isDefault,
+        profile: voice.profile,
+        created_at: voice.createdAt,
+      },
+    })
   } catch (error: any) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -40,14 +42,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id } = await params
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
     const updateData: Record<string, unknown> = {}
@@ -56,16 +54,11 @@ export async function PUT(
       if (body.name.length > 200) {
         return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
       }
-      // Check for duplicate name within this company (mirrors the UNIQUE(user_id, name) constraint
-      // at the application level, now scoped to company_id)
-      const { data: duplicate } = await supabase
-        .from('brand_voices')
-        .select('id')
-        .eq('company_id', companyId)
-        .eq('name', body.name.trim())
-        .neq('id', id)
-        .maybeSingle()
-
+      // Check for duplicate name within this company
+      const duplicate = await prisma.brandVoice.findFirst({
+        where: { companyId, name: body.name.trim(), NOT: { id } },
+        select: { id: true },
+      })
       if (duplicate) {
         return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
       }
@@ -73,38 +66,41 @@ export async function PUT(
     }
 
     if (body.is_default === true) {
-      // Clear existing default first
-      await supabase
-        .from('brand_voices')
-        .update({ is_default: false })
-        .eq('company_id', companyId)
-        .eq('is_default', true)
-      updateData.is_default = true
+      await prisma.brandVoice.updateMany({
+        where: { companyId, isDefault: true },
+        data: { isDefault: false },
+      })
+      updateData.isDefault = true
     } else if (body.is_default === false) {
-      updateData.is_default = false
+      updateData.isDefault = false
     }
 
-    const { data: voice, error } = await supabase
-      .from('brand_voices')
-      .update(updateData)
-      .eq('id', id)
-      .eq('company_id', companyId)
-      .select('id, name, is_default, updated_at')
-      .single()
+    const voice = await prisma.brandVoice.updateMany({
+      where: { id, companyId },
+      data: updateData,
+    })
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
-      }
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
-      }
-      console.error('[brand-voices/[id] PUT] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (voice.count === 0) {
+      return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ voice })
+    const updated = await prisma.brandVoice.findUnique({
+      where: { id },
+      select: { id: true, name: true, isDefault: true, updatedAt: true },
+    })
+
+    return NextResponse.json({
+      voice: {
+        id: updated!.id,
+        name: updated!.name,
+        is_default: updated!.isDefault,
+        updated_at: updated!.updatedAt,
+      },
+    })
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
+    }
     console.error('[brand-voices/[id] PUT] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
@@ -117,24 +113,17 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const result = await prisma.brandVoice.deleteMany({
+      where: { id, companyId },
+    })
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { error } = await supabase
-      .from('brand_voices')
-      .delete()
-      .eq('id', id)
-      .eq('company_id', companyId)
-
-    if (error) {
-      console.error('[brand-voices/[id] DELETE] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (result.count === 0) {
+      return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
     }
 
     return NextResponse.json({ message: 'Brand voice deleted' })

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { FORMATS } from '@/lib/formats'
-import { getCompanyId } from '@/lib/get-company'
 
 const ALLOWED_URL_DOMAINS = [
   'lh3.googleusercontent.com',
@@ -10,7 +10,6 @@ const ALLOWED_URL_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'supabase.co',
   'storage.googleapis.com',
 ]
 
@@ -33,34 +32,30 @@ export async function GET(
   { params }: { params: Promise<{ id: string; collageId: string }> }
 ) {
   const { id: categoryId, collageId } = await params
-  const supabase = await createServerSupabaseClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
+
+    const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
+    }
+
+    const collage = await prisma.collage.findFirst({
+      where: { id: collageId, categoryId, companyId },
+    })
+
+    if (!collage) {
+      return NextResponse.json({ error: 'Collage not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ collage })
+  } catch (error: any) {
+    console.error('Error fetching collage:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
-
-  const companyId = await getCompanyId(supabase, user.id)
-  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-  const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
-  if (!rateLimit.allowed) {
-    return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
-  }
-
-  const { data: collage, error } = await supabase
-    .from('collages')
-    .select('*')
-    .eq('id', collageId)
-    .eq('category_id', categoryId)
-    .eq('company_id', companyId)
-    .single()
-
-  if (error || !collage) {
-    return NextResponse.json({ error: 'Collage not found' }, { status: 404 })
-  }
-
-  return NextResponse.json({ collage })
 }
 
 // PUT - Update a collage design
@@ -69,37 +64,28 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; collageId: string }> }
 ) {
   const { id: categoryId, collageId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`collages:${user.id}`, 30, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    // Verify ownership
-    const { data: existing } = await supabase
-      .from('collages')
-      .select('id')
-      .eq('id', collageId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const existing = await prisma.collage.findFirst({
+      where: { id: collageId, categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!existing) {
       return NextResponse.json({ error: 'Collage not found' }, { status: 404 })
     }
 
     const body = await request.json()
-    const updateData: Record<string, any> = { updated_at: new Date().toISOString() }
+    const updateData: Record<string, any> = {}
 
     if (body.name !== undefined) {
       if (typeof body.name !== 'string') {
@@ -111,8 +97,8 @@ export async function PUT(
       }
       updateData.name = name
     }
+
     if (body.collage_data !== undefined) {
-      // Validate background_color if provided
       if (body.collage_data?.background_color !== undefined) {
         const hexRegex = /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/
         if (!hexRegex.test(body.collage_data.background_color)) {
@@ -123,12 +109,10 @@ export async function PUT(
         }
       }
 
-      // Per-layer validation (M-01)
       if (Array.isArray(body.collage_data?.layers)) {
         for (let i = 0; i < body.collage_data.layers.length; i++) {
           const layer = body.collage_data.layers[i]
 
-          // Cap layer.name at 100 chars
           if (layer.name !== undefined) {
             if (typeof layer.name !== 'string' || layer.name.length > 100) {
               return NextResponse.json(
@@ -137,8 +121,6 @@ export async function PUT(
               )
             }
           }
-
-          // Cap text_content at 500 chars
           if (layer.text_content !== undefined) {
             if (typeof layer.text_content !== 'string' || layer.text_content.length > 500) {
               return NextResponse.json(
@@ -147,8 +129,6 @@ export async function PUT(
               )
             }
           }
-
-          // Validate source_url is empty or an allowed URL
           if (layer.source_url !== undefined && layer.source_url !== '') {
             if (!isAllowedUrl(layer.source_url)) {
               return NextResponse.json(
@@ -158,14 +138,9 @@ export async function PUT(
             }
           }
 
-          // Cap numeric fields within safe bounds
           const numericBounds: Record<string, [number, number]> = {
-            x:        [0, 100],
-            y:        [0, 100],
-            width:    [0, 100],
-            height:   [0, 100],
-            opacity:  [0, 1],
-            fontSize: [1, 1000],
+            x: [0, 100], y: [0, 100], width: [0, 100], height: [0, 100],
+            opacity: [0, 1], fontSize: [1, 1000],
           }
           for (const [field, [min, max]] of Object.entries(numericBounds)) {
             if (layer[field] !== undefined) {
@@ -181,8 +156,9 @@ export async function PUT(
         }
       }
 
-      updateData.collage_data = body.collage_data
+      updateData.collageData = body.collage_data
     }
+
     if (body.format !== undefined) {
       if (!Object.keys(FORMATS).includes(body.format)) {
         return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
@@ -199,19 +175,10 @@ export async function PUT(
       updateData.height = dims.height
     }
 
-    const { data: collage, error } = await supabase
-      .from('collages')
-      .update(updateData)
-      .eq('id', collageId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Failed to update collage:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const collage = await prisma.collage.update({
+      where: { id: collageId },
+      data: updateData,
+    })
 
     return NextResponse.json({ collage })
   } catch (error: any) {
@@ -226,46 +193,27 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; collageId: string }> }
 ) {
   const { id: categoryId, collageId } = await params
-  const supabase = await createServerSupabaseClient()
 
   try {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    // Verify ownership
-    const { data: existing } = await supabase
-      .from('collages')
-      .select('id')
-      .eq('id', collageId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const existing = await prisma.collage.findFirst({
+      where: { id: collageId, categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!existing) {
       return NextResponse.json({ error: 'Collage not found' }, { status: 404 })
     }
 
-    const { error } = await supabase
-      .from('collages')
-      .delete()
-      .eq('id', collageId)
-      .eq('category_id', categoryId)
-      .eq('company_id', companyId)
-
-    if (error) {
-      console.error('Failed to delete collage:', error)
-      return NextResponse.json({ error: 'Failed to delete collage' }, { status: 500 })
-    }
+    await prisma.collage.delete({ where: { id: collageId } })
 
     return NextResponse.json({ success: true })
   } catch (error: any) {

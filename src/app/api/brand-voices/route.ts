@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -8,34 +8,25 @@ export const dynamic = 'force-dynamic'
 
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: voices, error } = await supabase
-      .from('brand_voices')
-      .select('id, name, is_default, profile, created_at, updated_at')
-      .eq('company_id', companyId)
-      .order('is_default', { ascending: false })
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[brand-voices GET] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const voices = await prisma.brandVoice.findMany({
+      where: { companyId },
+      select: { id: true, name: true, isDefault: true, profile: true, createdAt: true, updatedAt: true },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    })
 
     return NextResponse.json({
-      voices: (voices || []).map((v) => ({
+      voices: voices.map((v) => ({
         id: v.id,
         name: v.name,
-        is_default: v.is_default,
-        tone_words: v.profile?.tone_words || [],
-        personality: v.profile?.personality || '',
-        created_at: v.created_at,
-        updated_at: v.updated_at,
+        is_default: v.isDefault,
+        tone_words: (v.profile as any)?.tone_words || [],
+        personality: (v.profile as any)?.personality || '',
+        created_at: v.createdAt,
+        updated_at: v.updatedAt,
       })),
     })
   } catch (error: any) {
@@ -48,12 +39,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const { name, profile, is_default } = await request.json()
 
@@ -72,48 +60,45 @@ export async function POST(request: NextRequest) {
 
     // If setting as default, clear any existing default first
     if (is_default) {
-      await supabase
-        .from('brand_voices')
-        .update({ is_default: false })
-        .eq('company_id', companyId)
-        .eq('is_default', true)
+      await prisma.brandVoice.updateMany({
+        where: { companyId, isDefault: true },
+        data: { isDefault: false },
+      })
     }
 
-    // Check for duplicate name within this company (mirrors the UNIQUE(user_id, name) constraint
-    // at the application level, now scoped to company_id)
-    const { data: duplicate } = await supabase
-      .from('brand_voices')
-      .select('id')
-      .eq('company_id', companyId)
-      .eq('name', name.trim())
-      .maybeSingle()
+    // Check for duplicate name within this company
+    const duplicate = await prisma.brandVoice.findFirst({
+      where: { companyId, name: name.trim() },
+      select: { id: true },
+    })
 
     if (duplicate) {
       return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
     }
 
-    const { data: voice, error } = await supabase
-      .from('brand_voices')
-      .insert({
-        user_id: user.id,
-        company_id: companyId,
+    const voice = await prisma.brandVoice.create({
+      data: {
+        userId: user.id,
+        companyId,
         name: name.trim(),
         profile,
-        is_default: is_default || false,
-      })
-      .select('id, name, is_default, created_at')
-      .single()
+        isDefault: is_default || false,
+      },
+      select: { id: true, name: true, isDefault: true, createdAt: true },
+    })
 
-    if (error) {
-      if (error.code === '23505') {
-        return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
-      }
-      console.error('[brand-voices POST] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    return NextResponse.json({ voice }, { status: 201 })
+    return NextResponse.json({
+      voice: {
+        id: voice.id,
+        name: voice.name,
+        is_default: voice.isDefault,
+        created_at: voice.createdAt,
+      },
+    }, { status: 201 })
   } catch (error: any) {
+    if (error?.code === 'P2002') {
+      return NextResponse.json({ error: 'A brand voice with this name already exists' }, { status: 409 })
+    }
     console.error('[brand-voices POST] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }

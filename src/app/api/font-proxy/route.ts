@@ -3,7 +3,7 @@
  * Used by Final Ad preview so @font-face works without CORS (browser loads from our origin).
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { requireSession } from '@/lib/session'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 
 const ALLOWED_FONT_DOMAINS = [
@@ -12,7 +12,7 @@ const ALLOWED_FONT_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
-  'supabase.co',
+  'storage.googleapis.com',
 ]
 
 function isAllowedUrl(url: string): boolean {
@@ -22,7 +22,7 @@ function isAllowedUrl(url: string): boolean {
     const parsed = new URL(url)
     if (!['https:', 'http:'].includes(parsed.protocol)) return false
     const hostname = parsed.hostname.toLowerCase()
-    return ALLOWED_FONT_DOMAINS.some(d => hostname === d || hostname.endsWith('.' + d))
+    return ALLOWED_FONT_DOMAINS.some((d) => hostname === d || hostname.endsWith('.' + d))
   } catch {
     return false
   }
@@ -30,19 +30,16 @@ function isAllowedUrl(url: string): boolean {
 
 function contentTypeFromBuffer(buf: Buffer): string {
   if (buf.length < 4) return 'application/octet-stream'
-  if (buf[0] === 0x4F && buf[1] === 0x54 && buf[2] === 0x54 && buf[3] === 0x4F) return 'font/otf'
-  if (buf[0] === 0x77 && buf[1] === 0x4F && buf[2] === 0x46 && buf[3] === 0x46) return 'font/woff'
-  if (buf[0] === 0x77 && buf[1] === 0x4F && buf[2] === 0x46 && buf[3] === 0x32) return 'font/woff2'
+  if (buf[0] === 0x4f && buf[1] === 0x54 && buf[2] === 0x54 && buf[3] === 0x4f) return 'font/otf'
+  if (buf[0] === 0x77 && buf[1] === 0x4f && buf[2] === 0x46 && buf[3] === 0x46) return 'font/woff'
+  if (buf[0] === 0x77 && buf[1] === 0x4f && buf[2] === 0x46 && buf[3] === 0x32) return 'font/woff2'
   if (buf[0] === 0x00 && buf[1] === 0x01 && buf[2] === 0x00 && buf[3] === 0x00) return 'font/ttf'
   return 'font/ttf'
 }
 
 export async function GET(request: NextRequest) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const ctx = await requireSession()
+  if (ctx instanceof NextResponse) return ctx
 
   const url = request.nextUrl.searchParams.get('url')
   if (!url || !isAllowedUrl(url)) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyMembership, getUserCompanies } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 /**
  * GET /api/company
@@ -8,30 +8,44 @@ import { getCompanyMembership, getUserCompanies } from '@/lib/get-company'
  */
 export async function GET() {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const membership = await getCompanyMembership(supabase, user.id)
+    const membership = await prisma.companyMember.findFirst({
+      where: { userId: user.id, companyId },
+      select: { companyId: true, role: true, joinedAt: true },
+    })
     if (!membership) {
       return NextResponse.json({ error: 'No company found' }, { status: 403 })
     }
 
-    const { data: company, error } = await supabase
-      .from('companies')
-      .select('*')
-      .eq('id', membership.company_id)
-      .single()
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    })
 
-    if (error || !company) {
+    if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 })
     }
 
-    const allCompanies = await getUserCompanies(supabase, user.id)
+    // Get all companies this user belongs to
+    const allMemberships = await prisma.companyMember.findMany({
+      where: { userId: user.id },
+      include: { company: true },
+      orderBy: { joinedAt: 'asc' },
+    })
 
-    return NextResponse.json({ company, role: membership.role, memberships: allCompanies })
+    return NextResponse.json({
+      company,
+      role: membership.role,
+      memberships: allMemberships.map((m) => ({
+        company_id: m.companyId,
+        company_name: m.company.name,
+        company_slug: m.company.slug,
+        role: m.role,
+        joined_at: m.joinedAt,
+      })),
+    })
   } catch (err: any) {
     console.error('[company GET]', err)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -44,13 +58,14 @@ export async function GET() {
  */
 export async function PATCH(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
-    const membership = await getCompanyMembership(supabase, user.id)
+    const membership = await prisma.companyMember.findFirst({
+      where: { userId: user.id, companyId },
+      select: { role: true },
+    })
     if (!membership) {
       return NextResponse.json({ error: 'No company found' }, { status: 403 })
     }
@@ -66,17 +81,10 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'name must be 100 characters or fewer' }, { status: 400 })
     }
 
-    const { data: company, error } = await supabase
-      .from('companies')
-      .update({ name: name.trim() })
-      .eq('id', membership.company_id)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[company PATCH]', error)
-      return NextResponse.json({ error: 'Failed to update company' }, { status: 500 })
-    }
+    const company = await prisma.company.update({
+      where: { id: companyId },
+      data: { name: name.trim() },
+    })
 
     return NextResponse.json({ company })
   } catch (err: any) {

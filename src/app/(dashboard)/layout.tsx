@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { auth } from '@/auth'
+import { prisma } from '@/lib/db'
 
-// All dashboard pages require auth and live Supabase — never statically prerender
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardLayout({
@@ -11,16 +11,16 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const supabase = await createServerSupabaseClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const session = await auth()
+  const user = session?.user
 
-  if (user) {
-    const { data: memberships } = await supabase
-      .from('company_members')
-      .select('company_id')
-      .eq('user_id', user.id)
+  if (user?.id) {
+    const membership = await prisma.companyMember.findFirst({
+      where: { userId: user.id },
+      select: { companyId: true },
+    })
 
-    if (!memberships || memberships.length === 0) {
+    if (!membership) {
       redirect('/onboarding')
     }
   }

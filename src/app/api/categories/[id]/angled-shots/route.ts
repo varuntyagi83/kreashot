@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
@@ -16,114 +16,61 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
+    const searchParams = request.nextUrl.searchParams
+    const productId = searchParams.get('productId') || undefined
+    const format = searchParams.get('format') || undefined
 
     // Verify category belongs to company
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get query parameters for filtering
-    const searchParams = request.nextUrl.searchParams
-    const productId = searchParams.get('productId')
-    const format = searchParams.get('format') // NEW: Format filter
-
-    // Build query
-    let query = supabase
-      .from('angled_shots')
-      .select(
-        `
-        id,
-        angle_name,
-        angle_description,
-        display_name,
-        prompt_used,
-        storage_path,
-        storage_url,
-        storage_provider,
-        gdrive_file_id,
-        format,
-        created_at,
-        product:products!inner(id, name, slug),
-        product_image:product_images!inner(id, file_name)
-      `
-      )
-      .eq('category_id', categoryId)
-      .order('created_at', { ascending: false })
-
-    // Filter by product if specified
-    if (productId) {
-      query = query.eq('product_id', productId)
-    }
-
-    // NEW: Filter by format if specified
-    if (format) {
-      query = query.eq('format', format)
-    }
-
-    const { data: angledShots, error } = await query
-
-    console.log(`[Angled Shots API] Category: ${categoryId}, Format: ${format || 'all'}, Found: ${angledShots?.length || 0}`)
-
-    if (error) {
-      console.error('Error fetching angled shots:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    // Get public URLs for the images (use GCS URLs if available)
-    const angledShotsWithUrls = (angledShots || []).map((shot) => {
-      let publicUrl: string
-
-      if (shot.storage_url) {
-        publicUrl = shot.storage_url
-      } else {
-        // Fallback to Supabase Storage URL (legacy supabase-backed records)
-        const {
-          data: { publicUrl: supabaseUrl },
-        } = supabase.storage.from('angled-shots').getPublicUrl(shot.storage_path)
-        publicUrl = supabaseUrl
-      }
-
-      return {
-        ...shot,
-        public_url: publicUrl,
-      }
+    const angledShots = await prisma.angledShot.findMany({
+      where: {
+        categoryId,
+        ...(productId ? { productId } : {}),
+        ...(format ? { format } : {}),
+      },
+      include: {
+        product: { select: { id: true, name: true, slug: true } },
+        productImage: { select: { id: true, fileName: true } },
+      },
+      orderBy: { createdAt: 'desc' },
     })
 
+    console.log(`[Angled Shots API] Category: ${categoryId}, Format: ${format || 'all'}, Found: ${angledShots.length}`)
+
+    const angledShotsWithUrls = angledShots.map((shot) => ({
+      ...shot,
+      public_url: shot.storageUrl || shot.storagePath || '',
+      angle_name: shot.angleName,
+      angle_description: shot.angleDescription,
+      display_name: shot.displayName,
+      prompt_used: shot.promptUsed,
+      storage_path: shot.storagePath,
+      storage_url: shot.storageUrl,
+      storage_provider: shot.storageProvider,
+      gdrive_file_id: shot.gdriveFileId,
+      created_at: shot.createdAt,
+    }))
+
     return NextResponse.json({
-      category: {
-        id: category.id,
-        name: category.name,
-      },
+      category: { id: category.id, name: category.name },
       angledShots: angledShotsWithUrls,
     })
   } catch (error) {
     console.error('Error fetching angled shots:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -136,35 +83,28 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    // Fetch company slug and name for storage path
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     // Verify category belongs to company and get slug
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get request body
     const body = await request.json()
     const {
       productId,
@@ -174,40 +114,24 @@ export async function POST(
       promptUsed,
       imageData,
       mimeType,
-      format: clientFormat, // Client-sent format (fallback only)
+      format: clientFormat,
     } = body
 
-    // Validate required fields
-    if (
-      !productId ||
-      !productImageId ||
-      !angleName ||
-      !angleDescription ||
-      !imageData
-    ) {
+    if (!productId || !productImageId || !angleName || !angleDescription || !imageData) {
       return NextResponse.json(
-        {
-          error:
-            'productId, productImageId, angleName, angleDescription, and imageData are required',
-        },
+        { error: 'productId, productImageId, angleName, angleDescription, and imageData are required' },
         { status: 400 }
       )
     }
 
-    // Validate image size (20MB max decoded)
-    const MAX_BASE64_LENGTH = 20 * 1024 * 1024 * 1.34 // ~27MB as base64
+    const MAX_BASE64_LENGTH = 20 * 1024 * 1024 * 1.34
     if (imageData.length > MAX_BASE64_LENGTH) {
-      return NextResponse.json(
-        { error: 'Image too large (max 20MB)' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Image too large (max 20MB)' }, { status: 400 })
     }
 
-    // Convert base64 to buffer first (needed for sharp detection)
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
     const buffer = Buffer.from(base64Data, 'base64')
 
-    // Detect actual image dimensions from the buffer
     let detectedFormat = clientFormat || '1:1'
     let actualWidth = 1080
     let actualHeight = 1080
@@ -217,91 +141,62 @@ export async function POST(
         detectedFormat = detectFormatFromDimensions(metadata.width, metadata.height)
         actualWidth = metadata.width
         actualHeight = metadata.height
-        console.log(`🔍 Angled shot dimensions: ${metadata.width}x${metadata.height} → format: ${detectedFormat}`)
       }
     } catch (dimError) {
-      console.warn(`⚠️ Could not detect angled shot dimensions, using client format: ${clientFormat}`, dimError)
+      console.warn(`Could not detect angled shot dimensions, using client format: ${clientFormat}`, dimError)
     }
     const format = detectedFormat
 
-    // Verify product belongs to this category and get slug and name
-    const { data: product } = await supabase
-      .from('products')
-      .select('id, slug, name')
-      .eq('id', productId)
-      .eq('category_id', categoryId)
-      .single()
+    const product = await prisma.product.findFirst({
+      where: { id: productId, categoryId },
+      select: { id: true, slug: true, name: true },
+    })
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    // Get the original product image to determine subfolder name
-    const { data: productImage } = await supabase
-      .from('product_images')
-      .select('id, file_name')
-      .eq('id', productImageId)
-      .eq('product_id', productId)
-      .single()
+    const productImage = await prisma.productImage.findFirst({
+      where: { id: productImageId, productId },
+      select: { id: true, fileName: true },
+    })
 
     if (!productImage) {
-      return NextResponse.json(
-        { error: 'Product image not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Product image not found' }, { status: 404 })
     }
 
-    // Extract filename without extension for the angled-shots subfolder
-    const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
-
-    // Generate filename using the folder structure per STORAGE_HIERARCHY.md:
-    // {companyId}/{category}/{product}/product-images/angled-shots/{format}/{image-name}-{angle}_{timestamp}.{ext}
+    const imageNameWithoutExt = productImage.fileName.replace(/\.[^/.]+$/, '')
     const fileExt = mimeType?.split('/')[1] || 'jpg'
-    const formatFolder = formatToFolderName(format) // "4:5" → "4x5"
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
+    const formatFolder = formatToFolderName(format)
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${angleName}_${Date.now()}.${fileExt}`
 
-    // Upload to GCS
     const storageFile = await uploadFile(buffer, fileName, {
       contentType: mimeType || 'image/jpeg',
       provider: 'gcs',
     })
 
-    // Create display name with product prefix (e.g., "Nike Air Max_Front")
     const displayName = createDisplayName(product.name, angleName)
 
-    // Save to database with GCS storage sync fields and format dimensions
-    const { data: angledShot, error: dbError } = await supabase
-      .from('angled_shots')
-      .insert({
-        product_id: productId,
-        product_image_id: productImageId,
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
-        angle_name: angleName,
-        angle_description: angleDescription,
-        display_name: displayName, // Product-prefixed display name
-        prompt_used: promptUsed || null,
-        format: format, // Detected from actual image dimensions
-        width: actualWidth,
-        height: actualHeight,
-        storage_provider: 'gcs',
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        gdrive_file_id: storageFile.fileId || null,
-        metadata: {},
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return NextResponse.json(
-        { error: 'Failed to save angled shot record' },
-        { status: 500 }
-      )
-    }
+    const angledShot = await prisma.angledShot.create({
+      data: {
+        productId,
+        productImageId,
+        categoryId,
+        userId: user.id,
+        companyId,
+        angleName,
+        angleDescription,
+        displayName,
+        promptUsed: promptUsed || null,
+        format,
+        storageProvider: 'gcs',
+        storagePath: storageFile.path,
+        storageUrl: storageFile.publicUrl,
+        gdriveFileId: storageFile.fileId || null,
+        metadata: { width: actualWidth, height: actualHeight },
+      },
+    })
 
     return NextResponse.json(
       {
@@ -315,9 +210,6 @@ export async function POST(
     )
   } catch (error) {
     console.error('Error saving angled shot:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

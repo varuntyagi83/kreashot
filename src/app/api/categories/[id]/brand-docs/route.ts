@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { extractPdfText, extractPdfWithVision, translateGuidelinesToColorDescription } from '@/lib/pdf'
-import { getCompanyId } from '@/lib/get-company'
 
 export const dynamic = 'force-dynamic'
 
@@ -14,41 +14,30 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Verify ownership
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Parse multipart form data
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 })
     }
-
     if (file.type !== 'application/pdf') {
       return NextResponse.json({ error: 'Only PDF files are supported' }, { status: 400 })
     }
-
     if (file.size > 10 * 1024 * 1024) {
       return NextResponse.json({ error: 'File size must be under 10MB' }, { status: 400 })
     }
@@ -57,13 +46,11 @@ export async function POST(
 
     const arrayBuffer = await file.arrayBuffer()
 
-    // Validate PDF magic bytes (%PDF-)
     const header = new Uint8Array(arrayBuffer, 0, 5)
     if (header[0] !== 0x25 || header[1] !== 0x50 || header[2] !== 0x44 || header[3] !== 0x46 || header[4] !== 0x2D) {
       return NextResponse.json({ error: 'File does not appear to be a valid PDF' }, { status: 400 })
     }
 
-    // Use Vision first (reads colors, swatches, layout) for accurate backgrounds/composites; fallback to text-only
     let extractedText: string | null = await extractPdfWithVision(arrayBuffer)
     if (!extractedText || extractedText.trim().length < 50) {
       extractedText = await extractPdfText(arrayBuffer)
@@ -76,32 +63,24 @@ export async function POST(
       )
     }
 
-    // Truncate to a reasonable size for AI context (keep first ~20000 chars)
     const truncatedText = extractedText.trim().substring(0, 20000)
     const wasTruncated = extractedText.trim().length > 20000
 
-    // Generate natural-language color description so backgrounds/composites get accurate brand colors
     const brandGuidelinesColorDescription = await translateGuidelinesToColorDescription(truncatedText)
     if (brandGuidelinesColorDescription) {
       console.log(`Color description for category: ${brandGuidelinesColorDescription.length} chars`)
     }
 
-    // Save to categories table (text + optional color description for image prompts)
-    const { error: updateError } = await supabase
-      .from('categories')
-      .update({
-        brand_guidelines: truncatedText,
-        brand_doc_name: file.name,
-        brand_guidelines_color_description: brandGuidelinesColorDescription ?? null,
-      })
-      .eq('id', categoryId)
+    await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        brandGuidelines: truncatedText,
+        brandDocName: file.name,
+        brandGuidelinesColorDescription: brandGuidelinesColorDescription ?? null,
+      },
+    })
 
-    if (updateError) {
-      console.error('Failed to save brand guidelines:', updateError)
-      return NextResponse.json({ error: 'Failed to save brand guidelines' }, { status: 500 })
-    }
-
-    console.log(`✅ Brand guidelines saved for category: ${category.slug} (${truncatedText.length} chars)`)
+    console.log(`Brand guidelines saved for category: ${category.slug} (${truncatedText.length} chars)`)
 
     return NextResponse.json({
       message: 'Brand guidelines uploaded and saved successfully',
@@ -112,48 +91,41 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error processing brand guidelines PDF:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
 /**
  * DELETE /api/categories/[id]/brand-docs
- * Remove brand guidelines from this category
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    await supabase
-      .from('categories')
-      .update({ brand_guidelines: null, brand_doc_name: null, brand_guidelines_color_description: null })
-      .eq('id', categoryId)
+    await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        brandGuidelines: null,
+        brandDocName: null,
+        brandGuidelinesColorDescription: null,
+      },
+    })
 
     return NextResponse.json({ message: 'Brand guidelines removed' })
   } catch (error: any) {
@@ -161,4 +133,3 @@ export async function DELETE(
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
-

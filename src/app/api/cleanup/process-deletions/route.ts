@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
-import { createClient } from '@supabase/supabase-js'
+import { prisma } from '@/lib/db'
 import { deleteFile } from '@/lib/storage'
 
 // Mark route as dynamic to prevent build-time execution
@@ -23,44 +23,30 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    console.log('🗑️  Processing deletion queue...')
-
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    console.log('Processing deletion queue...')
 
     // Initialize Google Drive
-    const GOOGLE_DRIVE_CLIENT_EMAIL = process.env.GOOGLE_DRIVE_CLIENT_EMAIL!
-    const GOOGLE_DRIVE_PRIVATE_KEY = process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n')!
-
     const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: GOOGLE_DRIVE_CLIENT_EMAIL,
-        private_key: GOOGLE_DRIVE_PRIVATE_KEY
+        client_email: process.env.GOOGLE_DRIVE_CLIENT_EMAIL!,
+        private_key: process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n')!,
       },
-      scopes: ['https://www.googleapis.com/auth/drive']
+      scopes: ['https://www.googleapis.com/auth/drive'],
     })
 
     const drive = google.drive({ version: 'v3', auth })
 
     // Get all queued deletions (pending only, to avoid re-processing completed/failed entries)
-    const { data: queuedFiles, error: fetchError } = await supabase
-      .from('deletion_queue')
-      .select('*')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(50) // Process 50 at a time
+    const queuedFiles = await prisma.deletionQueue.findMany({
+      where: { status: 'pending' },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    })
 
-    if (fetchError) {
-      console.error('Error fetching deletion queue:', fetchError)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    if (!queuedFiles || queuedFiles.length === 0) {
+    if (queuedFiles.length === 0) {
       return NextResponse.json({
         message: 'No files to delete',
-        processed: 0
+        processed: 0,
       })
     }
 
@@ -70,59 +56,49 @@ export async function POST(request: NextRequest) {
 
     for (const file of queuedFiles) {
       try {
-        if (file.storage_provider === 'gcs' && file.storage_path) {
-          console.log(`Deleting from GCS: ${file.storage_path}`)
-          await deleteFile(file.storage_path, { provider: 'gcs' })
-        } else if (file.storage_provider === 'gdrive' && file.gdrive_file_id) {
-          console.log(`Deleting from Drive: ${file.storage_path} (${file.gdrive_file_id})`)
-          await drive.files.delete({ fileId: file.gdrive_file_id, supportsAllDrives: true })
-        } else if (file.storage_path) {
-          console.log(`Deleting via path fallback: ${file.storage_path}`)
-          await deleteFile(file.storage_path, { provider: file.storage_provider })
+        if (file.storageProvider === 'gcs' && file.storagePath) {
+          console.log(`Deleting from GCS: ${file.storagePath}`)
+          await deleteFile(file.storagePath, { provider: 'gcs' })
+        } else if (file.storageProvider === 'gdrive' && file.gdriveFileId) {
+          console.log(`Deleting from Drive: ${file.storagePath} (${file.gdriveFileId})`)
+          await drive.files.delete({ fileId: file.gdriveFileId, supportsAllDrives: true })
+        } else if (file.storagePath) {
+          console.log(`Deleting via path fallback: ${file.storagePath}`)
+          await deleteFile(file.storagePath, { provider: file.storageProvider as any })
         } else {
           throw new Error('No file ID or path available for deletion')
         }
 
         // Remove from deletion queue
-        const { error: deleteError } = await supabase
-          .from('deletion_queue')
-          .delete()
-          .eq('id', file.id)
+        await prisma.deletionQueue.delete({ where: { id: file.id } })
 
-        if (deleteError) {
-          console.error(`Error removing from queue: ${deleteError.message}`)
-        }
-
-        results.push({ path: file.storage_path, success: true })
+        results.push({ path: file.storagePath, success: true })
       } catch (error: any) {
-        console.error(`Error deleting ${file.storage_path}:`, error.message)
+        console.error(`Error deleting ${file.storagePath}:`, error.message)
 
         // If file not found (already deleted), remove from queue anyway
         if (error.code === 404 || error.message?.includes('not found')) {
-          await supabase.from('deletion_queue').delete().eq('id', file.id)
-          results.push({ path: file.storage_path, success: true, note: 'File already deleted' })
+          await prisma.deletionQueue.delete({ where: { id: file.id } })
+          results.push({ path: file.storagePath, success: true, note: 'File already deleted' })
         } else {
-          results.push({ path: file.storage_path, success: false, error: 'Deletion failed' })
+          results.push({ path: file.storagePath, success: false, error: 'Deletion failed' })
         }
       }
     }
 
-    const successful = results.filter(r => r.success)
-    const failed = results.filter(r => !r.success)
+    const successful = results.filter((r) => r.success)
+    const failed = results.filter((r) => !r.success)
 
     return NextResponse.json({
       message: 'Deletion processing complete',
       processed: results.length,
       successful: successful.length,
       failed: failed.length,
-      results
+      results,
     })
-
   } catch (error: any) {
     console.error('Error processing deletions:', error)
-    return NextResponse.json({
-      error: 'Internal server error'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -135,32 +111,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Initialize Supabase client
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-    const { data: queuedFiles, error } = await supabase
-      .from('deletion_queue')
-      .select('id, resource_type, storage_path, created_at')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false })
-      .limit(200)
-
-    if (error) {
-      console.error('[process-deletions GET] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      count: queuedFiles?.length || 0,
-      files: queuedFiles || []
+    const queuedFiles = await prisma.deletionQueue.findMany({
+      where: { status: 'pending' },
+      select: { id: true, resourceType: true, storagePath: true, createdAt: true },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
     })
 
+    return NextResponse.json({
+      count: queuedFiles.length,
+      files: queuedFiles,
+    })
   } catch (error: any) {
     console.error('[process-deletions GET] error:', error)
-    return NextResponse.json({
-      error: 'Internal server error'
-    }, { status: 500 })
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

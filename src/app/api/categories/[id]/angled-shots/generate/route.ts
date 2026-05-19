@@ -11,7 +11,9 @@ async function pLimit<T>(tasks: (() => Promise<T>)[], concurrency: number): Prom
   }
   return results
 }
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
@@ -19,7 +21,6 @@ import { deleteFile, downloadFile, uploadFile } from '@/lib/storage'
 import { createDisplayName } from '@/lib/ai/format-angle-name'
 import sharp from 'sharp'
 import { detectFormatFromDimensions, formatToFolderName } from '@/lib/formats'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
@@ -27,30 +28,17 @@ import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
  *
  * Supports two modes:
  *   - Single-angle mode (recommended): pass `angleName` — generates 1 image and saves it.
- *     The client calls this 7 times sequentially, once per angle.
- *     Each call completes in 20-50s, safely within Railway's proxy timeout.
  *   - Bulk mode (legacy): omit `angleName` — generates all angles in one request.
- *     Kept for backward compatibility but risks Railway proxy timeout on longer runs.
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
 
     const rateLimit = await checkRateLimit(`angled-shots:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -60,12 +48,20 @@ export async function POST(
       )
     }
 
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug, look_and_feel')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    // Fetch company slug and name for storage path
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+
+    const companySlug = company.slug
+    const companyName = company.name
+
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true, lookAndFeel: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -89,33 +85,32 @@ export async function POST(
       )
     }
 
-    const { data: product } = await supabase
-      .from('products')
-      .select('id, name, slug, category_id')
-      .eq('id', productId)
-      .eq('category_id', categoryId)
-      .single()
+    const product = await prisma.product.findFirst({
+      where: { id: productId, categoryId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!product) {
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
 
-    const { data: productImage } = await supabase
-      .from('product_images')
-      .select('id, file_path, file_name, mime_type, storage_provider, storage_url, storage_path, gdrive_file_id')
-      .eq('id', productImageId)
-      .eq('product_id', productId)
-      .single()
+    const productImage = await prisma.productImage.findFirst({
+      where: { id: productImageId, productId },
+      select: {
+        id: true, fileName: true, metadata: true,
+        storageProvider: true, storageUrl: true, storagePath: true, gdriveFileId: true,
+      },
+    })
 
     if (!productImage) {
       return NextResponse.json({ error: 'Product image not found' }, { status: 404 })
     }
 
-    // Download source image from GDrive or Supabase
+    // Download source image from GDrive or GCS
     let imageBuffer: Buffer | null = null
 
-    if (productImage.storage_provider === 'gdrive') {
-      const gdriveKey = productImage.gdrive_file_id || productImage.storage_path
+    if (productImage.storageProvider === 'gdrive') {
+      const gdriveKey = productImage.gdriveFileId || productImage.storagePath
       if (!gdriveKey) {
         return NextResponse.json(
           { error: 'Product image has no Google Drive file ID or storage path' },
@@ -131,9 +126,9 @@ export async function POST(
           { status: 500 }
         )
       }
-    } else if (productImage.storage_provider === 'gcs') {
+    } else if (productImage.storageProvider === 'gcs' && productImage.storagePath) {
       try {
-        imageBuffer = await downloadFile(productImage.storage_path, { provider: 'gcs' })
+        imageBuffer = await downloadFile(productImage.storagePath, { provider: 'gcs' })
       } catch (error) {
         console.error('Error downloading from GCS:', error)
         return NextResponse.json(
@@ -142,17 +137,10 @@ export async function POST(
         )
       }
     } else {
-      const { data: downloadedBlob, error: downloadError } = await supabase.storage
-        .from('product-images')
-        .download(productImage.file_path)
-
-      if (downloadError || !downloadedBlob) {
-        return NextResponse.json(
-          { error: 'Failed to download product image from Supabase Storage' },
-          { status: 500 }
-        )
-      }
-      imageBuffer = Buffer.from(await downloadedBlob.arrayBuffer())
+      return NextResponse.json(
+        { error: 'Unsupported storage provider for product image' },
+        { status: 500 }
+      )
     }
 
     if (!imageBuffer) {
@@ -164,7 +152,6 @@ export async function POST(
     // Determine which angles to generate
     let anglesToGenerate: typeof ANGLE_VARIATIONS
     if (angleName) {
-      // Single-angle mode: one angle per request (avoids Railway proxy timeout)
       const found = ANGLE_VARIATIONS.find((a) => a.name === angleName)
       if (!found) {
         return NextResponse.json({ error: `Unknown angle: ${angleName}` }, { status: 400 })
@@ -180,22 +167,22 @@ export async function POST(
       return NextResponse.json({ error: 'No valid angles selected' }, { status: 400 })
     }
 
-    console.log(`🎨 Generating ${anglesToGenerate.map(a => a.name).join(', ')} for ${product.name} [${format}]...`)
+    console.log(`Generating ${anglesToGenerate.map(a => a.name).join(', ')} for ${product.name} [${format}]...`)
 
     const angledShotStartMs = Date.now()
     const generatedShots = await generateAngledShots(
       base64Image,
-      productImage.mime_type,
+      (productImage.metadata as any)?.mimeType || 'image/jpeg',
       anglesToGenerate,
-      category.look_and_feel || undefined,
+      category.lookAndFeel || undefined,
       format
     )
     const perShotMs = Math.round((Date.now() - angledShotStartMs) / (generatedShots.length || 1))
 
-    const imageNameWithoutExt = productImage.file_name.replace(/\.[^/.]+$/, '')
+    const imageNameWithoutExt = productImage.fileName.replace(/\.[^/.]+$/, '')
     const sanitizedCompanyName = sanitizeCompanyName(companyName)
 
-    // Save each shot to GDrive + DB
+    // Save each shot to GCS + DB
     const savedShots = await pLimit(
       generatedShots.map((shot) => async () => {
         try {
@@ -216,53 +203,48 @@ export async function POST(
             // use client-provided format as fallback
           }
 
-          const fileExt = shot.mimeType?.split('/')[1] || 'jpg'
+          const shotMimeType = (productImage.metadata as any)?.mimeType || 'image/jpeg'
+          const fileExt = shotMimeType.split('/')[1] || 'jpg'
           const formatFolder = formatToFolderName(detectedFormat)
           const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/${product.slug}/product-images/angled-shots/${formatFolder}/${imageNameWithoutExt}-${shot.angleName}_${Date.now()}.${fileExt}`
 
           const storageFile = await uploadFile(buffer, fileName, {
-            contentType: shot.mimeType || 'image/jpeg',
+            contentType: shotMimeType,
             provider: 'gcs',
           })
 
           const displayName = createDisplayName(product.name, shot.angleName)
 
-          const { data: angledShot, error: dbError } = await supabase
-            .from('angled_shots')
-            .insert({
-              product_id: productId,
-              product_image_id: productImageId,
-              category_id: categoryId,
-              user_id: user.id,
-              company_id: companyId,
-              angle_name: shot.angleName,
-              angle_description: shot.angleDescription,
-              display_name: displayName,
-              prompt_used: shot.promptUsed || null,
-              format: detectedFormat,
-              width: actualWidth,
-              height: actualHeight,
-              storage_provider: 'gcs',
-              storage_path: storageFile.path,
-              storage_url: storageFile.publicUrl,
-              gdrive_file_id: null,
-              metadata: {},
+          try {
+            const angledShot = await prisma.angledShot.create({
+              data: {
+                productId,
+                productImageId,
+                categoryId,
+                userId: user.id,
+                companyId,
+                angleName: shot.angleName,
+                angleDescription: shot.angleDescription,
+                displayName,
+                promptUsed: shot.promptUsed || null,
+                format: detectedFormat,
+                storageProvider: 'gcs',
+                storagePath: storageFile.path,
+                storageUrl: storageFile.publicUrl,
+                gdriveFileId: null,
+                metadata: { width: actualWidth, height: actualHeight },
+              },
             })
-            .select()
-            .single()
-
-          if (dbError) {
+            return { ...angledShot, public_url: storageFile.publicUrl }
+          } catch (dbError) {
             console.error(`DB insert failed for ${shot.angleName}:`, dbError)
             try {
-              console.log(`Cleaning up orphaned GCS file: ${storageFile.path}`)
               await deleteFile(storageFile.path, { provider: 'gcs' })
             } catch (cleanupError) {
               console.error('Failed to clean up orphaned GCS file:', cleanupError)
             }
             return null
           }
-
-          return { ...angledShot, public_url: storageFile.publicUrl }
         } catch (err) {
           console.error(`Failed to save ${shot.angleName}:`, err)
           return null
@@ -276,7 +258,7 @@ export async function POST(
       .filter((s: { fallbackToOriginal?: boolean }) => s.fallbackToOriginal)
       .map((s: { angleName: string }) => s.angleName)
     if (fallbackAngles.length > 0) {
-      console.warn(`⚠️ Angled shots that fell back to original (generation failed): ${fallbackAngles.join(', ')}`)
+      console.warn(`Angled shots that fell back to original: ${fallbackAngles.join(', ')}`)
     }
 
     return NextResponse.json({
@@ -284,14 +266,10 @@ export async function POST(
       count: saved.length,
       format,
       angledShots: saved,
-      /** Angle names for which generation failed and the original product image was used instead. UI should show a warning. */
       fallbackToOriginalAngles: fallbackAngles,
     })
   } catch (error) {
     console.error('Error generating angled shots:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

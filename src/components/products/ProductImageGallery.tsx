@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Star, Trash2, Image as ImageIcon } from 'lucide-react'
 import { toast } from 'sonner'
-import { createClient } from '@/lib/supabase/client'
 
 interface ProductImage {
   id: string
@@ -33,7 +32,6 @@ export function ProductImageGallery({
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [settingPrimaryId, setSettingPrimaryId] = useState<string | null>(null)
-  const supabase = createClient()
 
   const fetchImages = async () => {
     try {

@@ -1,0 +1,576 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// Auth.js required models
+// ─────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  accounts           Account[]
+  sessions           Session[]
+  companyMemberships CompanyMember[]
+  categories         Category[]
+  products           Product[]
+  productImages      ProductImage[]
+  angledShots        AngledShot[]
+  backgrounds        Background[]
+  composites         Composite[]
+  copyDocs           CopyDoc[]
+  guidelines         Guideline[]
+  finalAssets        FinalAsset[]
+  adExports          AdExport[]
+  templates          Template[]
+  collages           Collage[]
+  brandAssets        BrandAsset[]
+  brandGuidelines    BrandGuideline[]
+  brandVoices        BrandVoice[]
+  assetReferences    AssetReference[]
+  deletionQueues     DeletionQueue[]
+}
+
+model Account {
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, providerAccountId])
+}
+
+model Session {
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@id([identifier, token])
+}
+
+// ─────────────────────────────────────────────
+// Multi-tenancy
+// ─────────────────────────────────────────────
+
+model Company {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  plan      String   @default("free")
+  createdAt DateTime @default(now())
+
+  members         CompanyMember[]
+  categories      Category[]
+  products        Product[]
+  productImages   ProductImage[]
+  angledShots     AngledShot[]
+  backgrounds     Background[]
+  composites      Composite[]
+  copyDocs        CopyDoc[]
+  guidelines      Guideline[]
+  finalAssets     FinalAsset[]
+  adExports       AdExport[]
+  templates       Template[]
+  collages        Collage[]
+  brandAssets     BrandAsset[]
+  brandGuidelines BrandGuideline[]
+  brandVoices     BrandVoice[]
+  assetReferences AssetReference[]
+
+  @@map("companies")
+}
+
+model CompanyMember {
+  id        String   @id @default(uuid())
+  companyId String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, userId])
+  @@index([userId])
+  @@index([companyId])
+  @@map("company_members")
+}
+
+// ─────────────────────────────────────────────
+// Core app tables
+// ─────────────────────────────────────────────
+
+model Category {
+  id          String   @id @default(uuid())
+  companyId   String
+  userId      String
+  name        String
+  slug        String
+  description String?
+  lookAndFeel                    String?  @map("look_and_feel")
+  color                          String?
+  brandGuidelines                String?  @map("brand_guidelines")
+  brandGuidelinesColorDescription String? @map("brand_guidelines_color_description")
+  brandDocName                   String?  @map("brand_doc_name")
+  brandVoice                     String?  @map("brand_voice")
+  createdAt                      DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company         Company          @relation(fields: [companyId], references: [id])
+  user            User             @relation(fields: [userId], references: [id])
+  products        Product[]
+  angledShots     AngledShot[]
+  backgrounds     Background[]
+  composites      Composite[]
+  copyDocs        CopyDoc[]
+  guidelines      Guideline[]
+  finalAssets     FinalAsset[]
+  adExports       AdExport[]
+  templates       Template[]
+  collages        Collage[]
+  assetReferences AssetReference[]
+
+  @@unique([companyId, slug])
+  @@index([companyId])
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  companyId   String
+  categoryId  String
+  userId      String
+  name        String
+  slug        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  company       Company        @relation(fields: [companyId], references: [id])
+  category      Category       @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id])
+  productImages ProductImage[]
+  angledShots   AngledShot[]
+  composites    Composite[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductImage {
+  id              String   @id @default(uuid())
+  companyId       String
+  productId       String
+  categoryId      String
+  userId          String
+  fileName        String   @map("file_name")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  gcsPath         String?  @map("gcs_path")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  angledShots AngledShot[]
+
+  @@index([productId])
+  @@index([companyId])
+  @@map("product_images")
+}
+
+model AngledShot {
+  id               String   @id @default(uuid())
+  companyId        String
+  categoryId       String
+  productId        String
+  productImageId   String   @map("product_image_id")
+  userId           String
+  angleName        String   @map("angle_name")
+  angleDescription String?  @map("angle_description")
+  displayName      String?  @map("display_name")
+  format           String   @default("1:1")
+  promptUsed       String?  @map("prompt_used")
+  storageProvider  String   @default("gcs") @map("storage_provider")
+  storagePath      String   @map("storage_path")
+  storageUrl       String   @map("storage_url")
+  gdriveFileId     String?  @map("gdrive_file_id")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  company      Company      @relation(fields: [companyId], references: [id])
+  category     Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productImage ProductImage @relation(fields: [productImageId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id])
+  composites   Composite[]
+
+  @@index([categoryId])
+  @@index([productId])
+  @@index([companyId])
+  @@map("angled_shots")
+}
+
+model Background {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  userId          String
+  name            String
+  slug            String
+  description     String?
+  promptUsed      String?  @map("prompt_used")
+  format          String   @default("1:1")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company    Company     @relation(fields: [companyId], references: [id])
+  category   Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user       User        @relation(fields: [userId], references: [id])
+  composites Composite[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("backgrounds")
+}
+
+model Composite {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  productId       String
+  angledShotId    String   @map("angled_shot_id")
+  backgroundId    String   @map("background_id")
+  userId          String
+  name            String
+  slug            String
+  description     String?
+  promptUsed      String?  @map("prompt_used")
+  format          String   @default("1:1")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  angledShot  AngledShot   @relation(fields: [angledShotId], references: [id], onDelete: Cascade)
+  background  Background   @relation(fields: [backgroundId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  finalAssets FinalAsset[]
+
+  @@unique([categoryId, slug])
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("composites")
+}
+
+model CopyDoc {
+  id            String   @id @default(uuid())
+  companyId     String
+  categoryId    String
+  userId        String
+  originalText  String   @map("original_text")
+  generatedText String   @map("generated_text")
+  copyType      String   @map("copy_type")
+  language      String   @default("en")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  finalAssets FinalAsset[]
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("copy_docs")
+}
+
+model Guideline {
+  id               String   @id @default(uuid())
+  companyId        String
+  categoryId       String
+  userId           String
+  name             String
+  description      String?
+  storageProvider  String   @default("gcs") @map("storage_provider")
+  storagePath      String   @map("storage_path")
+  storageUrl       String   @map("storage_url")
+  gdriveFileId     String?  @map("gdrive_file_id")
+  safeZones        Json     @default("{}") @map("safe_zones")
+  elementPositions Json     @default("{}") @map("element_positions")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  company     Company      @relation(fields: [companyId], references: [id])
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id])
+  finalAssets FinalAsset[]
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("guidelines")
+}
+
+model FinalAsset {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  userId          String
+  compositeId     String?  @map("composite_id")
+  copyDocId       String?  @map("copy_doc_id")
+  guidelineId     String?  @map("guideline_id")
+  name            String
+  format          String   @default("1:1")
+  promptUsed      String?  @map("prompt_used")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company   Company    @relation(fields: [companyId], references: [id])
+  category  Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user      User       @relation(fields: [userId], references: [id])
+  composite Composite? @relation(fields: [compositeId], references: [id], onDelete: SetNull)
+  copyDoc   CopyDoc?   @relation(fields: [copyDocId], references: [id], onDelete: SetNull)
+  guideline Guideline? @relation(fields: [guidelineId], references: [id], onDelete: SetNull)
+  adExports AdExport[]
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("final_assets")
+}
+
+model AdExport {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  userId          String
+  finalAssetId    String   @map("final_asset_id")
+  aspectRatio     String   @map("aspect_ratio")
+  width           Int
+  height          Int
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company    Company    @relation(fields: [companyId], references: [id])
+  category   Category   @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+  finalAsset FinalAsset @relation(fields: [finalAssetId], references: [id], onDelete: Cascade)
+
+  @@index([finalAssetId])
+  @@index([companyId])
+  @@map("ad_exports")
+}
+
+model Template {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  userId          String
+  name            String
+  format          String   @default("1:1")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("templates")
+}
+
+model Collage {
+  id              String   @id @default(uuid())
+  companyId       String
+  categoryId      String
+  userId          String
+  name            String
+  format          String   @default("1:1")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id])
+
+  @@index([categoryId])
+  @@index([companyId])
+  @@map("collages")
+}
+
+model BrandAsset {
+  id              String   @id @default(uuid())
+  companyId       String
+  userId          String
+  name            String
+  assetType       String   @map("asset_type")
+  storageProvider String   @default("gcs") @map("storage_provider")
+  storagePath     String   @map("storage_path")
+  storageUrl      String   @map("storage_url")
+  gdriveFileId    String?  @map("gdrive_file_id")
+  metadata        Json     @default("{}")
+  createdAt       DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("brand_assets")
+}
+
+model BrandGuideline {
+  id               String   @id @default(uuid())
+  companyId        String
+  userId           String
+  name             String
+  description      String?
+  fileType         String?  @map("file_type")
+  sourceFileName   String?  @map("source_file_name")
+  extractedText    String?  @map("extracted_text")
+  colorDescription String?  @map("color_description")
+  isDefault        Boolean  @default(false) @map("is_default")
+  storageProvider  String   @default("gcs") @map("storage_provider")
+  storagePath      String   @map("storage_path")
+  storageUrl       String   @map("storage_url")
+  gdriveFileId     String?  @map("gdrive_file_id")
+  metadata         Json     @default("{}")
+  createdAt        DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("brand_guidelines")
+}
+
+model BrandVoice {
+  id           String   @id @default(uuid())
+  companyId    String
+  userId       String
+  name         String
+  description  String?
+  profile      String?
+  isDefault    Boolean  @default(false) @map("is_default")
+  tone         String?
+  style        String?
+  examples     String?
+  restrictions String?
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@index([companyId])
+  @@map("brand_voices")
+}
+
+model AssetReference {
+  id             String   @id @default(uuid())
+  companyId      String
+  userId         String
+  categoryId     String?
+  referenceId    String   @map("reference_id")
+  assetType      String   @map("asset_type")
+  assetTableId   String   @map("asset_table_id")
+  storageUrl     String?  @map("storage_url")
+  displayName    String   @map("display_name")
+  searchableText String   @map("searchable_text")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now())
+
+  company  Company   @relation(fields: [companyId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  category Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, referenceId])
+  @@index([companyId])
+  @@map("asset_references")
+}
+
+model DeletionQueue {
+  id              String    @id @default(uuid())
+  resourceType    String    @map("resource_type")
+  resourceId      String    @map("resource_id")
+  userId          String    @map("user_id")
+  storageProvider String    @map("storage_provider")
+  storagePath     String    @map("storage_path")
+  storageUrl      String    @map("storage_url")
+  gdriveFileId    String?   @map("gdrive_file_id")
+  metadata        Json      @default("{}")
+  status          String    @default("pending")
+  attempts        Int       @default(0)
+  processedAt     DateTime? @map("processed_at")
+  errorMessage    String?   @map("error_message")
+  createdAt       DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([status])
+  @@index([userId])
+  @@map("deletion_queue")
+}

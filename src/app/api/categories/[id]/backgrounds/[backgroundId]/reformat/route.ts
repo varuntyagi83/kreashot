@@ -1,40 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
  * POST /api/categories/[id]/backgrounds/[backgroundId]/reformat
- *
- * Downloads the source background image from GDrive, sends it to Gemini
- * as inline_data with a target aspect ratio, and saves each result.
- *
- * Body: { formats: string[] }  e.g. ["16:9", "9:16", "4:5"]
+ * Reformats a background image to different aspect ratios
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; backgroundId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId, backgroundId } = await params
 
-    // Auth
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`reformat-bg:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -44,20 +35,15 @@ export async function POST(
       )
     }
 
-    // Fetch background with category info
-    const { data: background } = await supabase
-      .from('backgrounds')
-      .select('*, category:categories!inner(company_id, slug)')
-      .eq('id', backgroundId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const background = await prisma.background.findFirst({
+      where: { id: backgroundId, categoryId, companyId },
+      include: { category: { select: { slug: true } } },
+    })
 
     if (!background) {
       return NextResponse.json({ error: 'Background not found' }, { status: 404 })
     }
 
-    // Parse request body
     const body = await request.json()
     const { formats } = body
 
@@ -69,19 +55,19 @@ export async function POST(
     if (targetFormats.length === 0) {
       return NextResponse.json({ error: 'No valid target formats provided' }, { status: 400 })
     }
-
     if (targetFormats.length > 4) {
       return NextResponse.json({ error: 'Max 4 formats at a time' }, { status: 400 })
     }
 
-    // Download the source image from GDrive
-    console.log(`Downloading source background: ${background.name} (${background.gdrive_file_id})`)
+    // Download the source image
+    console.log(`Downloading source background: ${background.name}`)
     let sourceBuffer: Buffer
 
-    if (background.gdrive_file_id) {
-      sourceBuffer = await downloadFile(background.gdrive_file_id, { provider: 'gdrive' })
-    } else if (background.storage_path) {
-      sourceBuffer = await downloadFile(background.storage_path, { provider: 'gdrive' })
+    if (background.gdriveFileId) {
+      sourceBuffer = await downloadFile(background.gdriveFileId, { provider: 'gdrive' })
+    } else if (background.storagePath) {
+      const provider = (background.storageProvider as any) || 'gcs'
+      sourceBuffer = await downloadFile(background.storagePath, { provider })
     } else {
       return NextResponse.json({ error: 'Background has no downloadable file' }, { status: 400 })
     }
@@ -89,9 +75,9 @@ export async function POST(
     const sourceMimeType = 'image/jpeg'
     const sourceBase64 = `data:${sourceMimeType};base64,${sourceBuffer.toString('base64')}`
 
-    console.log(`Source image: ${(sourceBuffer.length / 1024).toFixed(0)}KB, reformatting to: ${targetFormats.join(', ')}`)
+    const categorySlug = background.category.slug
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
 
-    // Generate each format sequentially (each call is heavy)
     const results: Array<{
       format: string
       backgroundId: string
@@ -100,14 +86,9 @@ export async function POST(
       error?: string
     }> = []
 
-    const categorySlug = (background.category as any).slug
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-
     for (const fmt of targetFormats) {
       console.log(`  Reformatting to ${fmt}...`)
-
       try {
-        // Call Gemini with the source image
         const generated = await regenerateBackgroundInFormat(
           sourceBase64,
           sourceMimeType,
@@ -115,10 +96,9 @@ export async function POST(
           '4K'
         )
 
-        // Save the generated image
         const folderName = formatToFolderName(fmt)
         const slug = background.slug || background.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-        const fileName = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
+        const fileName = `${sanitizedCompanyName}/${company.slug}/${categorySlug}/backgrounds/${folderName}/${slug}-${fmt.replace(':', 'x')}_${Date.now()}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')
@@ -131,35 +111,27 @@ export async function POST(
         const fmtDims = getFormatDimensions(fmt)
         const newName = `${background.name} (${fmt})`
 
-        const { data: newBg, error: dbError } = await supabase
-          .from('backgrounds')
-          .insert({
-            category_id: categoryId,
-            company_id: companyId,
-            user_id: user.id,
+        const newBg = await prisma.background.create({
+          data: {
+            categoryId,
+            companyId,
+            userId: user.id,
             name: newName,
             slug: `${slug}-${fmt.replace(':', 'x')}-${Date.now()}`,
             description: background.description || `Reformatted from ${background.name}`,
-            prompt_used: generated.promptUsed,
+            promptUsed: generated.promptUsed,
             format: fmt,
-            width: fmtDims.width,
-            height: fmtDims.height,
-            storage_provider: 'gdrive',
-            storage_path: storageFile.path,
-            storage_url: storageFile.publicUrl,
-            gdrive_file_id: storageFile.fileId || null,
-            metadata: {},
-          })
-          .select()
-          .single()
+            storageProvider: 'gdrive',
+            storagePath: storageFile.path,
+            storageUrl: storageFile.publicUrl,
+            gdriveFileId: storageFile.fileId || null,
+            metadata: { width: fmtDims.width, height: fmtDims.height },
+          },
+          select: { id: true },
+        })
 
-        if (dbError) {
-          console.error(`  DB error for ${fmt}:`, dbError)
-          results.push({ format: fmt, backgroundId: '', name: newName, success: false, error: 'Failed to save reformatted background' })
-        } else {
-          console.log(`  Saved ${fmt} background: ${newBg.id}`)
-          results.push({ format: fmt, backgroundId: newBg.id, name: newName, success: true })
-        }
+        console.log(`  Saved ${fmt} background: ${newBg.id}`)
+        results.push({ format: fmt, backgroundId: newBg.id, name: newName, success: true })
       } catch (error: any) {
         console.error(`  Error reformatting to ${fmt}:`, error)
         results.push({ format: fmt, backgroundId: '', name: '', success: false, error: 'Reformat failed' })
@@ -174,9 +146,6 @@ export async function POST(
     })
   } catch (error) {
     console.error('Error in reformat:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

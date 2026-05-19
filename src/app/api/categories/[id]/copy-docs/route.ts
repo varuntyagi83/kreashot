@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { uploadFile } from '@/lib/storage'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 function generateSlug(name: string): string {
@@ -22,52 +22,32 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug } = companyInfo
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    const { data: copyDocs, error } = await supabase
-      .from('copy_docs')
-      .select('*')
-      .eq('category_id', categoryId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching copy docs:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const copyDocs = await prisma.copyDoc.findMany({
+      where: { categoryId },
+      orderBy: { createdAt: 'desc' },
+    })
 
     return NextResponse.json({
       category,
-      copy_docs: copyDocs || [],
+      copy_docs: copyDocs,
     })
   } catch (error: any) {
     console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -80,26 +60,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -135,16 +110,11 @@ export async function POST(
       return NextResponse.json({ error: 'promptUsed must be 10000 characters or fewer' }, { status: 400 })
     }
 
-    const slug = generateSlug(name)
-
-    // Check if copy doc with this slug already exists
-    const { data: existing } = await supabase
-      .from('copy_docs')
-      .select('id')
-      .eq('category_id', categoryId)
-      .eq('copy_type', copyType)
-      .eq('generated_text', generatedText)
-      .single()
+    // Check if copy doc with this text already exists
+    const existing = await prisma.copyDoc.findFirst({
+      where: { categoryId, copyType, generatedText },
+      select: { id: true },
+    })
 
     if (existing) {
       return NextResponse.json(
@@ -154,7 +124,8 @@ export async function POST(
     }
 
     // Save as JSON file to GCS
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const slug = generateSlug(name)
     const copyData = {
       name,
       original_text: originalText || '',
@@ -165,7 +136,7 @@ export async function POST(
       created_at: new Date().toISOString(),
     }
 
-    const fileName = `${sanitizedCompanyName}/${companySlug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
+    const fileName = `${sanitizedCompanyName}/${company.slug}/${category.slug}/copy-docs/${copyType}/${slug}_${Date.now()}.json`
     const buffer = Buffer.from(JSON.stringify(copyData, null, 2), 'utf-8')
 
     console.log(`Uploading copy doc to GCS: ${fileName}`)
@@ -174,35 +145,18 @@ export async function POST(
       provider: 'gcs',
     })
 
-    // Save to database
-    const { data: copyDoc, error: dbError } = await supabase
-      .from('copy_docs')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id,
-        company_id: companyId,
-        original_text: originalText || '',
-        generated_text: generatedText,
-        copy_type: copyType,
-        tone: tone || null,
+    const copyDoc = await prisma.copyDoc.create({
+      data: {
+        categoryId,
+        userId: user.id,
+        companyId,
+        originalText: originalText || '',
+        generatedText,
+        copyType,
         language,
-        prompt_used: promptUsed || null,
-        storage_provider: 'gcs',
-        storage_path: storageFile.path,
-        storage_url: storageFile.publicUrl,
-        gdrive_file_id: storageFile.fileId || null,
-        metadata: {},
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error('Database error:', dbError)
-      return NextResponse.json(
-        { error: 'Failed to save copy doc' },
-        { status: 500 }
-      )
-    }
+        metadata: { tone: tone || null, promptUsed: promptUsed || null },
+      },
+    })
 
     return NextResponse.json(
       { message: 'Copy doc saved successfully', copy_doc: copyDoc },
@@ -210,9 +164,6 @@ export async function POST(
     )
   } catch (error: any) {
     console.error('Error saving copy doc:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

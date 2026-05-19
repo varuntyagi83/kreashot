@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { GoogleDriveAdapter } from '@/lib/storage/gdrive-adapter'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyInfo } from '@/lib/get-company'
 import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 export async function GET(
@@ -11,41 +11,22 @@ export async function GET(
 ) {
   try {
     const { id: categoryId, templateId } = await params
-    const supabase = await createServerSupabaseClient()
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId } = companyInfo
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    const { data: template, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('id', templateId)
-      .eq('category_id', categoryId)
-      .single()
-
-    if (error) {
-      console.error('Error fetching template:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const template = await prisma.template.findFirst({
+      where: { id: templateId, categoryId },
+    })
 
     if (!template) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
@@ -64,129 +45,88 @@ export async function PUT(
 ) {
   try {
     const { id: categoryId, templateId } = await params
-    const supabase = await createServerSupabaseClient()
 
-    // Get user ID
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
-
-    const {
-      name,
-      description,
-      format,
-      width,
-      height,
-      template_data,
-    } = body
+    const { name, description, format, width, height, template_data } = body
 
     if (name && name.length > 200) {
       return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
 
-    // Get category slug for storage path
-    const { data: category } = await supabase
-      .from('categories')
-      .select('slug')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
-
-    const categorySlug = category?.slug || 'unknown'
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
-
-    // Update template in database
-    // Convert format from "4:5" to "4x5" for folder naming
-    const formatFolder = format?.replace(':', 'x')
-    const { data: template, error } = await supabase
-      .from('templates')
-      .update({
-        name,
-        description,
-        format,
-        width,
-        height,
-        template_data,
-        slug: name?.toLowerCase().replace(/\s+/g, '-'),
-        storage_path: `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`,
-      })
-      .eq('id', templateId)
-      .eq('company_id', companyId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error updating template:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, slug: true },
+    })
+    if (!category) {
+      return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    if (!template) {
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
+    const formatFolder = format?.replace(':', 'x')
+    const newSlug = name?.toLowerCase().replace(/\s+/g, '-')
+    const newStoragePath = `${sanitizedCompanyName}/${company.slug}/${category.slug}/templates/${formatFolder}/${newSlug}.json`
+
+    const existing = await prisma.template.findFirst({
+      where: { id: templateId, companyId },
+      select: { id: true, storagePath: true, metadata: true },
+    })
+    if (!existing) {
       return NextResponse.json({ error: 'Template not found or unauthorized' }, { status: 404 })
     }
 
-    console.log('🟢 Template updated in database, checking for Google Drive upload...')
-    console.log('  template_data exists?', !!template_data)
-    console.log('  template_data type:', typeof template_data)
+    const template = await prisma.template.update({
+      where: { id: templateId },
+      data: {
+        name: name || undefined,
+        format: format || undefined,
+        storagePath: newStoragePath,
+        ...(template_data || description !== undefined || width !== undefined || height !== undefined || newSlug ? {
+          metadata: {
+            ...(existing.metadata as any || {}),
+            ...(description !== undefined ? { description } : {}),
+            ...(width !== undefined ? { width } : {}),
+            ...(height !== undefined ? { height } : {}),
+            ...(template_data ? { templateData: template_data } : {}),
+            ...(newSlug ? { slug: newSlug } : {}),
+          },
+        } : {}),
+      },
+    })
 
-    // Upload/update template JSON to Google Drive
     if (template_data) {
       try {
         const gdrive = new GoogleDriveAdapter()
-        const templateJson = JSON.stringify(template_data, null, 2)
-        const templateBuffer = Buffer.from(templateJson, 'utf-8')
+        const templateBuffer = Buffer.from(JSON.stringify(template_data, null, 2), 'utf-8')
 
-        // Convert format from "4:5" to "4x5" for folder naming
-        const formatFolder = format?.replace(':', 'x')
-        const storagePath = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/templates/${formatFolder}/${name?.toLowerCase().replace(/\s+/g, '-')}.json`
-
-        console.log('🔵 Google Drive Upload Debug:')
-        console.log('  Company ID:', companyId)
-        console.log('  Category Slug:', categorySlug)
-        console.log('  Format:', format, '→', formatFolder)
-        console.log('  Storage Path:', storagePath)
-        console.log('  Template Name:', name)
-
-        // Delete old file if it exists (in case name changed)
-        if (template.storage_path && template.storage_path !== storagePath) {
+        // Delete old file if path changed
+        if (existing.storagePath && existing.storagePath !== newStoragePath) {
           try {
-            console.log('  Deleting old file:', template.storage_path)
-            await gdrive.delete(template.storage_path)
+            await gdrive.delete(existing.storagePath)
           } catch (deleteError) {
-            console.log('  Could not delete old template file:', deleteError)
+            console.log('Could not delete old template file:', deleteError)
           }
         }
 
-        // Upload new/updated template
-        console.log('  Starting upload...')
-        const uploadResult = await gdrive.upload(templateBuffer, storagePath, {
-          contentType: 'application/json',
+        const uploadResult = await gdrive.upload(templateBuffer, newStoragePath, { contentType: 'application/json' })
+
+        const updatedTemplate = await prisma.template.update({
+          where: { id: template.id },
+          data: { storageUrl: uploadResult.publicUrl },
         })
-        console.log('  ✅ Upload successful!')
-        console.log('  File ID:', uploadResult.fileId)
-        console.log('  Public URL:', uploadResult.publicUrl)
 
-        // Update template with Google Drive URL
-        const { data: updatedTemplate } = await supabase
-          .from('templates')
-          .update({ storage_url: uploadResult.publicUrl })
-          .eq('id', template.id)
-          .select()
-          .single()
-
-        return NextResponse.json({ template: updatedTemplate || template })
+        return NextResponse.json({ template: updatedTemplate })
       } catch (uploadError) {
         console.error('Error uploading to Google Drive:', uploadError)
-        // Return template anyway, upload failure shouldn't block the update
         return NextResponse.json({
           template,
           warning: 'Template updated but failed to upload to Google Drive'
@@ -207,39 +147,28 @@ export async function DELETE(
 ) {
   try {
     const { templateId } = await params
-    const supabase = await createServerSupabaseClient()
 
-    // Get user ID
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId } = companyInfo
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    // Delete template
-    const { error } = await supabase
-      .from('templates')
-      .delete()
-      .eq('id', templateId)
-      .eq('company_id', companyId)
+    const template = await prisma.template.findFirst({
+      where: { id: templateId, companyId },
+      select: { id: true },
+    })
 
-    if (error) {
-      console.error('Error deleting template:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (!template) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ success: true }, { status: 200 })
+    await prisma.template.delete({ where: { id: templateId } })
+
+    return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('Error in template DELETE:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

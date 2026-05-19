@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -64,8 +63,6 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
   const [savedAngles, setSavedAngles] = useState<SavedAngledShot[]>([])
   const [saving, setSaving] = useState<Set<string>>(new Set())
 
-  const supabase = createClient()
-
   useEffect(() => {
     fetchProducts()
     fetchSavedAngles()
@@ -99,21 +96,21 @@ export function AngledShotsPage({ categoryId }: { categoryId: string }) {
 
   const fetchProductImages = async (productId: string) => {
     try {
-      const { data: images } = await supabase
-        .from('product_images')
-        .select('id, file_name, file_path, is_primary')
-        .eq('product_id', productId)
-        .order('is_primary', { ascending: false })
+      const response = await fetch(
+        `/api/categories/${categoryId}/products/${productId}/images`
+      )
+      const data = await response.json()
 
-      if (images && images.length > 0) {
-        const imagesWithUrls = images.map((img) => {
-          const { data: { publicUrl } } = supabase.storage
-            .from('product-images')
-            .getPublicUrl(img.file_path)
-          return { ...img, public_url: publicUrl }
-        })
-        setProductImages(imagesWithUrls)
-        setSelectedImageId(imagesWithUrls[0].id) // Auto-select first image
+      if (response.ok && data.images && data.images.length > 0) {
+        const images = data.images.map((img: any) => ({
+          id: img.id,
+          file_name: img.file_name || img.fileName,
+          file_path: img.file_path || img.storagePath,
+          is_primary: img.is_primary ?? img.isPrimary ?? false,
+          public_url: img.public_url || img.storageUrl,
+        }))
+        setProductImages(images)
+        setSelectedImageId(images[0].id)
       } else {
         setProductImages([])
         setSelectedImageId('')

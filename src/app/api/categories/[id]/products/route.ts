@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 // Generate slug from name
 function generateSlug(name: string): string {
@@ -18,51 +18,29 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
     // Verify category belongs to company
-    const { data: category, error: categoryError } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
-    if (categoryError || !category) {
+    if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Get all products for this category
-    const { data: products, error } = await supabase
-      .from('products')
-      .select('*')
-      .eq('category_id', categoryId)
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('[products GET] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+    const products = await prisma.product.findMany({
+      where: { categoryId },
+      orderBy: { createdAt: 'desc' },
+    })
 
     return NextResponse.json({ products })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -72,70 +50,43 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
-
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const body = await request.json()
 
     // Verify category belongs to company
-    const { data: category, error: categoryError } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
-    if (categoryError || !category) {
+    if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Validate required fields
     if (!body.name || !body.name.trim()) {
-      return NextResponse.json(
-        { error: 'Product name is required' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Product name is required' }, { status: 400 })
     }
 
-    // Generate slug from name
     const slug = generateSlug(body.name)
 
-    // Create product
-    const { data: product, error } = await supabase
-      .from('products')
-      .insert({
-        category_id: categoryId,
-        user_id: user.id, // Required for RLS policy
-        company_id: companyId,
+    const product = await prisma.product.create({
+      data: {
+        categoryId,
+        userId: user.id,
+        companyId,
         name: body.name.trim(),
         slug,
         description: body.description?.trim() || null,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('[products POST] error:', error)
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-    }
+      },
+    })
 
     return NextResponse.json({ product }, { status: 201 })
   } catch (error) {
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[products POST] error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

@@ -1,8 +1,8 @@
 export const maxDuration = 300
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyInfo } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { regenerateBackgroundInFormat } from '@/lib/ai/gemini'
 import { downloadFile, uploadFile } from '@/lib/storage'
 import { formatToFolderName, getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -11,24 +11,22 @@ import { sanitizeCompanyName } from '@/lib/sanitize-company-name'
 
 /**
  * POST /api/categories/[id]/composites/[compositeId]/reformat
- *
- * Downloads the source composite image, sends it to Gemini with a target aspect ratio,
- * and saves each reformatted result as a new composite record.
- *
- * Body: { formats: string[] }  e.g. ["4:5", "9:16"]
  */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; compositeId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId, compositeId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, name: true },
+    })
+    if (!company) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`reformat-composite:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
@@ -38,18 +36,10 @@ export async function POST(
       )
     }
 
-    const companyInfo = await getCompanyInfo(supabase, user.id)
-    if (!companyInfo) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-    const { company_id: companyId, company_slug: companySlug, company_name: companyName } = companyInfo
-
-    // Fetch composite with category info
-    const { data: composite } = await supabase
-      .from('composites')
-      .select('*, category:categories!inner(company_id, slug, look_and_feel)')
-      .eq('id', compositeId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const composite = await prisma.composite.findFirst({
+      where: { id: compositeId, categoryId, companyId },
+      include: { category: { select: { slug: true } } },
+    })
 
     if (!composite) {
       return NextResponse.json({ error: 'Composite not found' }, { status: 404 })
@@ -70,20 +60,20 @@ export async function POST(
       return NextResponse.json({ error: 'Max 4 formats at a time' }, { status: 400 })
     }
 
-    // Download source image from GDrive
     let sourceBuffer: Buffer
-    if (composite.gdrive_file_id) {
-      sourceBuffer = await downloadFile(composite.gdrive_file_id, { provider: 'gdrive' })
-    } else if (composite.storage_path) {
-      sourceBuffer = await downloadFile(composite.storage_path, { provider: 'gdrive' })
+    if (composite.gdriveFileId) {
+      sourceBuffer = await downloadFile(composite.gdriveFileId, { provider: 'gdrive' })
+    } else if (composite.storagePath) {
+      const provider = (composite.storageProvider as any) || 'gcs'
+      sourceBuffer = await downloadFile(composite.storagePath, { provider })
     } else {
       return NextResponse.json({ error: 'Composite has no downloadable file' }, { status: 400 })
     }
 
     const sourceMimeType = 'image/jpeg'
     const sourceBase64 = `data:${sourceMimeType};base64,${sourceBuffer.toString('base64')}`
-    const categorySlug = (composite.category as any).slug
-    const sanitizedCompanyName = sanitizeCompanyName(companyName)
+    const categorySlug = composite.category.slug
+    const sanitizedCompanyName = sanitizeCompanyName(company.name)
 
     const results: Array<{
       format: string
@@ -108,7 +98,7 @@ export async function POST(
         const folderName = formatToFolderName(fmt)
         const baseSlug = composite.slug || composite.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         const newSlug = `${baseSlug}-${fmt.replace(':', 'x')}-${Date.now()}`
-        const fileName = `${sanitizedCompanyName}/${companySlug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
+        const fileName = `${sanitizedCompanyName}/${company.slug}/${categorySlug}/composites/${folderName}/${newSlug}.jpg`
 
         const base64Data = generated.imageData.replace(/^data:image\/\w+;base64,/, '')
         const buffer = Buffer.from(base64Data, 'base64')
@@ -121,40 +111,29 @@ export async function POST(
         const fmtDims = getFormatDimensions(fmt)
         const newName = `${composite.name} (${fmt})`
 
-        const { data: newComposite, error: dbError } = await supabase
-          .from('composites')
-          .insert({
-            category_id: categoryId,
-            company_id: companyId,
-            user_id: user.id,
-            product_id: composite.product_id || null,
-            angled_shot_id: composite.angled_shot_id,
-            background_id: composite.background_id,
+        const newComposite = await prisma.composite.create({
+          data: {
+            categoryId,
+            companyId,
+            userId: user.id,
+            productId: composite.productId,
+            angledShotId: composite.angledShotId,
+            backgroundId: composite.backgroundId,
             name: newName,
             slug: newSlug,
             description: composite.description || `Reformatted from ${composite.name}`,
-            prompt_used: generated.promptUsed,
+            promptUsed: generated.promptUsed,
             format: fmt,
-            width: fmtDims.width,
-            height: fmtDims.height,
-            aspect_ratio: fmt,
-            generation_time_ms: reformatTimeMs,
-            storage_provider: 'gdrive',
-            storage_path: storageFile.path,
-            storage_url: storageFile.publicUrl,
-            gdrive_file_id: storageFile.fileId || null,
-            metadata: {},
-          })
-          .select()
-          .single()
+            storageProvider: 'gdrive',
+            storagePath: storageFile.path,
+            storageUrl: storageFile.publicUrl,
+            gdriveFileId: storageFile.fileId || null,
+            metadata: { width: fmtDims.width, height: fmtDims.height, generationTimeMs: reformatTimeMs },
+          },
+          select: { id: true },
+        })
 
-        if (dbError) {
-          console.error(`  DB error for ${fmt}:`, dbError)
-          results.push({ format: fmt, compositeId: '', name: newName, success: false, error: 'Failed to save reformatted composite' })
-        } else {
-          console.log(`  Saved ${fmt} composite: ${newComposite.id}`)
-          results.push({ format: fmt, compositeId: newComposite.id, name: newName, success: true })
-        }
+        results.push({ format: fmt, compositeId: newComposite.id, name: newName, success: true })
       } catch (error: any) {
         console.error(`  Error reformatting to ${fmt}:`, error)
         results.push({ format: fmt, compositeId: '', name: '', success: false, error: 'Reformat failed' })

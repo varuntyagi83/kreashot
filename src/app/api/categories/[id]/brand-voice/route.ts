@@ -1,69 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import {
   extractVoiceFromText,
   extractVoiceFromQA,
   extractVoiceFromImages,
 } from '@/lib/ai/brand-voice'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 
 export const dynamic = 'force-dynamic'
 
-// ── GET — return current brand voice profile ──────────────────────────────────
-
+// GET — return current brand voice profile
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const supabase = await createServerSupabaseClient()
   const { id: categoryId } = await params
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const ctx = await requireSession()
+  if (ctx instanceof NextResponse) return ctx
+  const { companyId } = ctx
 
-  const companyId = await getCompanyId(supabase, user.id)
-  if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-  const { data: category } = await supabase
-    .from('categories')
-    .select('id, brand_voice')
-    .eq('id', categoryId)
-    .eq('company_id', companyId)
-    .single()
+  const category = await prisma.category.findFirst({
+    where: { id: categoryId, companyId },
+    select: { id: true, brandVoice: true },
+  })
 
   if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
-  return NextResponse.json({ brand_voice: category.brand_voice || null })
+  return NextResponse.json({ brand_voice: category.brandVoice || null })
 }
 
-// ── POST — extract and save brand voice ───────────────────────────────────────
-
+// POST — extract and save brand voice
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
 
     const rateLimit = await checkRateLimit(`brand-voice:${user.id}`, 5, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Rate limit exceeded' }, { status: 429 })
     }
 
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, look_and_feel')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, lookAndFeel: true },
+    })
 
     if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
@@ -74,7 +62,7 @@ export async function POST(
       return NextResponse.json({ error: 'lookAndFeel must be 10000 characters or fewer' }, { status: 400 })
     }
 
-    const contextLookAndFeel = lookAndFeel || category.look_and_feel || undefined
+    const contextLookAndFeel = lookAndFeel || category.lookAndFeel || undefined
 
     let profile
 
@@ -138,16 +126,13 @@ export async function POST(
       }
 
       case 'library': {
-        // Apply a saved brand voice from the library to this category
         const { voiceId } = body
         if (!voiceId) return NextResponse.json({ error: 'voiceId is required' }, { status: 400 })
 
-        const { data: savedVoice } = await supabase
-          .from('brand_voices')
-          .select('profile')
-          .eq('id', voiceId)
-          .eq('company_id', companyId)
-          .single()
+        const savedVoice = await prisma.brandVoice.findFirst({
+          where: { id: voiceId, companyId },
+          select: { profile: true },
+        })
 
         if (!savedVoice) return NextResponse.json({ error: 'Brand voice not found in library' }, { status: 404 })
         profile = savedVoice.profile
@@ -162,19 +147,16 @@ export async function POST(
         )
     }
 
-    // Save to database — include company_id guard for defence-in-depth (M-02)
-    const { error: updateError } = await supabase
-      .from('categories')
-      .update({ brand_voice: profile })
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
+    const updated = await prisma.category.updateMany({
+      where: { id: categoryId, companyId },
+      data: { brandVoice: profile as any },
+    })
 
-    if (updateError) {
-      console.error('Failed to save brand voice:', updateError)
+    if (updated.count === 0) {
       return NextResponse.json({ error: 'Failed to save brand voice profile' }, { status: 500 })
     }
 
-    console.log(`✅ Brand voice saved for: ${category.name} (method: ${method})`)
+    console.log(`Brand voice saved for: ${category.name} (method: ${method})`)
 
     return NextResponse.json({
       message: 'Brand voice profile extracted and saved',
@@ -182,43 +164,33 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error extracting brand voice:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// ── DELETE — clear brand voice ────────────────────────────────────────────────
-
+// DELETE — clear brand voice
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
     const { id: categoryId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
-    await supabase
-      .from('categories')
-      .update({ brand_voice: null })
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
+    await prisma.category.updateMany({
+      where: { id: categoryId, companyId },
+      data: { brandVoice: null },
+    })
 
     return NextResponse.json({ message: 'Brand voice profile cleared' })
   } catch (error: any) {

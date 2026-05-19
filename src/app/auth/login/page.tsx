@@ -1,12 +1,10 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase/client'
-import { toast } from 'sonner'
-import { Check } from 'lucide-react'
+import { signIn } from 'next-auth/react'
+import { Check, Mail } from 'lucide-react'
 
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
@@ -17,11 +15,11 @@ const FEATURES = [
   'Export to Meta Ads Manager: 1:1, 4:5, 16:9, 9:16',
 ]
 
-function KreashotWordmark({ height = 28 }: { height?: number }) {
+function KreashotWordmark({ height = 28, dark = false }: { height?: number; dark?: boolean }) {
   const width = Math.round(height * (498 / 95))
   return (
     <Image
-      src="/kreashot-wordmark-light.png"
+      src={dark ? '/kreashot-wordmark-dark.png' : '/kreashot-wordmark-light.png'}
       alt="Kreashot"
       width={width}
       height={height}
@@ -33,32 +31,30 @@ function KreashotWordmark({ height = 28 }: { height?: number }) {
 
 function LoginForm() {
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const router = useRouter()
+  const [sent, setSent] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
   const searchParams = useSearchParams()
-  const supabase = createClient()
 
   useEffect(() => {
     const error = searchParams.get('error')
-    const message = searchParams.get('message')
-    if (error) toast.error(error)
-    else if (message) toast.success(message)
+    if (error === 'EmailSignin') setErrorMsg('Failed to send the magic link. Please try again.')
+    else if (error) setErrorMsg('Something went wrong. Please try again.')
   }, [searchParams])
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setErrorMsg('')
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        toast.error(error.message)
+      const result = await signIn('resend', { email, redirect: false, callbackUrl: '/dashboard' })
+      if (result?.error) {
+        setErrorMsg('Failed to send the magic link. Please try again.')
       } else {
-        router.push('/dashboard')
-        router.refresh()
+        setSent(true)
       }
     } catch {
-      toast.error('An unexpected error occurred')
+      setErrorMsg('An unexpected error occurred. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -78,7 +74,6 @@ function LoginForm() {
         position: 'relative',
         overflow: 'hidden',
       }} className="hidden lg:flex">
-        {/* Subtle radial glow */}
         <div style={{
           position: 'absolute',
           top: '40%',
@@ -163,127 +158,152 @@ function LoginForm() {
 
           {/* Mobile wordmark */}
           <div className="lg:hidden" style={{ marginBottom: '40px' }}>
-            <Image
-              src="/kreashot-wordmark-dark.png"
-              alt="Kreashot"
-              width={146}
-              height={28}
-              style={{ display: 'block' }}
-              priority
-            />
+            <KreashotWordmark height={28} dark />
           </div>
 
-          <h1 style={{
-            fontFamily: displayFont,
-            fontSize: '32px',
-            fontWeight: 400,
-            color: '#1A1208',
-            marginBottom: '8px',
-            letterSpacing: '-0.01em',
-          }}>
-            Welcome back
-          </h1>
-          <p style={{ color: '#5C5245', fontSize: '14px', marginBottom: '36px', lineHeight: 1.5 }}>
-            Sign in to your account to continue
-          </p>
-
-          <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div>
-              <label htmlFor="email" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1A1208', marginBottom: '8px' }}>
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                placeholder="you@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
+          {sent ? (
+            /* Confirmation state */
+            <div style={{ textAlign: 'center' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                backgroundColor: 'rgba(201,146,42,0.12)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                margin: '0 auto 24px',
+              }}>
+                <Mail size={24} color="#C9922A" />
+              </div>
+              <h1 style={{
+                fontFamily: displayFont,
+                fontSize: '28px',
+                fontWeight: 400,
+                color: '#1A1208',
+                marginBottom: '12px',
+                letterSpacing: '-0.01em',
+              }}>
+                Check your inbox
+              </h1>
+              <p style={{ color: '#5C5245', fontSize: '14px', lineHeight: 1.6, marginBottom: '8px' }}>
+                We sent a magic link to
+              </p>
+              <p style={{ color: '#1A1208', fontSize: '14px', fontWeight: 600, marginBottom: '32px' }}>
+                {email}
+              </p>
+              <p style={{ color: '#5C5245', fontSize: '13px', lineHeight: 1.6 }}>
+                Click the link in the email to sign in. It expires in 24 hours.
+              </p>
+              <button
+                onClick={() => { setSent(false); setEmail('') }}
                 style={{
-                  width: '100%',
-                  height: '44px',
-                  padding: '0 14px',
-                  border: '1.5px solid #DDD8CE',
-                  borderRadius: '8px',
-                  backgroundColor: '#FDFAF5',
-                  color: '#1A1208',
-                  fontSize: '14px',
+                  marginTop: '32px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#5C5245',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  textDecoration: 'underline',
                   fontFamily: bodyFont,
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.2s',
                 }}
-                onFocus={(e) => (e.target.style.borderColor = '#C9922A')}
-                onBlur={(e) => (e.target.style.borderColor = '#DDD8CE')}
-              />
+              >
+                Use a different email
+              </button>
             </div>
+          ) : (
+            /* Email entry state */
+            <>
+              <h1 style={{
+                fontFamily: displayFont,
+                fontSize: '32px',
+                fontWeight: 400,
+                color: '#1A1208',
+                marginBottom: '8px',
+                letterSpacing: '-0.01em',
+              }}>
+                Sign in
+              </h1>
+              <p style={{ color: '#5C5245', fontSize: '14px', marginBottom: '36px', lineHeight: 1.5 }}>
+                Enter your email and we&apos;ll send you a magic link.
+              </p>
 
-            <div>
-              <label htmlFor="password" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1A1208', marginBottom: '8px' }}>
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  height: '44px',
-                  padding: '0 14px',
-                  border: '1.5px solid #DDD8CE',
+              {errorMsg && (
+                <div style={{
+                  padding: '12px 14px',
+                  backgroundColor: 'rgba(184,92,56,0.08)',
+                  border: '1px solid rgba(184,92,56,0.3)',
                   borderRadius: '8px',
-                  backgroundColor: '#FDFAF5',
-                  color: '#1A1208',
-                  fontSize: '14px',
-                  fontFamily: bodyFont,
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  transition: 'border-color 0.2s',
-                }}
-                onFocus={(e) => (e.target.style.borderColor = '#C9922A')}
-                onBlur={(e) => (e.target.style.borderColor = '#DDD8CE')}
-              />
-            </div>
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                  color: '#B85C38',
+                }}>
+                  {errorMsg}
+                </div>
+              )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                width: '100%',
-                height: '46px',
-                backgroundColor: loading ? '#8B3D22' : '#B85C38',
-                color: '#F5F0E8',
-                border: 'none',
-                borderRadius: '8px',
-                fontSize: '15px',
-                fontWeight: 600,
-                fontFamily: bodyFont,
-                cursor: loading ? 'not-allowed' : 'pointer',
-                transition: 'background-color 0.2s',
-                letterSpacing: '0.01em',
-              }}
-            >
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
-          </form>
+              <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <div>
+                  <label htmlFor="email" style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#1A1208', marginBottom: '8px' }}>
+                    Email address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      height: '44px',
+                      padding: '0 14px',
+                      border: '1.5px solid #DDD8CE',
+                      borderRadius: '8px',
+                      backgroundColor: '#FDFAF5',
+                      color: '#1A1208',
+                      fontSize: '14px',
+                      fontFamily: bodyFont,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onFocus={(e) => (e.target.style.borderColor = '#C9922A')}
+                    onBlur={(e) => (e.target.style.borderColor = '#DDD8CE')}
+                  />
+                </div>
 
-          <p style={{ marginTop: '24px', fontSize: '14px', color: '#5C5245', textAlign: 'center' }}>
-            Don&apos;t have an account?{' '}
-            <Link href="/auth/signup" style={{ color: '#2D4A35', fontWeight: 600, textDecoration: 'none', borderBottom: '1px solid #2D4A35' }}>
-              Sign up
-            </Link>
-          </p>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    height: '46px',
+                    backgroundColor: loading ? '#8B3D22' : '#B85C38',
+                    color: '#F5F0E8',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    fontFamily: bodyFont,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    transition: 'background-color 0.2s',
+                    letterSpacing: '0.01em',
+                  }}
+                >
+                  {loading ? 'Sending...' : 'Send magic link'}
+                </button>
+              </form>
 
-          <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #DDD8CE' }}>
-            <Link href="/" style={{ fontSize: '13px', color: '#5C5245', textDecoration: 'none' }}>
-              &larr; Back to home
-            </Link>
-          </div>
+              <div style={{ marginTop: '40px', paddingTop: '24px', borderTop: '1px solid #DDD8CE' }}>
+                <a href="/" style={{ fontSize: '13px', color: '#5C5245', textDecoration: 'none' }}>
+                  &larr; Back to home
+                </a>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

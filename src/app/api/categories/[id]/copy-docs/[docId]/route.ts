@@ -1,74 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
-import { getCompanyId } from '@/lib/get-company'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 
 /**
  * DELETE /api/categories/[id]/copy-docs/[docId]
- * Deletes a copy doc (triggers Google Drive cleanup via database trigger)
+ * Deletes a copy doc
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, docId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Verify ownership via category
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    // Verify the copy doc exists and belongs to this category
-    const { data: copyDoc } = await supabase
-      .from('copy_docs')
-      .select('id')
-      .eq('id', docId)
-      .eq('category_id', categoryId)
-      .single()
+    const copyDoc = await prisma.copyDoc.findFirst({
+      where: { id: docId, categoryId },
+      select: { id: true },
+    })
 
     if (!copyDoc) {
       return NextResponse.json({ error: 'Copy doc not found' }, { status: 404 })
     }
 
-    // Delete (trigger will automatically queue Google Drive deletion)
-    const { error: deleteError } = await supabase
-      .from('copy_docs')
-      .delete()
-      .eq('id', docId)
-      .eq('category_id', categoryId)
-
-    if (deleteError) {
-      console.error('Delete error:', deleteError)
-      return NextResponse.json(
-        { error: 'Internal server error' },
-        { status: 500 }
-      )
-    }
+    await prisma.copyDoc.delete({ where: { id: docId } })
 
     return NextResponse.json({ message: 'Copy doc deleted successfully' })
   } catch (error: any) {
     console.error('Error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

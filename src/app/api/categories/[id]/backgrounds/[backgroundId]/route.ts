@@ -1,38 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
-import { getCompanyId } from '@/lib/get-company'
 
 /**
  * GET /api/categories/[id]/backgrounds/[backgroundId]
- * Gets a single background with full details
  */
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; backgroundId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, backgroundId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    const { data: background } = await supabase
-      .from('backgrounds')
-      .select('*, category:categories!inner(company_id, slug, name, look_and_feel)')
-      .eq('id', backgroundId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const background = await prisma.background.findFirst({
+      where: { id: backgroundId, categoryId, companyId },
+    })
 
     if (!background) {
       return NextResponse.json({ error: 'Background not found' }, { status: 404 })
@@ -54,28 +40,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; backgroundId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { companyId } = ctx
     const { id: categoryId, backgroundId } = await params
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Verify background belongs to company's category
-    const { data: existing } = await supabase
-      .from('backgrounds')
-      .select('*, category:categories!inner(company_id)')
-      .eq('id', backgroundId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const existing = await prisma.background.findFirst({
+      where: { id: backgroundId, categoryId, companyId },
+      select: { id: true, description: true },
+    })
 
     if (!existing) {
       return NextResponse.json({ error: 'Background not found' }, { status: 404 })
@@ -91,17 +64,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'name must be 200 characters or fewer' }, { status: 400 })
     }
 
-    const { data: background, error } = await supabase
-      .from('backgrounds')
-      .update({ name: name.trim(), description: description ?? existing.description })
-      .eq('id', backgroundId)
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Error updating background:', error)
-      return NextResponse.json({ error: 'Failed to update background' }, { status: 500 })
-    }
+    const background = await prisma.background.update({
+      where: { id: backgroundId },
+      data: { name: name.trim(), description: description ?? existing.description },
+    })
 
     return NextResponse.json({ message: 'Background updated', background })
   } catch (error) {
@@ -112,70 +78,36 @@ export async function PATCH(
 
 /**
  * DELETE /api/categories/[id]/backgrounds/[backgroundId]
- * Deletes a background (deletion queue will handle storage cleanup)
  */
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; backgroundId: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId, backgroundId } = await params
 
-    // Check authentication
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
     const rateLimit = await checkRateLimit(`delete:${user.id}`, 50, 60_000)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
     }
 
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
-
-    // Verify background belongs to company's category
-    const { data: background } = await supabase
-      .from('backgrounds')
-      .select('*, category:categories!inner(company_id)')
-      .eq('id', backgroundId)
-      .eq('category_id', categoryId)
-      .eq('category.company_id', companyId)
-      .single()
+    const background = await prisma.background.findFirst({
+      where: { id: backgroundId, categoryId, companyId },
+      select: { id: true },
+    })
 
     if (!background) {
-      return NextResponse.json(
-        { error: 'Background not found' },
-        { status: 404 }
-      )
+      return NextResponse.json({ error: 'Background not found' }, { status: 404 })
     }
 
-    // Delete from database (trigger will queue storage deletion)
-    const { error: deleteError } = await supabase
-      .from('backgrounds')
-      .delete()
-      .eq('id', backgroundId)
+    await prisma.background.delete({ where: { id: backgroundId } })
 
-    if (deleteError) {
-      console.error('Error deleting background:', deleteError)
-      return NextResponse.json(
-        { error: 'Failed to delete background' },
-        { status: 500 }
-      )
-    }
-
-    return NextResponse.json({
-      message: 'Background deleted successfully',
-    })
+    return NextResponse.json({ message: 'Background deleted successfully' })
   } catch (error) {
     console.error('Error deleting background:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

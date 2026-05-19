@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { prisma } from '@/lib/db'
+import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { generateCopyVariations, generateCopyKit, CopyType } from '@/lib/ai/openai'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
-import { getCompanyId } from '@/lib/get-company'
 
 const VALID_COPY_TYPES: CopyType[] = ['hook', 'cta', 'body', 'tagline', 'headline']
 
@@ -12,16 +12,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createServerSupabaseClient()
+    const ctx = await requireSession()
+    if (ctx instanceof NextResponse) return ctx
+    const { user, companyId } = ctx
     const { id: categoryId } = await params
-
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const companyId = await getCompanyId(supabase, user.id)
-    if (!companyId) return NextResponse.json({ error: 'No company found' }, { status: 403 })
 
     const rateLimit = await checkRateLimit(`copy-docs:${user.id}`, 20, 60_000)
     if (!rateLimit.allowed) {
@@ -31,13 +25,10 @@ export async function POST(
       )
     }
 
-    // Fetch category including all brand context (always pass brand_voice + brand_guidelines into copy generation)
-    const { data: category } = await supabase
-      .from('categories')
-      .select('id, name, slug, look_and_feel, brand_guidelines, brand_voice')
-      .eq('id', categoryId)
-      .eq('company_id', companyId)
-      .single()
+    const category = await prisma.category.findFirst({
+      where: { id: categoryId, companyId },
+      select: { id: true, name: true, slug: true, lookAndFeel: true, brandGuidelines: true, brandVoice: true },
+    })
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -55,31 +46,23 @@ export async function POST(
       return NextResponse.json({ error: `Brief must be under ${MAX_BRIEF_LENGTH} characters` }, { status: 400 })
     }
 
-    // Sanitize user-supplied brief against prompt injection before sending to AI
     const safeBrief = brief ? sanitizeForPrompt(brief) : brief
-
-    // Sanitize DB-sourced brand context strings before embedding in the system prompt.
-    // Although these values are written by authenticated users (not anonymous callers),
-    // they are passed verbatim into the OpenAI system prompt in buildSystemPrompt().
-    // A user could store a prompt-injection payload in look_and_feel or brand_guidelines.
-    const safeLookAndFeel = sanitizeForPrompt(category.look_and_feel || '')
-    const safeBrandGuidelines = category.brand_guidelines
-      ? sanitizeForPrompt(category.brand_guidelines)
+    const safeLookAndFeel = sanitizeForPrompt(category.lookAndFeel || '')
+    const safeBrandGuidelines = category.brandGuidelines
+      ? sanitizeForPrompt(category.brandGuidelines)
       : undefined
 
-    // ── Resolve brand voice (library voice overrides category voice) ─────
-    let brandVoice = category.brand_voice || undefined
+    // Resolve brand voice (library voice overrides category voice)
+    let brandVoice: any = category.brandVoice || undefined
     if (body.brandVoiceId) {
-      const { data: voice } = await supabase
-        .from('brand_voices')
-        .select('profile')
-        .eq('id', body.brandVoiceId)
-        .eq('company_id', companyId)
-        .single()
-      if (voice) brandVoice = voice.profile
+      const voice = await prisma.brandVoice.findFirst({
+        where: { id: body.brandVoiceId, companyId },
+        select: { profile: true },
+      })
+      if (voice) brandVoice = voice.profile as string
     }
 
-    // ── KIT MODE: multiple types × multiple tones ──────────────────────────
+    // KIT MODE: multiple types x multiple tones
     if (mode === 'kit') {
       const { copyTypes, tones, targetAudience } = body
 
@@ -103,7 +86,7 @@ export async function POST(
         return NextResponse.json({ error: 'Max 50 combinations at once' }, { status: 400 })
       }
 
-      console.log(`Generating copy kit: ${copyTypes.length} types × ${tones.length} tones = ${totalCombinations} for ${category.slug}`)
+      console.log(`Generating copy kit: ${copyTypes.length} types x ${tones.length} tones = ${totalCombinations} for ${category.slug}`)
 
       const results = await generateCopyKit(
         safeBrief,
@@ -128,7 +111,7 @@ export async function POST(
       })
     }
 
-    // ── SINGLE MODE: one type, one tone, N variations (backwards compatible) ─
+    // SINGLE MODE: one type, one tone, N variations
     const { copyType = 'hook', count = 1, tone, targetAudience } = body
 
     if (tone && tone.length > 500) {
