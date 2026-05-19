@@ -64,6 +64,44 @@ const DIFFERENTIATORS = [
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
 
+// Renders the "kreashot" wordmark with the signature golden paintbrush stroke on the k
+function KreashotWordmark({ size = 28, color = '#1A1208' }: { size?: number; color?: string }) {
+  return (
+    <span style={{
+      fontFamily: displayFont,
+      fontSize: `${size}px`,
+      fontWeight: 600,
+      fontStyle: 'normal',
+      color,
+      letterSpacing: '-0.02em',
+      display: 'inline-flex',
+      alignItems: 'baseline',
+      lineHeight: 1,
+    }}>
+      <span style={{ position: 'relative', display: 'inline-block' }}>
+        k
+        {/* Paintbrush stroke: tapered gradient ellipse across the lower diagonal of the k */}
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            display: 'block',
+            width: '0.52em',
+            height: '0.1em',
+            background: 'linear-gradient(to right, transparent 0%, #C9922A 20%, #D4A535 55%, #C9922A 78%, transparent 100%)',
+            borderRadius: '50%',
+            transform: 'rotate(-38deg)',
+            top: '50%',
+            left: '14%',
+            pointerEvents: 'none',
+          }}
+        />
+      </span>
+      reashot
+    </span>
+  )
+}
+
 export default function LandingPage() {
   return (
     <div style={{ backgroundColor: '#F5F0E8', color: '#1A1208', fontFamily: bodyFont, minHeight: '100vh' }}>
@@ -76,16 +114,8 @@ export default function LandingPage() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '16px 40px',
       }}>
-        <Link href="/" style={{
-          fontFamily: displayFont,
-          fontStyle: 'italic',
-          fontSize: '28px',
-          fontWeight: 400,
-          color: '#1A1208',
-          letterSpacing: '-0.01em',
-          textDecoration: 'none',
-        }}>
-          kreashot
+        <Link href="/" style={{ textDecoration: 'none' }}>
+          <KreashotWordmark size={28} color="#1A1208" />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <Link href="/auth/login" style={{
@@ -206,49 +236,56 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Main content: warm parchment, step icons with dark style */}
+        {/* Main content: warm parchment, steps spread full width */}
         <div style={{
           backgroundColor: '#EDE6D9',
-          padding: '28px 40px',
+          padding: '28px 32px',
           display: 'flex',
           alignItems: 'flex-start',
-          justifyContent: 'center',
+          width: '100%',
+          boxSizing: 'border-box',
           overflowX: 'auto',
         }}>
-          {PIPELINE.map(({ Icon, label }, i) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'flex-start' }}>
-              {/* Step: icon box + label */}
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '80px' }}>
-                <div style={{
-                  width: '54px', height: '54px',
-                  border: '1.5px solid #C4B49A',
-                  borderRadius: '10px',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  backgroundColor: '#F5F0E8',
-                  boxShadow: '0 1px 3px rgba(26,18,8,0.08)',
-                }}>
-                  <Icon size={22} color="#1A1208" strokeWidth={1.5} />
-                </div>
-                <span style={{
-                  color: '#5C5245',
-                  fontSize: '10px',
-                  fontWeight: 500,
-                  textAlign: 'center',
-                  whiteSpace: 'nowrap',
-                  fontFamily: bodyFont,
-                  lineHeight: 1.3,
-                }}>
-                  {label}
-                </span>
+          {PIPELINE.flatMap(({ Icon, label }, i) => [
+            /* Each step gets flex:1 so all 8 spread evenly */
+            <div key={label} style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              minWidth: 0,
+            }}>
+              <div style={{
+                width: '54px', height: '54px',
+                border: '1.5px solid #C4B49A',
+                borderRadius: '10px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: '#F5F0E8',
+                boxShadow: '0 1px 3px rgba(26,18,8,0.08)',
+                flexShrink: 0,
+              }}>
+                <Icon size={22} color="#1A1208" strokeWidth={1.5} />
               </div>
-              {/* Arrow aligned to icon center (54px icon + 8px gap → center at 27px from top) */}
-              {i < PIPELINE.length - 1 && (
-                <div style={{ marginTop: '16px', flexShrink: 0, padding: '0 2px' }}>
-                  <ArrowRight size={13} color="#C9922A" />
-                </div>
-              )}
-            </div>
-          ))}
+              <span style={{
+                color: '#5C5245',
+                fontSize: '10px',
+                fontWeight: 500,
+                textAlign: 'center',
+                whiteSpace: 'nowrap',
+                fontFamily: bodyFont,
+                lineHeight: 1.3,
+              }}>
+                {label}
+              </span>
+            </div>,
+            /* Arrow sits between steps, vertically aligned to icon center */
+            ...(i < PIPELINE.length - 1 ? [
+              <div key={`arr-${i}`} style={{ flexShrink: 0, marginTop: '20px' }}>
+                <ArrowRight size={12} color="#C9922A" />
+              </div>,
+            ] : []),
+          ])}
         </div>
 
         {/* Bottom film border: dark strip with parchment perforations */}
@@ -490,15 +527,8 @@ export default function LandingPage() {
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <span style={{
-          fontFamily: displayFont,
-          fontStyle: 'italic',
-          fontSize: '20px',
-          fontWeight: 400,
-          color: '#F5F0E8',
-          opacity: 0.6,
-        }}>
-          kreashot
+        <span style={{ opacity: 0.65 }}>
+          <KreashotWordmark size={20} color="#F5F0E8" />
         </span>
         <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
           <span style={{ fontSize: '12px', color: '#DDD8CE', opacity: 0.35, fontFamily: bodyFont }}>
