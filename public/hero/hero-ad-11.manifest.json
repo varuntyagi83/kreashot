@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-19T18:38:29.941878+00:00",
-  "prompt": "Studio product photography, overhead flat lay. An amber glass dropper bottle with a matte gold cap, centered on a terracotta clay saucer. Warm sand background with soft textile shadow. Natural light, warm color temperature. Props: three small cream pebbles and a dried chamomile flower. No text, no logos, no people. Earthy, artisanal mood. Avoid: bright white studio look, clutter, watermarks, harsh shadows, stock photo cliches.",
+  "generated_at": "2026-05-19T19:08:15.457180+00:00",
+  "prompt": "Premium product photography, overhead flat lay. Amber glass dropper bottle with gold cap on a terracotta clay saucer, warm sand background with soft textile shadows. The bottle has a cream label with a small sun icon (circle with short radiating rays) printed at the top of the label in gold, and below it SOLEIL in gold uppercase letters. The label looks like a real premium serum brand. Three small cream pebbles and a dried chamomile flower around the bottle. Overhead natural light. 1:1 square. Avoid: generic stock photography, blurry labels, illegible gold text, harsh shadows, neon colors, plastic materials.",
   "output": "/Users/varuntyagi/Downloads/ClaudeResearch/Raygency/Kreashot/public/hero/hero-ad-11.jpg",
-  "model": "imagen-4.0-generate-001",
+  "model": "gemini-3.1-flash-image-preview",
   "aspect_ratio": "1:1",
-  "cost_usd": 0.04
+  "cost_usd": 0.045
 }

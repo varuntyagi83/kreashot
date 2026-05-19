@@ -154,145 +154,46 @@ export default function LandingPage() {
           {/* Absolute fill with 16px inset padding */}
           <div style={{ position: 'absolute', inset: '16px', display: 'flex', gap: '8px' }}>
 
-            {/* Left column: 9:16 portrait — LUMINARY brand */}
+            {/* Left column: 9:16 portrait — LUMINARY */}
             <div style={{ flex: '0 0 38%', position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
               <img
                 src="/hero/hero-ad-916.jpg"
-                alt="9:16 Stories format"
+                alt="LUMINARY — 9:16 Stories format"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
               />
-              {/* Format badge */}
-              <span style={{
-                position: 'absolute', top: '10px', left: '10px',
-                backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)',
-                color: 'rgba(245,240,232,0.85)', fontSize: '9px', fontWeight: 700,
-                letterSpacing: '0.08em', padding: '3px 7px', borderRadius: '4px',
-                fontFamily: bodyFont,
-              }}>9:16</span>
-              {/* LUMINARY brand badge — diamond mark + wordmark */}
-              <div style={{
-                position: 'absolute', bottom: '12px', left: '50%', transform: 'translateX(-50%)',
-                backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                borderRadius: '6px', padding: '6px 11px',
-                display: 'flex', alignItems: 'center', gap: '6px',
-                whiteSpace: 'nowrap',
-              }}>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                  <polygon points="6,1 11,6 6,11 1,6" fill="#2D4A35" />
-                  <polygon points="6,3.5 8.5,6 6,8.5 3.5,6" fill="white" />
-                </svg>
-                <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.14em', color: '#1A1208', fontFamily: bodyFont }}>
-                  LUMINARY
-                </span>
-              </div>
             </div>
 
             {/* Right column */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
 
-              {/* 16:9 landscape — BOTANICA brand */}
+              {/* 16:9 landscape — BOTANICA */}
               <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '16/9', flexShrink: 0 }}>
                 <img
                   src="/hero/hero-ad-169.jpg"
-                  alt="16:9 Display format"
+                  alt="BOTANICA — 16:9 Display format"
                   style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                 />
-                <span style={{
-                  position: 'absolute', top: '10px', left: '10px',
-                  backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)',
-                  color: 'rgba(245,240,232,0.85)', fontSize: '9px', fontWeight: 700,
-                  letterSpacing: '0.08em', padding: '3px 7px', borderRadius: '4px',
-                  fontFamily: bodyFont,
-                }}>16:9</span>
-                {/* BOTANICA — leaf mark + wordmark */}
-                <div style={{
-                  position: 'absolute', bottom: '10px', right: '12px',
-                  backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                  borderRadius: '6px', padding: '5px 10px',
-                  display: 'flex', alignItems: 'center', gap: '5px',
-                }}>
-                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                    <path d="M5.5 10 C5.5 10 1 7 1 3.5 C1 1.5 3 1 5.5 2.5 C8 1 10 1.5 10 3.5 C10 7 5.5 10 5.5 10Z" fill="#2D4A35" />
-                    <line x1="5.5" y1="10" x2="5.5" y2="5" stroke="white" strokeWidth="0.8" />
-                  </svg>
-                  <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#1A1208', fontFamily: bodyFont }}>
-                    BOTANICA
-                  </span>
-                </div>
               </div>
 
               {/* Bottom: 4:5 and 1:1 */}
               <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
 
-                {/* 4:5 — MAISON K brand */}
+                {/* 4:5 — MAISON K */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
                   <img
                     src="/hero/hero-ad-45.jpg"
-                    alt="4:5 Feed format"
+                    alt="MAISON K — 4:5 Feed format"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
-                  <span style={{
-                    position: 'absolute', top: '10px', left: '10px',
-                    backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)',
-                    color: 'rgba(245,240,232,0.85)', fontSize: '9px', fontWeight: 700,
-                    letterSpacing: '0.08em', padding: '3px 7px', borderRadius: '4px',
-                    fontFamily: bodyFont,
-                  }}>4:5</span>
-                  {/* MAISON K — circle monogram */}
-                  <div style={{
-                    position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
-                    backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                    borderRadius: '6px', padding: '5px 10px',
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                      <circle cx="5.5" cy="5.5" r="4.5" stroke="#B85C38" strokeWidth="1" />
-                      <text x="5.5" y="8" textAnchor="middle" fontSize="5.5" fontWeight="700" fill="#B85C38" fontFamily="serif">K</text>
-                    </svg>
-                    <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#1A1208', fontFamily: bodyFont }}>
-                      MAISON K
-                    </span>
-                  </div>
                 </div>
 
-                {/* 1:1 — SOLEIL brand */}
+                {/* 1:1 — SOLEIL */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
                   <img
                     src="/hero/hero-ad-11.jpg"
-                    alt="1:1 Square format"
+                    alt="SOLEIL — 1:1 Square format"
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
-                  <span style={{
-                    position: 'absolute', top: '10px', left: '10px',
-                    backgroundColor: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)',
-                    color: 'rgba(245,240,232,0.85)', fontSize: '9px', fontWeight: 700,
-                    letterSpacing: '0.08em', padding: '3px 7px', borderRadius: '4px',
-                    fontFamily: bodyFont,
-                  }}>1:1</span>
-                  {/* SOLEIL — sun mark */}
-                  <div style={{
-                    position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)',
-                    backgroundColor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)',
-                    borderRadius: '6px', padding: '5px 10px',
-                    display: 'flex', alignItems: 'center', gap: '5px',
-                    whiteSpace: 'nowrap',
-                  }}>
-                    <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
-                      <circle cx="5.5" cy="5.5" r="2" fill="#C9922A" />
-                      {[0,45,90,135,180,225,270,315].map((deg, i) => {
-                        const r = deg * Math.PI / 180
-                        const x1 = 5.5 + 2.8 * Math.cos(r)
-                        const y1 = 5.5 + 2.8 * Math.sin(r)
-                        const x2 = 5.5 + 4.5 * Math.cos(r)
-                        const y2 = 5.5 + 4.5 * Math.sin(r)
-                        return <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#C9922A" strokeWidth="0.9" strokeLinecap="round" />
-                      })}
-                    </svg>
-                    <span style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '0.12em', color: '#1A1208', fontFamily: bodyFont }}>
-                      SOLEIL
-                    </span>
-                  </div>
                 </div>
 
               </div>

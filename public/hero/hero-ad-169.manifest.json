@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-05-19T18:39:17.206434+00:00",
-  "prompt": "Studio product photography of an amber glass supplement bottle and a matte white skincare tube arranged together on a dark wooden surface. Deep forest green background #2D4A3E, warm accent light from the right. Shallow depth of field, front product sharp, rear product softly blurred. Small ceramic bowl with dried botanicals between them. No text, no logos, no people. Premium, magazine-quality mood. Avoid: generic white studio background, clutter, artificial blue light, watermarks, stock photo cliches.",
+  "generated_at": "2026-05-19T19:07:43.170629+00:00",
+  "prompt": "Premium product photography. An amber glass supplement bottle and a matte white skincare tube on a dark walnut surface, deep forest green background, warm amber accent light from right. Both products have matching cream labels: a small leaf icon at the top of each label, and below it BOTANICA in modern uppercase sans-serif. The labels look like a real premium botanical skincare brand. A small ceramic bowl with dried botanicals between the products. Shallow depth of field. Magazine-quality. 16:9 landscape. Avoid: generic stock photography, mismatched labels, blurry text, neon colors, plastic look, cluttered surfaces.",
   "output": "/Users/varuntyagi/Downloads/ClaudeResearch/Raygency/Kreashot/public/hero/hero-ad-169.jpg",
-  "model": "imagen-4.0-generate-001",
+  "model": "gemini-3.1-flash-image-preview",
   "aspect_ratio": "16:9",
-  "cost_usd": 0.04
+  "cost_usd": 0.045
 }
