@@ -163,6 +163,7 @@ export default function LandingPage() {
                 alt="LUMINARY — 9:16 Stories format"
                 fill
                 sizes="20vw"
+                quality={90}
                 style={{ objectFit: 'cover' }}
                 priority
               />
@@ -178,6 +179,7 @@ export default function LandingPage() {
                   alt="BOTANICA — 16:9 Display format"
                   fill
                   sizes="25vw"
+                  quality={90}
                   style={{ objectFit: 'cover' }}
                   priority
                 />
@@ -193,6 +195,7 @@ export default function LandingPage() {
                     alt="MAISON K — 4:5 Feed format"
                     fill
                     sizes="12vw"
+                    quality={90}
                     style={{ objectFit: 'cover' }}
                   />
                 </div>
@@ -204,6 +207,7 @@ export default function LandingPage() {
                     alt="SOLEIL — 1:1 Square format"
                     fill
                     sizes="12vw"
+                    quality={90}
                     style={{ objectFit: 'cover' }}
                   />
                 </div>
