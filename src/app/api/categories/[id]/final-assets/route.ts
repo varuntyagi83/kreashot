@@ -22,6 +22,7 @@ const ALLOWED_FONT_DOMAINS = [
   'drive.usercontent.google.com',
   'fonts.gstatic.com',
   'fonts.googleapis.com',
+  'storage.googleapis.com',
 ]
 
 function isAllowedUrl(url: string): boolean {

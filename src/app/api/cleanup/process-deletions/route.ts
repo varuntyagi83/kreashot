@@ -25,16 +25,19 @@ export async function POST(request: NextRequest) {
   try {
     console.log('Processing deletion queue...')
 
-    // Initialize Google Drive
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_DRIVE_CLIENT_EMAIL!,
-        private_key: process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n')!,
-      },
-      scopes: ['https://www.googleapis.com/auth/drive'],
-    })
-
-    const drive = google.drive({ version: 'v3', auth })
+    const driveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL
+    const drivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY
+    let drive: ReturnType<typeof google.drive> | null = null
+    if (driveClientEmail && drivePrivateKey) {
+      const auth = new google.auth.GoogleAuth({
+        credentials: {
+          client_email: driveClientEmail,
+          private_key: drivePrivateKey.replace(/\\n/g, '\n'),
+        },
+        scopes: ['https://www.googleapis.com/auth/drive'],
+      })
+      drive = google.drive({ version: 'v3', auth })
+    }
 
     // Get all queued deletions (pending only, to avoid re-processing completed/failed entries)
     const queuedFiles = await prisma.deletionQueue.findMany({
@@ -60,6 +63,7 @@ export async function POST(request: NextRequest) {
           console.log(`Deleting from GCS: ${file.storagePath}`)
           await deleteFile(file.storagePath, { provider: 'gcs' })
         } else if (file.storageProvider === 'gdrive' && file.gdriveFileId) {
+          if (!drive) throw new Error('Google Drive credentials not configured')
           console.log(`Deleting from Drive: ${file.storagePath} (${file.gdriveFileId})`)
           await drive.files.delete({ fileId: file.gdriveFileId, supportsAllDrives: true })
         } else if (file.storagePath) {

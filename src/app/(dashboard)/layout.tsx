@@ -14,15 +14,17 @@ export default async function DashboardLayout({
   const session = await auth()
   const user = session?.user
 
-  if (user?.id) {
-    const membership = await prisma.companyMember.findFirst({
-      where: { userId: user.id },
-      select: { companyId: true },
-    })
+  if (!user?.id) {
+    redirect('/auth/login')
+  }
 
-    if (!membership) {
-      redirect('/onboarding')
-    }
+  const membership = await prisma.companyMember.findFirst({
+    where: { userId: user.id },
+    select: { companyId: true },
+  })
+
+  if (!membership) {
+    redirect('/onboarding')
   }
 
   return (

@@ -86,10 +86,16 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}))
     const dryRun = body.dryRun !== false
 
+    const driveClientEmail = process.env.GOOGLE_DRIVE_CLIENT_EMAIL
+    const drivePrivateKey = process.env.GOOGLE_DRIVE_PRIVATE_KEY
+    if (!driveClientEmail || !drivePrivateKey) {
+      return NextResponse.json({ error: 'Google Drive credentials not configured' }, { status: 503 })
+    }
+
     const auth = new google.auth.GoogleAuth({
       credentials: {
-        client_email: process.env.GOOGLE_DRIVE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_DRIVE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        client_email: driveClientEmail,
+        private_key: drivePrivateKey.replace(/\\n/g, '\n'),
       },
       scopes: ['https://www.googleapis.com/auth/drive.readonly'],
     })

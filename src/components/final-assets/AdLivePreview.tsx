@@ -127,7 +127,7 @@ export function AdLivePreview({
   // Inject @font-face declarations into document head via font proxy (avoids CORS issues with Drive/Supabase URLs)
   useEffect(() => {
     if (fontUrlsToLoad.length === 0) return
-    const styleId = 'adforge-preview-font-faces'
+    const styleId = 'kreashot-preview-font-faces'
     let el = document.getElementById(styleId) as HTMLStyleElement | null
     if (!el) {
       el = document.createElement('style')
