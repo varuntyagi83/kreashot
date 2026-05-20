@@ -335,7 +335,7 @@ export function BrandVoiceExtractor({
 
           {/* Tone words */}
           <div className="flex flex-wrap gap-1.5">
-            {profile.tone_words.map((word, i) => (
+            {(profile.tone_words || []).map((word, i) => (
               <Badge key={word} className={`text-xs ${TONE_COLORS[i % TONE_COLORS.length]}`}>
                 {word}
               </Badge>
@@ -392,13 +392,13 @@ export function BrandVoiceExtractor({
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>
               <p className="font-semibold text-green-700 mb-1.5">✓ Always Do</p>
-              {profile.dos.map((d, i) => (
+              {(profile.dos || []).map((d, i) => (
                 <p key={i} className="text-muted-foreground leading-snug mb-0.5">• {d}</p>
               ))}
             </div>
             <div>
               <p className="font-semibold text-red-600 mb-1.5">✗ Never Do</p>
-              {profile.donts.map((d, i) => (
+              {(profile.donts || []).map((d, i) => (
                 <p key={i} className="text-muted-foreground leading-snug mb-0.5">• {d}</p>
               ))}
             </div>
