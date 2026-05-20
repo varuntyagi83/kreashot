@@ -15,8 +15,8 @@ import { Button } from '@/components/ui/button'
 interface CompanyMembership {
   company_id: string
   role: string
-  name: string
-  slug: string
+  company_name: string
+  company_slug: string
 }
 
 interface CompanyData {
@@ -62,7 +62,7 @@ export function CompanySwitcher() {
       if (res.ok) {
         // Update local state immediately so the switcher reflects the change
         const next = memberships.find((m) => m.company_id === companyId)
-        if (next) setActiveCompany({ id: companyId, name: next.name })
+        if (next) setActiveCompany({ id: companyId, name: next.company_name })
         // Full page reload so the new company cookie takes effect across all components
         window.location.href = '/'
       }
@@ -100,7 +100,7 @@ export function CompanySwitcher() {
               className={`h-3.5 w-3.5 ${m.company_id === activeCompany?.id ? 'opacity-100' : 'opacity-0'}`}
             />
             <div className="flex flex-col min-w-0">
-              <span className="truncate">{m.name}</span>
+              <span className="truncate">{m.company_name}</span>
               <span className="text-xs text-muted-foreground capitalize">{m.role}</span>
             </div>
           </DropdownMenuItem>
