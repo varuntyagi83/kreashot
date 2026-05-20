@@ -47,7 +47,7 @@ export async function GET() {
     })
 
     return NextResponse.json({
-      guidelines: guidelines.map((g) => ({
+      guidelines: guidelines.map((g: typeof guidelines[number]) => ({
         id: g.id,
         name: g.name,
         source_file_name: g.sourceFileName,
