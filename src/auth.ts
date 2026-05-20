@@ -8,7 +8,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Resend({
       apiKey: process.env.RESEND_API_KEY,
-      from: 'Kreashot <noreply@kreashot.com>',
+      from: 'Kreashot <hi@corevisionailabs.com>',
     }),
   ],
   pages: {
