@@ -4,8 +4,6 @@ import { Resend } from 'resend'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 function getBaseUrl(): string {
   return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://kreashot.com'
 }
@@ -77,6 +75,7 @@ export async function POST(request: NextRequest) {
 
       const resetUrl = `${getBaseUrl()}/auth/reset-password?token=${token}`
 
+      const resend = new Resend(process.env.RESEND_API_KEY)
       await resend.emails.send({
         from: 'Kreashot <hi@corevisionailabs.com>',
         to: email,

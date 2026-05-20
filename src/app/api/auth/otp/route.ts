@@ -3,8 +3,6 @@ import { prisma } from '@/lib/db'
 import { Resend } from 'resend'
 import bcrypt from 'bcryptjs'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 function generateOtp(): string {
   return Math.floor(100000 + Math.random() * 900000).toString()
 }
@@ -33,6 +31,7 @@ export async function POST(request: NextRequest) {
       data: { email, codeHash, companyName: companyName || null, expiresAt },
     })
 
+    const resend = new Resend(process.env.RESEND_API_KEY)
     await resend.emails.send({
       from: 'Kreashot <hi@corevisionailabs.com>',
       to: email,
