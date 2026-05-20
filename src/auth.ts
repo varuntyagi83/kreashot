@@ -87,11 +87,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/auth/login',
   },
   session: {
-    strategy: 'database',
+    strategy: 'jwt',
   },
   callbacks: {
-    session({ session, user }) {
-      session.user.id = user.id
+    async jwt({ token, user }) {
+      if (user?.id) token.id = user.id
+      return token
+    },
+    async session({ session, token }) {
+      if (token?.id) session.user.id = token.id as string
       return session
     },
   },
