@@ -88,9 +88,11 @@ function SignupForm() {
       if (!res.ok) {
         const data = await res.json()
         setErrorMsg(data.error || 'Failed to send magic link.')
-      } else {
-        setMagicSent(true)
+        return
       }
+      // Store succeeded — now trigger the magic link email client-side
+      await signIn('resend', { email, redirect: false, callbackUrl: '/dashboard' })
+      setMagicSent(true)
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {
