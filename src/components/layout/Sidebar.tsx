@@ -1,14 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import { CategoryNav } from './CategoryNav'
-import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
 import {
   ChevronRight,
   ChevronDown,
@@ -24,8 +23,6 @@ interface Category {
   slug: string
 }
 
-const SUPER_ADMIN_EMAIL = 'varun.tyagi83@gmail.com'
-
 export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
@@ -33,17 +30,26 @@ export function Sidebar() {
   const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
-  const [userEmail, setUserEmail] = useState<string | null>(null)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   useEffect(() => {
     fetchCategories()
   }, [pathname])
 
   useEffect(() => {
-    fetch('/api/auth/me').then(r => r.json()).then(d => setUserEmail(d.email ?? null)).catch(() => {})
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(d => {
+        const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
+        if (superAdminEmail && d.email === superAdminEmail) {
+          setIsSuperAdmin(true)
+        } else if (d.isSuperAdmin) {
+          setIsSuperAdmin(true)
+        }
+      })
+      .catch(() => {})
   }, [])
 
-  // Auto-expand the category that matches the current URL
   useEffect(() => {
     const match = pathname.match(/\/categories\/([^/?]+)/)
     if (match) {
@@ -53,16 +59,13 @@ export function Sidebar() {
       )
       setSelectedCategory(categoryId)
     }
-  }, [pathname])
+  }, [pathname, setSelectedCategory])
 
   const fetchCategories = async () => {
     try {
       const response = await fetch('/api/categories')
       const data = await response.json()
-
-      if (response.ok) {
-        setCategories(data.categories || [])
-      }
+      if (response.ok) setCategories(data.categories || [])
     } catch (error) {
       console.error('Failed to load categories:', error)
     } finally {
@@ -72,155 +75,142 @@ export function Sidebar() {
 
   const toggleCategory = (categoryId: string) => {
     const isCurrentlyExpanded = expandedCategories.includes(categoryId)
-
     setExpandedCategories((prev) =>
-      isCurrentlyExpanded
-        ? prev.filter((id) => id !== categoryId)
-        : [...prev, categoryId]
+      isCurrentlyExpanded ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]
     )
     setSelectedCategory(categoryId)
-
-    // Navigate based on expand/collapse state
-    if (isCurrentlyExpanded) {
-      // When collapsing, go back to all categories view
-      router.push('/categories')
-    } else {
-      // When expanding, navigate to the category's products page
-      router.push(`/categories/${categoryId}`)
-    }
+    router.push(isCurrentlyExpanded ? '/categories' : `/categories/${categoryId}`)
   }
 
   const isBrandAssetsActive = pathname === '/brand-assets'
   const isCategoriesActive = pathname === '/categories'
   const isAdminActive = pathname === '/admin'
-  const isSuperAdmin = userEmail === SUPER_ADMIN_EMAIL
+
+  const navItem = (
+    href: string,
+    active: boolean,
+    icon: React.ReactNode,
+    label: string,
+    onClick?: () => void
+  ) => (
+    <Link
+      href={href}
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+        active
+          ? 'bg-[rgba(201,146,42,0.15)] text-[#F5F0E8] border-l-2 border-[#C9922A] font-medium'
+          : 'text-[#7A6E62] hover:bg-[rgba(201,146,42,0.08)] hover:text-[#DDD8CE]'
+      )}
+    >
+      {icon}
+      <span className="flex-1 font-medium">{label}</span>
+    </Link>
+  )
 
   return (
-    <div className="flex h-full w-[220px] flex-col border-r bg-sidebar">
+    <div className="flex h-full w-[220px] flex-col" style={{ backgroundColor: '#1A1208' }}>
+
+      {/* Wordmark */}
+      <div className="flex items-center px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+        <Link href="/">
+          <Image
+            src="/kreashot-wordmark-light.png"
+            alt="Kreashot"
+            width={110}
+            height={21}
+            priority
+          />
+        </Link>
+      </div>
+
       <ScrollArea className="flex-1">
-        <div className="space-y-4 py-4">
-          {/* Categories Overview */}
-          <div className="px-3 py-2">
-            <Link
-              href="/categories"
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                isCategoriesActive
-                  ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
+        <div className="space-y-1 py-4 px-3">
+
+          {/* Primary nav */}
+          {navItem('/categories', isCategoriesActive, <FolderOpen className="h-4 w-4 shrink-0" />, 'All Categories')}
+          {navItem('/brand-assets', isBrandAssetsActive, <Palette className="h-4 w-4 shrink-0" />, 'Brand Kit')}
+          {isSuperAdmin && navItem('/admin', isAdminActive, <Shield className="h-4 w-4 shrink-0" />, 'Admin')}
+
+          {/* Divider */}
+          <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.06)', margin: '8px 0' }} />
+
+          {/* Categories section */}
+          <div className="flex items-center justify-between px-3 py-2">
+            <h3 style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#5C5245' }}>
+              Categories
+            </h3>
+            <button
+              onClick={() => router.push('/categories')}
+              title="New category"
+              className="h-5 w-5 rounded flex items-center justify-center transition-colors"
+              style={{ color: '#5C5245' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#C9922A')}
+              onMouseLeave={e => (e.currentTarget.style.color = '#5C5245')}
             >
-              <FolderOpen className="h-4 w-4" />
-              <span className="flex-1 font-medium">All Categories</span>
-            </Link>
+              <Plus className="h-3.5 w-3.5" />
+            </button>
           </div>
 
-          <Separator />
-
-          {/* Brand Assets Section */}
-          <div className="px-3 py-2">
-            <Link
-              href="/brand-assets"
-              className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                isBrandAssetsActive
-                  ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <Palette className="h-4 w-4" />
-              <span className="flex-1 font-medium">Brand Kit</span>
-            </Link>
-          </div>
-
-          {/* Super Admin — only visible to varun.tyagi83@gmail.com */}
-          {isSuperAdmin && (
-            <div className="px-3 py-2">
-              <Link
-                href="/admin"
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-                  isAdminActive
-                    ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
-                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                )}
-              >
-                <Shield className="h-4 w-4" />
-                <span className="flex-1 font-medium">Admin</span>
-              </Link>
-            </div>
-          )}
-
-          <Separator />
-
-          {/* Categories Section */}
-          <div className="px-3">
-            <div className="flex items-center justify-between px-3 py-2">
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Categories
-              </h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6"
-                onClick={() => router.push('/categories')}
-                title="View all categories"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              {loading ? (
-                <div className="space-y-2 px-3">
-                  {[1, 2].map((i) => (
-                    <div key={i} className="h-9 bg-muted rounded animate-pulse" />
-                  ))}
-                </div>
-              ) : categories.length === 0 ? (
-                <div className="px-3 py-4 text-center text-xs text-muted-foreground">
-                  No categories yet
-                </div>
-              ) : (
-                categories.map((category) => {
+          <div className="space-y-0.5">
+            {loading ? (
+              <div className="space-y-2 px-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="h-8 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.05)' }} />
+                ))}
+              </div>
+            ) : categories.length === 0 ? (
+              <p className="px-3 py-3 text-center" style={{ fontSize: '12px', color: '#5C5245' }}>
+                No categories yet
+              </p>
+            ) : (
+              categories.map((category) => {
                 const isExpanded = expandedCategories.includes(category.id)
                 const isSelected = selectedCategoryId === category.id
 
-                  return (
-                    <div key={category.id} className="space-y-1">
-                      <button
-                        onClick={() => toggleCategory(category.id)}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
-                          isSelected
-                            ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
-                            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                        )}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                        <FolderOpen className="h-4 w-4" />
-                        <span className="flex-1 text-left">{category.name}</span>
-                      </button>
-                      {isExpanded && <CategoryNav categoryId={category.id} />}
-                    </div>
-                  )
-                })
-              )}
-            </div>
+                return (
+                  <div key={category.id} className="space-y-0.5">
+                    <button
+                      onClick={() => toggleCategory(category.id)}
+                      className={cn(
+                        'flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                        isSelected
+                          ? 'border-l-2 border-[#C9922A] font-medium'
+                          : ''
+                      )}
+                      style={{
+                        backgroundColor: isSelected ? 'rgba(201,146,42,0.12)' : 'transparent',
+                        color: isSelected ? '#F5F0E8' : '#7A6E62',
+                      }}
+                      onMouseEnter={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'rgba(201,146,42,0.06)'
+                          e.currentTarget.style.color = '#DDD8CE'
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSelected) {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                          e.currentTarget.style.color = '#7A6E62'
+                        }
+                      }}
+                    >
+                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                      <FolderOpen className="h-3.5 w-3.5 shrink-0" />
+                      <span className="flex-1 text-left truncate">{category.name}</span>
+                    </button>
+                    {isExpanded && <CategoryNav categoryId={category.id} />}
+                  </div>
+                )
+              })
+            )}
           </div>
         </div>
       </ScrollArea>
-      {/* Bottom: User/workspace selector */}
-      <div className="border-t p-3">
-        <div className="flex items-center gap-2 rounded-lg px-2 py-2 hover:bg-accent cursor-pointer transition-colors">
-          <div className="h-7 w-7 rounded-full bg-[#B3D9E8] flex items-center justify-center text-xs font-semibold text-gray-700 shrink-0">
-            A
-          </div>
-          <span className="text-sm font-medium truncate flex-1">Kreashot</span>
-        </div>
+
+      {/* Bottom: brand tag */}
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', padding: '12px 16px' }}>
+        <p style={{ fontSize: '11px', color: '#5C5245' }}>© 2026 Kreashot</p>
       </div>
     </div>
   )

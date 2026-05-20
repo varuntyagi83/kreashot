@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 
-const ACTIVE_COMPANY_COOKIE = 'adforge_active_company'
+const ACTIVE_COMPANY_COOKIE = 'kreashot_active_company'
 
 /**
  * POST /api/company/switch

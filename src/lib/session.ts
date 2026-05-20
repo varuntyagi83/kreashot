@@ -1,6 +1,9 @@
 import { auth } from '@/auth'
 import { prisma } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
+
+const ACTIVE_COMPANY_COOKIE = 'kreashot_active_company'
 
 export type SessionUser = {
   id: string
@@ -15,10 +18,7 @@ export type SessionContext = {
 
 /**
  * Returns the authenticated user + their active company, or a 401 NextResponse.
- * Use in every API route handler:
- *
- *   const ctx = await requireSession()
- *   if (ctx instanceof NextResponse) return ctx
+ * Respects the kreashot_active_company cookie set by /api/company/switch.
  */
 export async function requireSession(): Promise<SessionContext | NextResponse> {
   const session = await auth()
@@ -27,22 +27,39 @@ export async function requireSession(): Promise<SessionContext | NextResponse> {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const member = await prisma.companyMember.findFirst({
-    where: { userId: session.user.id },
-    orderBy: { joinedAt: 'asc' },
-    select: { companyId: true },
-  })
+  const userId = session.user.id
+  const cookieStore = await cookies()
+  const activeCompanyId = cookieStore.get(ACTIVE_COMPANY_COOKIE)?.value
 
-  if (!member) {
+  let companyId: string | null = null
+
+  if (activeCompanyId) {
+    const member = await prisma.companyMember.findFirst({
+      where: { userId, companyId: activeCompanyId },
+      select: { companyId: true },
+    })
+    if (member) companyId = member.companyId
+  }
+
+  if (!companyId) {
+    const member = await prisma.companyMember.findFirst({
+      where: { userId },
+      orderBy: { joinedAt: 'asc' },
+      select: { companyId: true },
+    })
+    if (member) companyId = member.companyId
+  }
+
+  if (!companyId) {
     return NextResponse.json({ error: 'No company found' }, { status: 403 })
   }
 
   return {
     user: {
-      id: session.user.id,
+      id: userId,
       email: session.user.email,
       name: session.user.name,
     },
-    companyId: member.companyId,
+    companyId,
   }
 }

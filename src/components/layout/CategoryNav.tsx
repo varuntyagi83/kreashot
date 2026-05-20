@@ -46,13 +46,29 @@ export function CategoryNav({ categoryId }: CategoryNavProps) {
             key={step.id}
             href={href}
             className={cn(
-              'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+              'flex items-center gap-3 rounded-md px-3 py-1.5 text-xs transition-colors',
               isActive
-                ? 'bg-accent text-accent-foreground border-l-2 border-primary font-medium'
-                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                ? 'border-l-2 border-[#C9922A] font-medium'
+                : ''
             )}
+            style={{
+              backgroundColor: isActive ? 'rgba(201,146,42,0.12)' : 'transparent',
+              color: isActive ? '#F5F0E8' : '#5C5245',
+            }}
+            onMouseEnter={e => {
+              if (!isActive) {
+                (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(201,146,42,0.06)'
+                ;(e.currentTarget as HTMLElement).style.color = '#DDD8CE'
+              }
+            }}
+            onMouseLeave={e => {
+              if (!isActive) {
+                (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'
+                ;(e.currentTarget as HTMLElement).style.color = '#5C5245'
+              }
+            }}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className="h-3.5 w-3.5 shrink-0" />
             <span className="flex-1">{step.label}</span>
           </Link>
         )
