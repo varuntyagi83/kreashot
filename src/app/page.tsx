@@ -26,7 +26,7 @@ function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; 
 }
 
 const STATS = [
-  { value: '$8,000', label: 'avg. product shoot cost' },
+  { value: '$8,000', label: 'avg. shoot cost you replace' },
   { value: '< 2 min', label: 'from upload to first composite' },
   { value: '20', label: 'ad variations per product' },
   { value: '8 steps', label: 'from packshot to Meta export' },
@@ -46,7 +46,7 @@ const STEPS = [
   },
   {
     n: '02',
-    title: 'Get 20 variations in under an hour',
+    title: 'Get 20 export-ready ads in under an hour',
     body: 'Custom lifestyle backgrounds, matched lighting, your brand kit on every frame. Each composite passes a 4-point quality check before it reaches you.',
   },
   {
