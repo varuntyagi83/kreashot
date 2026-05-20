@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
         displayName: name.trim(),
         searchableText: `${name.trim()} ${file.name} brand guidelines`,
       },
-    }).catch((err) => console.error('[brand-guidelines] asset_references insert threw:', err))
+    }).catch((err: unknown) => console.error('[brand-guidelines] asset_references insert threw:', err))
 
     console.log(`Brand guidelines saved: "${name.trim()}" (${truncatedText.length} chars)`)
 
