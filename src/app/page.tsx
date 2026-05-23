@@ -26,10 +26,10 @@ function KreashotWordmark({ height = 28, variant = 'dark' }: { height?: number; 
 }
 
 const STATS = [
-  { value: '$8,000', label: 'avg. shoot cost you replace' },
+  { value: '$8,000', label: 'avg. studio shoot you skip' },
   { value: '< 2 min', label: 'from upload to first composite' },
-  { value: '20', label: 'ad variations per product' },
-  { value: '8 steps', label: 'from packshot to Meta export' },
+  { value: '20', label: 'Meta-ready ads per product' },
+  { value: '4 formats', label: '1:1  ·  4:5  ·  16:9  ·  9:16' },
 ]
 
 const PAIN_POINTS = [
@@ -41,18 +41,18 @@ const PAIN_POINTS = [
 const STEPS = [
   {
     n: '01',
-    title: 'Upload a product photo',
-    body: 'Any angle, any background. Kreashot generates studio-grade angled shots from a single packshot. No studio, no photographer, no scheduling.',
+    title: 'Turn one packshot into a studio shoot',
+    body: 'Any angle, any background. Drop in your packshot and Kreashot generates multiple product angles, as if you had a full studio shoot. No booking. No waiting.',
   },
   {
     n: '02',
-    title: 'Get 20 export-ready ads in under an hour',
-    body: 'Custom lifestyle backgrounds, matched lighting, your brand kit on every frame. Each composite passes a 4-point quality check before it reaches you.',
+    title: '20 on-brand composites, quality-checked',
+    body: 'Custom backgrounds, matched lighting, your logo and color palette on every frame. Each composite passes a quality check before you see it. Your feedback on any version generates a new one instantly.',
   },
   {
     n: '03',
-    title: 'Export to Meta Ads Manager',
-    body: 'Every format: 1:1, 4:5, 16:9, 9:16. Headlines and CTAs written to your brand voice. One-click CSV export.',
+    title: 'Launch across every Meta format today',
+    body: 'Every Meta format: 1:1, 4:5, 16:9, 9:16. Headlines and CTAs written in your brand voice. Ready to import into Meta Ads Manager.',
   },
 ]
 
@@ -111,32 +111,38 @@ export default function LandingPage() {
           }}>
             The creative studio your brand can afford to hire
           </p>
+
+          {/* Headline sized to fit the 4-line copy in the 58% text panel without sub-wrapping */}
           <h1 style={{
             fontFamily: displayFont,
-            fontSize: 'clamp(44px, 6vw, 80px)',
+            fontSize: 'clamp(34px, 4.2vw, 50px)',
             fontWeight: 400,
-            lineHeight: 1.05,
+            lineHeight: 1.12,
             color: '#1A1208',
             letterSpacing: '-0.02em',
             marginBottom: '28px',
+            textWrap: 'balance',
           }}>
             Upload a product photo.<br />
-            Get 20 ad variations<br />
-            by lunch.
+            Get 20 launch-ready ads<br />
+            before your next shoot<br />
+            is even booked.
           </h1>
+
           <p style={{
             color: '#5C5245', fontSize: '17px', lineHeight: 1.65,
             maxWidth: '400px', marginBottom: '44px', fontFamily: bodyFont,
           }}>
-            Studio-grade composites, brand-matched copy, and layouts export-ready for Meta Ads. No photographer. No scheduling. No waiting.
+            AI composites in your brand&apos;s style, with copy and layouts already sized for Meta. No photographer. No studio booking. No six-week wait.
           </p>
+
           <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
             <Link href="/auth/signup" style={{
               backgroundColor: '#B85C38', color: '#F5F0E8',
               padding: '15px 36px', borderRadius: '6px',
               fontSize: '15px', fontWeight: 600, textDecoration: 'none',
             }}>
-              Start for free
+              Generate my first 20 ads
             </Link>
             <Link href="/auth/login" style={{
               color: '#2D4A35', fontSize: '15px', fontWeight: 500,
@@ -145,6 +151,17 @@ export default function LandingPage() {
               Sign in
             </Link>
           </div>
+
+          {/* Trust chips below CTA */}
+          <p style={{
+            marginTop: '16px',
+            fontSize: '12px',
+            color: '#7A6E62',
+            fontFamily: bodyFont,
+            letterSpacing: '0.01em',
+          }}>
+            No credit card required &nbsp;·&nbsp; First product free &nbsp;·&nbsp; Cancel anytime
+          </p>
         </div>
 
         {/* Right: dark panel — image collage showing 4 ad formats */}
@@ -153,10 +170,7 @@ export default function LandingPage() {
           position: 'relative',
           overflow: 'hidden',
         }}>
-          {/* Absolute fill with 16px inset padding */}
           <div style={{ position: 'absolute', inset: '16px', display: 'flex', gap: '8px' }}>
-
-            {/* Left column: 9:16 portrait — LUMINARY */}
             <div style={{ flex: '0 0 38%', position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
               <Image
                 src="/hero/hero-ad-916.jpg"
@@ -168,11 +182,7 @@ export default function LandingPage() {
                 priority
               />
             </div>
-
-            {/* Right column */}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
-
-              {/* 16:9 landscape — BOTANICA */}
               <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', aspectRatio: '16/9', flexShrink: 0 }}>
                 <Image
                   src="/hero/hero-ad-169.jpg"
@@ -184,11 +194,7 @@ export default function LandingPage() {
                   priority
                 />
               </div>
-
-              {/* Bottom: 4:5 and 1:1 */}
               <div style={{ flex: 1, display: 'flex', gap: '8px' }}>
-
-                {/* 4:5 — MAISON K */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
                   <Image
                     src="/hero/hero-ad-45.jpg"
@@ -200,8 +206,6 @@ export default function LandingPage() {
                     priority
                   />
                 </div>
-
-                {/* 1:1 — SOLEIL */}
                 <div style={{ flex: 1, position: 'relative', borderRadius: '10px', overflow: 'hidden' }}>
                   <Image
                     src="/hero/hero-ad-11.jpg"
@@ -213,7 +217,6 @@ export default function LandingPage() {
                     priority
                   />
                 </div>
-
               </div>
             </div>
           </div>
@@ -305,6 +308,61 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Proof band — One product photo in. Four formats out. */}
+      <section style={{
+        backgroundColor: '#0F0B06',
+        padding: 'clamp(52px, 6vw, 80px) clamp(24px, 5vw, 80px)',
+      }}>
+        <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
+          <p style={{
+            color: '#C9922A', fontSize: '11px', fontWeight: 700,
+            letterSpacing: '0.16em', textTransform: 'uppercase',
+            marginBottom: '32px', textAlign: 'center', fontFamily: bodyFont,
+          }}>
+            See it work
+          </p>
+          <p style={{
+            fontFamily: displayFont,
+            fontSize: 'clamp(22px, 3vw, 36px)',
+            fontWeight: 400,
+            color: '#F5F0E8',
+            textAlign: 'center',
+            marginBottom: '48px',
+            lineHeight: 1.2,
+          }}>
+            One product photo in. Four formats out.
+          </p>
+          {/* Each tile in its true aspect ratio. Equal height, so the differing
+              widths are what communicate the four formats. */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center', alignItems: 'center' }}>
+            {[
+              { src: '/hero/hero-ad-916.jpg', label: '9:16 Stories', ratio: '9 / 16' },
+              { src: '/hero/hero-ad-45.jpg', label: '4:5 Feed', ratio: '4 / 5' },
+              { src: '/hero/hero-ad-11.jpg', label: '1:1 Square', ratio: '1 / 1' },
+              { src: '/hero/hero-ad-169.jpg', label: '16:9 Display', ratio: '16 / 9' },
+            ].map(({ src, label, ratio }) => (
+              <div key={label} style={{ position: 'relative', height: 'clamp(170px, 22vw, 220px)', aspectRatio: ratio, flexShrink: 0, borderRadius: '10px', overflow: 'hidden' }}>
+                <Image src={src} alt={label} fill style={{ objectFit: 'cover' }} quality={90} sizes="(max-width: 768px) 70vw, 440px" />
+                <div style={{ position: 'absolute', bottom: '10px', left: '10px', backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: '4px', padding: '3px 8px' }}>
+                  <span style={{ fontSize: '10px', color: '#C9922A', fontWeight: 700, fontFamily: bodyFont, letterSpacing: '0.08em' }}>{label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p style={{
+            textAlign: 'center',
+            marginTop: '28px',
+            fontSize: '13px',
+            color: '#DDD8CE',
+            opacity: 0.45,
+            fontFamily: bodyFont,
+            lineHeight: 1.6,
+          }}>
+            Generated from a single packshot. Brand voice applied. Every format export-ready.
+          </p>
+        </div>
+      </section>
+
       {/* Transition bridge — Forest band */}
       <div style={{
         backgroundColor: '#2D4A35',
@@ -328,10 +386,10 @@ export default function LandingPage() {
         <div style={{ flex: 1, height: '1px', backgroundColor: 'rgba(245,240,232,0.15)' }} />
       </div>
 
-      {/* Pipeline filmstrip — unchanged */}
+      {/* Pipeline filmstrip */}
       <PipelineFilmstrip />
 
-      {/* How it works — unchanged */}
+      {/* How it works */}
       <section style={{ padding: 'clamp(72px, 8vw, 120px) clamp(24px, 5vw, 80px)' }}>
         <div style={{ maxWidth: '1040px', margin: '0 auto' }}>
           <p style={{
@@ -409,7 +467,7 @@ export default function LandingPage() {
           flexShrink: 0,
           whiteSpace: 'nowrap',
         }}>
-          Start for free
+          Replace my next shoot
         </Link>
       </section>
 
@@ -531,7 +589,7 @@ export default function LandingPage() {
           textDecoration: 'none',
           display: 'inline-block',
         }}>
-          Start for free
+          Upload my first product
         </Link>
       </section>
 

@@ -9,8 +9,6 @@ export async function proxy(request: NextRequest) {
   const isAdminApiRoute = pathname.startsWith('/api/admin')
   const isCleanupApiRoute = pathname.startsWith('/api/cleanup')
   const isLandingPage = pathname === '/'
-  // Public marketing preview — viewable without auth, like the landing page
-  const isPreviewPage = pathname === '/preview'
 
   // Admin and cleanup routes are protected by CRON_SECRET bearer token
   if (isAdminApiRoute || isCleanupApiRoute) {
@@ -43,7 +41,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect to login if unauthenticated and trying to access protected routes
-  if (!user && !isAuthRoute && !isLandingPage && !isPreviewPage) {
+  if (!user && !isAuthRoute && !isLandingPage) {
     return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 
