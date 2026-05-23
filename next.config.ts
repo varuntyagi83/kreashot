@@ -1,3 +1,4 @@
+// Deploy connectivity test after GitHub repo rename to kreashot (2026-05-23)
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
