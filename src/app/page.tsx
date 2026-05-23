@@ -194,9 +194,10 @@ export default function LandingPage() {
                     src="/hero/hero-ad-45.jpg"
                     alt="MAISON K — 4:5 Feed format"
                     fill
-                    sizes="12vw"
+                    sizes="(max-width: 768px) 45vw, 25vw"
                     quality={90}
                     style={{ objectFit: 'cover' }}
+                    priority
                   />
                 </div>
 
@@ -206,9 +207,10 @@ export default function LandingPage() {
                     src="/hero/hero-ad-11.jpg"
                     alt="SOLEIL — 1:1 Square format"
                     fill
-                    sizes="12vw"
+                    sizes="(max-width: 768px) 45vw, 25vw"
                     quality={90}
                     style={{ objectFit: 'cover' }}
+                    priority
                   />
                 </div>
 
