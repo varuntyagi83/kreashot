@@ -43,7 +43,7 @@ export async function GET() {
 
     // Fetch all companies for the companion list
     const companies = await prisma.company.findMany({
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true, slug: true, plan: true },
       take: 500,
     })
 

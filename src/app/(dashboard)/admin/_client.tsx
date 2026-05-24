@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Shield, Users, Building2, ArrowRight, Loader2, Trash2, Search } from 'lucide-react'
+import { Shield, Users, Building2, ArrowRight, Loader2, Trash2, Search, CreditCard } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -34,6 +34,7 @@ interface Company {
   id: string
   name: string
   slug: string
+  plan: string
 }
 
 export default function SuperAdminClient() {
@@ -46,6 +47,7 @@ export default function SuperAdminClient() {
   const [assignCompanyId, setAssignCompanyId] = useState('')
   const [assignRole, setAssignRole] = useState<'admin' | 'member'>('member')
   const [assigning, setAssigning] = useState(false)
+  const [planUpdating, setPlanUpdating] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/super-admin/users')
@@ -91,6 +93,25 @@ export default function SuperAdminClient() {
       toast.error(err.message || 'Failed to assign user')
     } finally {
       setAssigning(false)
+    }
+  }
+
+  const handlePlanChange = async (companyId: string, plan: string) => {
+    setPlanUpdating(companyId)
+    try {
+      const r = await fetch('/api/super-admin/plan', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, plan }),
+      })
+      const data = await r.json()
+      if (!r.ok) throw new Error(data.error)
+      toast.success(data.message)
+      setCompanies((prev) => prev.map((c) => c.id === companyId ? { ...c, plan } : c))
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to update plan')
+    } finally {
+      setPlanUpdating(null)
     }
   }
 
@@ -162,7 +183,7 @@ export default function SuperAdminClient() {
       <Tabs defaultValue="users">
         <TabsList className="mb-4">
           <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1.5" />Users</TabsTrigger>
-          <TabsTrigger value="companies"><Building2 className="h-3.5 w-3.5 mr-1.5" />Companies</TabsTrigger>
+          <TabsTrigger value="companies"><Building2 className="h-3.5 w-3.5 mr-1.5" />Companies & Plans</TabsTrigger>
         </TabsList>
 
         {/* ── Companies tab ───────────────────────────────────────────── */}
@@ -182,15 +203,35 @@ export default function SuperAdminClient() {
                     .slice()
                     .sort((a, b) => a.name.localeCompare(b.name))
                     .map((c) => (
-                      <div key={c.id} className="flex items-center justify-between px-4 py-3">
-                        <div className="min-w-0">
+                      <div key={c.id} className="flex items-center justify-between px-4 py-3 gap-4">
+                        <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium">{c.name}</p>
                           <p className="text-xs text-muted-foreground">@{c.slug}</p>
                           <p className="text-xs text-muted-foreground font-mono mt-0.5">{c.id}</p>
                         </div>
-                        <Badge variant="secondary" className="shrink-0 ml-4">
+                        <Badge variant="secondary" className="shrink-0">
                           {companyCounts[c.id] ?? 0} member{(companyCounts[c.id] ?? 0) !== 1 ? 's' : ''}
                         </Badge>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {planUpdating === c.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          ) : null}
+                          <Select
+                            value={c.plan || 'free'}
+                            onValueChange={(plan) => handlePlanChange(c.id, plan)}
+                            disabled={planUpdating === c.id}
+                          >
+                            <SelectTrigger className="h-8 w-28 text-xs">
+                              <CreditCard className="h-3 w-3 mr-1.5 shrink-0" />
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="free">Free</SelectItem>
+                              <SelectItem value="pro">Pro</SelectItem>
+                              <SelectItem value="scale">Scale</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     ))
                 )}
