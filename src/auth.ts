@@ -14,7 +14,7 @@ async function createCompanyForUser(userId: string, companyName: string) {
   const baseSlug = slugify(companyName) || 'company'
   const slug = `${baseSlug}-${Date.now()}`
   const company = await prisma.company.create({ data: { name: companyName, slug } })
-  await prisma.companyMember.create({ data: { companyId: company.id, userId, role: 'owner' } })
+  await prisma.companyMember.create({ data: { companyId: company.id, userId, role: 'admin' } })
   return company
 }
 
@@ -135,6 +135,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   events: {
     async signIn({ user, account }) {
+      if (!user.id || !user.email) return
+
+      // Auto-accept any pending company invites for this email
+      try {
+        const pendingInvites = await prisma.companyInvite.findMany({
+          where: { email: user.email, acceptedAt: null, expiresAt: { gt: new Date() } },
+        })
+        for (const invite of pendingInvites) {
+          const existing = await prisma.companyMember.findFirst({
+            where: { userId: user.id, companyId: invite.companyId },
+          })
+          if (!existing) {
+            await prisma.companyMember.create({
+              data: { userId: user.id, companyId: invite.companyId, role: invite.role },
+            })
+          }
+          await prisma.companyInvite.update({
+            where: { id: invite.id },
+            data: { acceptedAt: new Date() },
+          })
+        }
+      } catch (err) {
+        console.error('[signIn] invite acceptance failed:', err)
+      }
+
+      // Existing magic-link pendingSignup logic
       if (account?.provider === 'resend' && user.id && user.email) {
         const pending = await prisma.pendingSignup.findUnique({ where: { email: user.email } }).catch(() => null)
         if (pending) {

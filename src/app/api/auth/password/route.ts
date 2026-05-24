@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
         const baseSlug = slugify(companyName) || 'company'
         const slug = `${baseSlug}-${Date.now()}`
         const company = await prisma.company.create({ data: { name: companyName, slug } })
-        await prisma.companyMember.create({ data: { companyId: company.id, userId: user.id, role: 'owner' } })
+        await prisma.companyMember.create({ data: { companyId: company.id, userId: user.id, role: 'admin' } })
       }
 
       return NextResponse.json({ success: true })

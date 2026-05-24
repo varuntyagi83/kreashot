@@ -40,8 +40,12 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', appOrigin))
   }
 
-  // Redirect to login if unauthenticated and trying to access protected routes
+  // Redirect to login if unauthenticated and trying to access protected routes.
+  // API routes get a 401 JSON response instead of an HTML redirect.
   if (!user && !isAuthRoute && !isLandingPage) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     return NextResponse.redirect(new URL('/auth/login', appOrigin))
   }
 

@@ -151,7 +151,7 @@ export async function POST(
       const formatFolder = formatToFolderName(detectedFormat)
       const sanitizedCompanyName = sanitizeCompanyName(company.name)
 
-      const fileExt = file.name.split('.').pop() || 'jpg'
+      const fileExt = (file.name.split('.').pop() || 'jpg').replace(/[^a-z0-9]/gi, '') || 'jpg'
       const timestamp = Date.now()
       const sanitizedFileName = file.name
         .replace(/\.[^/.]+$/, '')

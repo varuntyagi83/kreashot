@@ -33,9 +33,17 @@ export async function POST(request: NextRequest) {
     })
 
     const { email } = await request.json()
-    if (!email || typeof email !== 'string' || !email.includes('@')) {
+    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return NextResponse.json({ error: 'Valid email is required' }, { status: 400 })
     }
+
+    // Upsert a pending invite so the user is auto-added to this company on sign-in
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+    await prisma.companyInvite.upsert({
+      where: { email_companyId: { email, companyId } },
+      update: { acceptedAt: null, expiresAt, role: 'member' },
+      create: { email, companyId, role: 'member', expiresAt },
+    })
 
     const baseUrl = (getBaseUrl() || new URL(request.url).origin).replace(/\/$/, '')
     const loginUrl = `${baseUrl}/auth/login?company_id=${companyId}`

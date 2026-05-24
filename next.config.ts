@@ -15,6 +15,7 @@ const nextConfig: NextConfig = {
     proxyClientMaxBodySize: '50mb',
   },
   async headers() {
+    const isDev = process.env.NODE_ENV !== 'production'
     return [
       {
         source: '/(.*)',
@@ -29,7 +30,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "img-src 'self' data: blob: https://lh3.googleusercontent.com https://drive.google.com https://*.supabase.co https://storage.googleapis.com",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://generativelanguage.googleapis.com https://api.openai.com https://www.googleapis.com https://lh3.googleusercontent.com https://drive.google.com https://drive.googleapis.com",
               "frame-ancestors 'none'",
@@ -51,6 +52,7 @@ const nextConfig: NextConfig = {
     return []
   },
   images: {
+    qualities: [75, 90],
     remotePatterns: [
       {
         protocol: 'https',

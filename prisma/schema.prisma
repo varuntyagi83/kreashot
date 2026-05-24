@@ -109,6 +109,7 @@ model Company {
   brandGuidelines BrandGuideline[]
   brandVoices     BrandVoice[]
   assetReferences AssetReference[]
+  companyInvites  CompanyInvite[]
 
   @@map("companies")
 }
@@ -212,6 +213,7 @@ model ProductImage {
 
   @@index([productId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("product_images")
 }
 
@@ -244,6 +246,7 @@ model AngledShot {
   @@index([categoryId])
   @@index([productId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("angled_shots")
 }
 
@@ -273,6 +276,7 @@ model Background {
   @@unique([categoryId, slug])
   @@index([categoryId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("backgrounds")
 }
 
@@ -308,6 +312,7 @@ model Composite {
   @@unique([categoryId, slug])
   @@index([categoryId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("composites")
 }
 
@@ -387,6 +392,7 @@ model FinalAsset {
 
   @@index([categoryId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("final_assets")
 }
 
@@ -459,6 +465,7 @@ model Collage {
 
   @@index([categoryId])
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("collages")
 }
 
@@ -479,6 +486,7 @@ model BrandAsset {
   user    User    @relation(fields: [userId], references: [id])
 
   @@index([companyId])
+  @@index([gdriveFileId])
   @@map("brand_assets")
 }
 
@@ -590,6 +598,23 @@ model PendingSignup {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("pending_signups")
+}
+
+model CompanyInvite {
+  id          String    @id @default(cuid())
+  email       String
+  companyId   String    @map("company_id")
+  role        String    @default("member")
+  acceptedAt  DateTime? @map("accepted_at")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([email, companyId])
+  @@index([email])
+  @@index([companyId])
+  @@map("company_invites")
 }
 
 model DeletionQueue {
