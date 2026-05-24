@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { Info } from 'lucide-react'
 
 interface FormatSelectorProps {
   selectedFormat: string
@@ -30,6 +31,13 @@ export function FormatSelector({
   return (
     <div className={cn('flex items-center gap-2', className)}>
       <span className="text-sm font-medium text-muted-foreground">Format:</span>
+      <span
+        className="inline-flex cursor-help text-muted-foreground/70"
+        aria-label="What does Format control?"
+        title="Sets the working format for new generations and filters each tab to that format. Changing it does not re-run or modify existing assets."
+      >
+        <Info className="h-3.5 w-3.5" />
+      </span>
       <Select value={selectedFormat} onValueChange={onFormatChange}>
         <SelectTrigger className="h-8 w-[160px] text-sm">
           <SelectValue />

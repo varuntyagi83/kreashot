@@ -30,6 +30,7 @@ const SECTIONS: Array<{
   icon: React.ReactNode
   uploadType: UploadTypePreset
   description: string
+  unlocks: string
 }> = [
   {
     key: 'logos',
@@ -38,6 +39,7 @@ const SECTIONS: Array<{
     icon: <ImageIcon className="h-4 w-4" />,
     uploadType: 'logo',
     description: 'Primary and secondary brand logos',
+    unlocks: 'Add a logo to have it auto-placed on composites and ad exports.',
   },
   {
     key: 'overlays',
@@ -46,6 +48,7 @@ const SECTIONS: Array<{
     icon: <Layers className="h-4 w-4" />,
     uploadType: 'overlay',
     description: 'Transparent PNG overlays, watermarks, and graphic elements',
+    unlocks: 'Overlays and watermarks become available to drop onto any ad layout.',
   },
   {
     key: 'fonts',
@@ -54,6 +57,7 @@ const SECTIONS: Array<{
     icon: <Type className="h-4 w-4" />,
     uploadType: 'font',
     description: 'Brand typefaces and custom fonts',
+    unlocks: 'Your brand fonts become selectable for ad copy and headlines.',
   },
 ]
 
@@ -205,6 +209,7 @@ export default function BrandKitPage() {
                   <span>{section.icon}</span>
                   <p className="text-sm font-medium">No {section.label.toLowerCase()} yet</p>
                   <p className="text-xs">{section.description}</p>
+                  <p className="text-xs max-w-xs text-muted-foreground/80">{section.unlocks}</p>
                 </div>
               </button>
             ) : (

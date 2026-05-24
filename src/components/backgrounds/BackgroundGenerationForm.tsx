@@ -230,6 +230,9 @@ export function BackgroundGenerationForm({
             disabled={isGenerating}
           />
           <p className="text-xs text-muted-foreground">
+            Type <code className="bg-muted px-1 py-0.5 rounded">@</code> to reference your brand guidelines, brand assets, or products.
+          </p>
+          <p className="text-xs text-muted-foreground">
             {lookAndFeel.length}/2000 characters
           </p>
         </div>
@@ -279,7 +282,7 @@ export function BackgroundGenerationForm({
             disabled={isGenerating}
           />
           <p className="text-xs text-muted-foreground">
-            Type <code className="bg-muted px-1 py-0.5 rounded">@</code> to reference brand guidelines, assets, or products
+            Type <code className="bg-muted px-1 py-0.5 rounded">@</code> to reference your brand guidelines, brand assets, or products.
           </p>
         </div>
 
