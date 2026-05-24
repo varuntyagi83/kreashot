@@ -250,35 +250,78 @@ ${JSON_SCHEMA}`,
 
 // ── Format brand voice for OpenAI system prompt ───────────────────────────────
 
-export function formatBrandVoiceForPrompt(profile: BrandVoiceProfile): string {
-  const lines: string[] = [
-    `BRAND VOICE PROFILE (follow this precisely when writing copy):`,
-    ``,
-    `PERSONALITY & IDENTITY`,
-    `Personality: ${profile.personality}`,
-    `Brand Promise: ${profile.brand_promise}`,
-    `Tone Words: ${profile.tone_words.join(', ')}`,
-    ``,
-    `COMMUNICATION STYLE`,
-    `Language Style: ${profile.language_style}`,
-    `Sentence Structure: ${profile.sentence_structure}`,
-    `Vocabulary Level: ${profile.vocabulary_level}`,
-    `Emotional Register: ${profile.emotional_register}`,
-    ``,
-    `COPYWRITING RULES`,
-    `Always DO: ${profile.dos.join(' | ')}`,
-    `Never DO: ${profile.donts.join(' | ')}`,
-    `Messaging Pillars: ${profile.messaging_pillars.join(' | ')}`,
-    `Power Words to use: ${profile.power_words.join(', ')}`,
-    ``,
-    `REFERENCE EXAMPLES`,
-    `On-brand phrases: "${profile.sample_phrases.join('", "')}"`,
-    `Example hooks: ${profile.example_hooks.map(h => `"${h}"`).join(' | ')}`,
-    `Example CTAs: ${profile.example_ctas.map(c => `"${c}"`).join(' | ')}`,
-    ``,
-    `AUDIENCE & POSITIONING`,
-    `Audience: ${profile.audience_insight}`,
-    `Competitive Differentiation: ${profile.competitive_differentiation}`,
+/**
+ * Formats a brand voice profile for the OpenAI system prompt.
+ *
+ * Tolerates partial/legacy profiles: every field is optional, arrays may be
+ * missing, and empty sections are omitted. Returns '' when nothing usable is
+ * present, so callers can skip the brand-voice block entirely rather than
+ * emitting an empty header. A missing field must never throw here — this runs
+ * inside ad-copy generation and a throw surfaces as an opaque 500.
+ */
+export function formatBrandVoiceForPrompt(profile: Partial<BrandVoiceProfile> | null | undefined): string {
+  if (!profile || typeof profile !== 'object') return ''
+
+  const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '')
+  const list = (v: unknown): string[] =>
+    Array.isArray(v) ? v.map(item => str(item)).filter(Boolean) : []
+
+  // Each entry: a label and its rendered value, only kept when non-empty.
+  const field = (label: string, value: string): string | null =>
+    value ? `${label}: ${value}` : null
+
+  const sections: { heading: string; rows: (string | null)[] }[] = [
+    {
+      heading: 'PERSONALITY & IDENTITY',
+      rows: [
+        field('Personality', str(profile.personality)),
+        field('Brand Promise', str(profile.brand_promise)),
+        field('Tone Words', list(profile.tone_words).join(', ')),
+      ],
+    },
+    {
+      heading: 'COMMUNICATION STYLE',
+      rows: [
+        field('Language Style', str(profile.language_style)),
+        field('Sentence Structure', str(profile.sentence_structure)),
+        field('Vocabulary Level', str(profile.vocabulary_level)),
+        field('Emotional Register', str(profile.emotional_register)),
+      ],
+    },
+    {
+      heading: 'COPYWRITING RULES',
+      rows: [
+        field('Always DO', list(profile.dos).join(' | ')),
+        field('Never DO', list(profile.donts).join(' | ')),
+        field('Messaging Pillars', list(profile.messaging_pillars).join(' | ')),
+        field('Power Words to use', list(profile.power_words).join(', ')),
+      ],
+    },
+    {
+      heading: 'REFERENCE EXAMPLES',
+      rows: [
+        field('On-brand phrases', list(profile.sample_phrases).map(p => `"${p}"`).join(', ')),
+        field('Example hooks', list(profile.example_hooks).map(h => `"${h}"`).join(' | ')),
+        field('Example CTAs', list(profile.example_ctas).map(c => `"${c}"`).join(' | ')),
+      ],
+    },
+    {
+      heading: 'AUDIENCE & POSITIONING',
+      rows: [
+        field('Audience', str(profile.audience_insight)),
+        field('Competitive Differentiation', str(profile.competitive_differentiation)),
+      ],
+    },
   ]
-  return lines.join('\n')
+
+  const rendered = sections
+    .map(s => {
+      const rows = s.rows.filter((r): r is string => Boolean(r))
+      return rows.length ? `${s.heading}\n${rows.join('\n')}` : ''
+    })
+    .filter(Boolean)
+
+  if (rendered.length === 0) return ''
+
+  return [`BRAND VOICE PROFILE (follow this precisely when writing copy):`, '', ...rendered].join('\n')
 }

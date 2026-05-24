@@ -159,9 +159,11 @@ function buildSystemPrompt(
     system += `\n\nBRAND GUIDELINES (from uploaded brand document — follow these closely):\n${brandGuidelines}`
   }
 
-  // Brand voice profile takes highest priority — it's the most structured and specific
-  if (brandVoice) {
-    system += `\n\n${formatBrandVoiceForPrompt(brandVoice)}`
+  // Brand voice profile takes highest priority — it's the most structured and specific.
+  // formatBrandVoiceForPrompt returns '' for empty/partial profiles, so skip the block then.
+  const brandVoiceBlock = brandVoice ? formatBrandVoiceForPrompt(brandVoice) : ''
+  if (brandVoiceBlock) {
+    system += `\n\n${brandVoiceBlock}`
     system += `\n\nThe brand voice profile above is the most important context. Every word you write must align with it.`
   }
 

@@ -102,7 +102,7 @@ export function CompositeImageDrawer({
   }
 
   // Find the full angled shot record for the current composite's shot
-  const currentShot = angledShots.find(s => s.id === composite?.angled_shot.id)
+  const currentShot = angledShots.find(s => s.id === composite?.angled_shot?.id)
 
   const handleRegenerate = async () => {
     if (!composite) return
@@ -251,7 +251,7 @@ export function CompositeImageDrawer({
   if (!composite) return null
 
   // All angled shots except the current one (for swap product)
-  const swapOptions = angledShots.filter(s => s.id !== composite.angled_shot.id)
+  const swapOptions = angledShots.filter(s => s.id !== composite?.angled_shot?.id)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -402,7 +402,7 @@ export function CompositeImageDrawer({
               <p className="text-xs text-muted-foreground mb-3">
                 Generate all 7 angled shots for{' '}
                 <span className="font-medium text-foreground">
-                  {currentShot?.product.name || composite.angled_shot.angle_name}
+                  {currentShot?.product?.name || composite.angled_shot?.angle_name || 'this product'}
                 </span>.
               </p>
               <Button

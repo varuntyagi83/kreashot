@@ -127,8 +127,8 @@ export function CopyGenerationForm({
     generatingRef.current = true
 
     if (!brief.trim()) { toast.error('Please enter a brief'); generatingRef.current = false; return }
-    if (selectedTypes.length === 0) { toast.error('Select at least one copy type'); return }
-    if (selectedTones.length === 0) { toast.error('Select at least one tone'); return }
+    if (selectedTypes.length === 0) { toast.error('Select at least one copy type'); generatingRef.current = false; return }
+    if (selectedTones.length === 0) { toast.error('Select at least one tone'); generatingRef.current = false; return }
 
     setIsGenerating(true)
     try {
