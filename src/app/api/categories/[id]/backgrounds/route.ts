@@ -44,6 +44,7 @@ export async function GET(
     const backgrounds = await prisma.background.findMany({
       where: { categoryId, ...(formatFilter ? { format: formatFilter } : {}) },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     const backgroundsWithUrls = backgrounds.map((bg) => ({

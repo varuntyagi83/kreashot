@@ -158,8 +158,10 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('[copy-docs/generate]', error)
-    const message = error instanceof Error ? error.message : 'Copy generation failed'
-    // Surface a usable message so the client toast is actionable, not a silent 500.
-    return NextResponse.json({ error: `Copy generation failed: ${message}` }, { status: 500 })
+    // Keep internal error detail server-side; return a generic, non-leaky message.
+    return NextResponse.json(
+      { error: 'Copy generation failed. Please try again.' },
+      { status: 500 }
+    )
   }
 }

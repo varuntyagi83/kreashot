@@ -39,6 +39,7 @@ export async function GET(
     const copyDocs = await prisma.copyDoc.findMany({
       where: { categoryId },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     return NextResponse.json({

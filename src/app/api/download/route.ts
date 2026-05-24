@@ -37,7 +37,10 @@ export async function GET(request: NextRequest) {
 
     const sp = request.nextUrl.searchParams
     const fileId = sp.get('fileId')
-    const filename = sp.get('filename') || 'download'
+    // Strip anything that could break out of the Content-Disposition header
+    // (quotes, control chars, path separators) — header injection / filename spoofing.
+    const rawFilename = sp.get('filename') || 'download'
+    const filename = rawFilename.replace(/[^A-Za-z0-9._-]/g, '_').slice(0, 100) || 'download'
     const resolution = sp.get('resolution') || 'Original'
     const format = sp.get('format') || 'JPEG'
 

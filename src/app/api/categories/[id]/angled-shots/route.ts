@@ -46,6 +46,7 @@ export async function GET(
         productImage: { select: { id: true, fileName: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     console.log(`[Angled Shots API] Category: ${categoryId}, Format: ${format || 'all'}, Found: ${angledShots.length}`)

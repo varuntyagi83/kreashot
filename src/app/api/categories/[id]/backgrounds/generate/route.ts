@@ -9,6 +9,10 @@ import { downloadFile } from '@/lib/storage'
 import { parseReferenceTokens } from '@/lib/references'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
+// Image generation can be slow; allow up to 5 min if ever run on a platform that
+// enforces function timeouts (no effect on Railway's long-running server).
+export const maxDuration = 300
+
 /**
  * POST /api/categories/[id]/backgrounds/generate
  * Generates AI backgrounds matching the category's look & feel

@@ -12,6 +12,10 @@ import path from 'path'
 import { readFile, unlink } from 'fs/promises'
 import crypto from 'crypto'
 
+// Image generation can be slow; allow up to 5 min if ever run on a platform that
+// enforces function timeouts (no effect on Railway's long-running server).
+export const maxDuration = 300
+
 const GEMINI_INPUT_MAX_PX = 1536
 
 function detectMimeType(buffer: Buffer): string {

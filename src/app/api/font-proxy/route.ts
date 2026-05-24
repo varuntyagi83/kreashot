@@ -46,17 +46,40 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid or disallowed font URL' }, { status: 400 })
   }
 
+  // Manually follow redirects, re-validating each hop against the allowlist so a
+  // redirect from an allowed host can't reach an internal/disallowed target (SSRF).
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15_000)
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'Mozilla/5.0' },
-      redirect: 'follow',
-    })
-    if (!res.ok) {
-      return NextResponse.json({ error: `Font fetch failed: ${res.status}` }, { status: 502 })
+    let currentUrl = url
+    let res: Response | null = null
+    for (let hop = 0; hop < 5; hop++) {
+      res = await fetch(currentUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        redirect: 'manual',
+        signal: controller.signal,
+      })
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get('location')
+        if (!location) break
+        const next = new URL(location, currentUrl).toString()
+        if (!isAllowedUrl(next)) {
+          return NextResponse.json({ error: 'Redirect to disallowed host' }, { status: 400 })
+        }
+        currentUrl = next
+        continue
+      }
+      break
+    }
+    if (!res || !res.ok) {
+      return NextResponse.json({ error: `Font fetch failed: ${res?.status ?? 'no response'}` }, { status: 502 })
     }
     const buffer = Buffer.from(await res.arrayBuffer())
     if (buffer.length < 100) {
       return NextResponse.json({ error: 'Font response too small' }, { status: 502 })
+    }
+    if (buffer.length > 5 * 1024 * 1024) {
+      return NextResponse.json({ error: 'Font too large' }, { status: 413 })
     }
     const contentType = contentTypeFromBuffer(buffer)
     return new NextResponse(buffer, {
@@ -70,5 +93,7 @@ export async function GET(request: NextRequest) {
   } catch (e: any) {
     console.warn('[font-proxy] fetch error:', e?.message)
     return NextResponse.json({ error: 'Font fetch failed' }, { status: 502 })
+  } finally {
+    clearTimeout(timeout)
   }
 }

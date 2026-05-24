@@ -46,6 +46,7 @@ export async function GET(
         background: { select: { id: true, name: true, description: true, format: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     const compositesWithUrls = composites.map((composite) => ({

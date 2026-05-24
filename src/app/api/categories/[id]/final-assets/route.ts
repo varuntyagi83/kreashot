@@ -72,6 +72,7 @@ export async function GET(
     const finalAssets = await prisma.finalAsset.findMany({
       where: { categoryId, ...(format ? { format } : {}) },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     return NextResponse.json({ finalAssets })

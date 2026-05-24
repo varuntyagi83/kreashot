@@ -26,6 +26,7 @@ export async function GET(
     const collages = await prisma.collage.findMany({
       where: { categoryId, companyId, ...(format ? { format } : {}) },
       orderBy: { createdAt: 'desc' },
+      take: 1000, // defensive bound against unbounded growth per category
     })
 
     return NextResponse.json({ collages })
