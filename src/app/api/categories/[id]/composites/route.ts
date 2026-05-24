@@ -56,6 +56,17 @@ export async function GET(
       storage_provider: composite.storageProvider,
       gdrive_file_id: composite.gdriveFileId,
       created_at: composite.createdAt,
+      // The frontend reads snake_case aspect_ratio and angled_shot; Prisma returns
+      // camelCase format and angledShot. Map them so the detail view shows the real
+      // shot name (and regenerate uses the saved format, not the 1:1 fallback).
+      aspect_ratio: composite.format,
+      angled_shot: composite.angledShot
+        ? {
+            id: composite.angledShot.id,
+            angle_name: composite.angledShot.angleName,
+            angle_description: composite.angledShot.angleDescription,
+          }
+        : null,
     }))
 
     return NextResponse.json({
