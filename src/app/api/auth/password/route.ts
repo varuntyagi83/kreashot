@@ -3,9 +3,14 @@ import { prisma } from '@/lib/db'
 import { Resend } from 'resend'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 function getBaseUrl(): string {
   return process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://kreashot.com'
+}
+
+function clientIp(request: NextRequest): string {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 }
 
 function slugify(name: string): string {
@@ -24,6 +29,12 @@ export async function POST(request: NextRequest) {
       }
       if (password.length < 8) {
         return NextResponse.json({ error: 'Password must be at least 8 characters' }, { status: 400 })
+      }
+
+      // Throttle account creation per IP to prevent registration spam.
+      const regLimit = await checkRateLimit(`register:${clientIp(request)}`, 10, 60 * 60 * 1000)
+      if (!regLimit.allowed) {
+        return NextResponse.json({ error: 'Too many sign-up attempts. Please try again later.' }, { status: 429 })
       }
 
       const existing = await prisma.user.findUnique({ where: { email } })
@@ -54,6 +65,14 @@ export async function POST(request: NextRequest) {
     if (action === 'forgot') {
       const { email } = await request.json()
       if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+
+      // Throttle reset emails per email + IP to prevent inbox bombing. Still
+      // returns generic success below to avoid leaking which path was throttled.
+      const fLimit = await checkRateLimit(`forgot:${String(email).toLowerCase()}`, 3, 15 * 60 * 1000)
+      const fIpLimit = await checkRateLimit(`forgot-ip:${clientIp(request)}`, 15, 15 * 60 * 1000)
+      if (!fLimit.allowed || !fIpLimit.allowed) {
+        return NextResponse.json({ success: true })
+      }
 
       const user = await prisma.user.findUnique({ where: { email } })
       // Always return success to prevent email enumeration

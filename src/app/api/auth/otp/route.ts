@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { Resend } from 'resend'
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 
 function generateOtp(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  // CSPRNG — Math.random() is predictable and must never mint auth credentials.
+  return crypto.randomInt(100000, 1000000).toString()
 }
 
 // POST /api/auth/otp — send a 6-digit code

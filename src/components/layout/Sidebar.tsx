@@ -40,12 +40,7 @@ export function Sidebar() {
     fetch('/api/auth/me')
       .then(r => r.json())
       .then(d => {
-        const superAdminEmail = process.env.NEXT_PUBLIC_SUPER_ADMIN_EMAIL
-        if (superAdminEmail && d.email === superAdminEmail) {
-          setIsSuperAdmin(true)
-        } else if (d.isSuperAdmin) {
-          setIsSuperAdmin(true)
-        }
+        if (d.isSuperAdmin) setIsSuperAdmin(true)
       })
       .catch(() => {})
   }, [])
