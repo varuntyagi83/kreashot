@@ -50,7 +50,7 @@ export async function POST(
 
     const category = await prisma.category.findFirst({
       where: { id: categoryId, companyId },
-      select: { id: true, name: true, lookAndFeel: true },
+      select: { id: true, name: true, lookAndFeel: true, brandGuidelines: true },
     })
 
     if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -88,6 +88,20 @@ export async function POST(
         }
         console.log(`Extracting brand voice from ${validSamples.length} text samples for: ${category.name}`)
         profile = await extractVoiceFromText(validSamples, contextLookAndFeel)
+        break
+      }
+
+      case 'guidelines': {
+        const guidelinesText = category.brandGuidelines?.trim()
+        if (!guidelinesText) {
+          return NextResponse.json(
+            { error: 'No brand guidelines found. Upload a guidelines PDF in Styles first.' },
+            { status: 400 }
+          )
+        }
+        console.log(`Extracting brand voice from guidelines PDF for: ${category.name}`)
+        // Stored guidelines text is capped at 20000 chars on upload — safe for gpt-4o.
+        profile = await extractVoiceFromText([guidelinesText], contextLookAndFeel)
         break
       }
 

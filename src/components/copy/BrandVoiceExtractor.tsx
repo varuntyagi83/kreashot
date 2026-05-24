@@ -193,6 +193,31 @@ export function BrandVoiceExtractor({
     }
   }
 
+  const handleExtractFromGuidelines = async () => {
+    if (extractingRef.current) return
+    if (profile && !confirm('This will replace the current brand voice with one extracted from the guidelines PDF. Continue?')) return
+    extractingRef.current = true
+    setExtracting(true)
+    try {
+      const response = await fetch(`/api/categories/${categoryId}/brand-voice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ method: 'guidelines', lookAndFeel }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to extract from guidelines')
+      setProfile(data.brand_voice)
+      onProfileChange?.(data.brand_voice)
+      setExpanded(false)
+      toast.success('Brand voice extracted from your guidelines PDF!')
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to extract from guidelines')
+    } finally {
+      setExtracting(false)
+      extractingRef.current = false
+    }
+  }
+
   const handleClear = async () => {
     if (!confirm('Clear the brand voice profile? This cannot be undone.')) return
     try {
@@ -512,6 +537,31 @@ export function BrandVoiceExtractor({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {/* Recommended fast path: extract from the guidelines PDF uploaded in Styles */}
+        <div className="space-y-1.5">
+          <Button
+            onClick={handleExtractFromGuidelines}
+            disabled={extracting}
+            variant="outline"
+            className="w-full border-primary/40 text-primary hover:bg-primary/5"
+          >
+            {extracting ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Reading guidelines...</>
+            ) : (
+              <><FileText className="h-4 w-4 mr-2" />Generate from guidelines PDF</>
+            )}
+          </Button>
+          <p className="text-[11px] text-muted-foreground text-center">
+            Uses the brand guidelines PDF from the Styles tab. Or build it manually below.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="h-px flex-1 bg-border" />
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">or</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
           <TabsList className="w-full grid grid-cols-3">
             <TabsTrigger value="qa" className="text-xs">Q&amp;A</TabsTrigger>
