@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { generateComposite } from '@/lib/ai/gemini'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
 import { downloadFile } from '@/lib/storage'
@@ -157,6 +158,14 @@ export async function POST(
           total_combinations: compositionPairs.length,
         },
         { status: 400 }
+      )
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'composite', compositionPairs.length)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} composites today). Upgrade to generate more.` },
+        { status: 402 }
       )
     }
 

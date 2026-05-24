@@ -16,6 +16,7 @@ export async function GET() {
       where: { companyId },
       select: { id: true, name: true, isDefault: true, profile: true, createdAt: true, updatedAt: true },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      take: 200,
     })
 
     return NextResponse.json({

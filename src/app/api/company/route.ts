@@ -33,6 +33,7 @@ export async function GET() {
       where: { userId: user.id },
       include: { company: true },
       orderBy: { joinedAt: 'asc' },
+      take: 200,
     })
 
     return NextResponse.json({

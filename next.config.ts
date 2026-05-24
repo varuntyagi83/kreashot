@@ -1,5 +1,6 @@
 // Deploy connectivity test after GitHub repo rename to kreashot (2026-05-23)
 import type { NextConfig } from "next";
+import { withSentryConfig } from '@sentry/nextjs';
 
 const nextConfig: NextConfig = {
   // Required for Docker/Railway deployment (produces server.js + standalone output)
@@ -104,4 +105,10 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  silent: true,
+  widenClientFileUpload: true,
+  sourcemaps: { disable: true },
+});

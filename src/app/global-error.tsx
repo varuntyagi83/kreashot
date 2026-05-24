@@ -1,7 +1,7 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
 import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
 
 export default function GlobalError({
   error,
@@ -11,20 +11,30 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    console.error('Global error:', error)
+    Sentry.captureException(error)
   }, [error])
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-6">
-      <div className="text-center space-y-4 max-w-md">
-        <h2 className="text-2xl font-semibold">Something went wrong</h2>
-        <p className="text-muted-foreground">
-          {process.env.NODE_ENV === 'production'
-            ? 'An unexpected error occurred.'
-            : error.message || 'An unexpected error occurred.'}
-        </p>
-        <Button onClick={reset}>Try again</Button>
-      </div>
-    </div>
+    <html>
+      <body>
+        <div style={{ padding: '40px', fontFamily: 'system-ui, sans-serif' }}>
+          <h2 style={{ color: '#1A1208' }}>Something went wrong</h2>
+          <button
+            onClick={reset}
+            style={{
+              marginTop: '16px',
+              padding: '10px 20px',
+              background: '#B85C38',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+            }}
+          >
+            Try again
+          </button>
+        </div>
+      </body>
+    </html>
   )
 }

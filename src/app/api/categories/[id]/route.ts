@@ -147,30 +147,37 @@ async function preQueueGDriveFiles(categoryId: string, userId: string): Promise<
     prisma.background.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.angledShot.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.composite.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.finalAsset.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.template.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.guideline.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
     prisma.collage.findMany({
       where: { categoryId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
   ])
 
@@ -210,6 +217,7 @@ async function preQueueGDriveFiles(categoryId: string, userId: string): Promise<
   const products = await prisma.product.findMany({
     where: { categoryId },
     select: { id: true },
+    take: 1000,
   })
 
   if (products.length > 0) {
@@ -217,6 +225,7 @@ async function preQueueGDriveFiles(categoryId: string, userId: string): Promise<
     const images = await prisma.productImage.findMany({
       where: { productId: { in: productIds }, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true, userId: true },
+      take: 1000,
     })
 
     if (images.length > 0) {

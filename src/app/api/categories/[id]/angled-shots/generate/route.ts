@@ -15,6 +15,7 @@ async function pLimit<T>(tasks: (() => Promise<T>)[], concurrency: number): Prom
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { generateAngledShots } from '@/lib/ai/gemini'
 import { ANGLE_VARIATIONS } from '@/lib/ai/angle-variations'
 import { deleteFile, downloadFile, uploadFile } from '@/lib/storage'
@@ -165,6 +166,14 @@ export async function POST(
 
     if (anglesToGenerate.length === 0) {
       return NextResponse.json({ error: 'No valid angles selected' }, { status: 400 })
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'angled_shot', anglesToGenerate.length)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} angled shots today). Upgrade to generate more.` },
+        { status: 402 }
+      )
     }
 
     console.log(`Generating ${anglesToGenerate.map(a => a.name).join(', ')} for ${product.name} [${format}]...`)

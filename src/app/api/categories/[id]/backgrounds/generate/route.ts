@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { generateBackgrounds } from '@/lib/ai/gemini'
 import { generateBackgroundsWithReplicate, REPLICATE_FORMATS } from '@/lib/ai/replicate'
 import { getFormatDimensions, FORMATS } from '@/lib/formats'
@@ -92,6 +93,14 @@ export async function POST(
       return NextResponse.json(
         { error: `Too many generations (${totalGenerations}). Reduce count or number of formats (max 20 total).` },
         { status: 400 }
+      )
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'background', totalGenerations)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} backgrounds today). Upgrade to generate more.` },
+        { status: 402 }
       )
     }
 

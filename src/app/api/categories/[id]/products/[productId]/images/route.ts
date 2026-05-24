@@ -49,6 +49,7 @@ export async function GET(
     const images = await prisma.productImage.findMany({
       where: { productId },
       orderBy: { createdAt: 'asc' },
+      take: 500,
     })
 
     const imagesWithUrls = images.map((image) => ({

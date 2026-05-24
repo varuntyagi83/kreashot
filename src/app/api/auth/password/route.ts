@@ -46,8 +46,8 @@ export async function POST(request: NextRequest) {
 
       const user = await prisma.user.upsert({
         where: { email },
-        update: { passwordHash, emailVerified: new Date() },
-        create: { email, passwordHash, emailVerified: new Date() },
+        update: { passwordHash },
+        create: { email, passwordHash },
       })
 
       // Create company only if user has none
@@ -59,7 +59,39 @@ export async function POST(request: NextRequest) {
         await prisma.companyMember.create({ data: { companyId: company.id, userId: user.id, role: 'admin' } })
       }
 
-      return NextResponse.json({ success: true })
+      // Generate verification token
+      const verifyToken = crypto.randomBytes(32).toString('hex')
+      const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex')
+      const verifyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+
+      // Invalidate old verification tokens for this email
+      await prisma.emailVerificationToken.updateMany({
+        where: { email, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+
+      await prisma.emailVerificationToken.create({
+        data: { email, tokenHash: verifyTokenHash, expiresAt: verifyExpiresAt },
+      })
+
+      const verifyUrl = `${getBaseUrl()}/auth/verify-email?token=${verifyToken}`
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      await resend.emails.send({
+        from: 'Kreashot <hi@corevisionailabs.com>',
+        to: email,
+        subject: 'Verify your Kreashot email',
+        html: `
+          <div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #F5F0E8;">
+            <img src="https://kreashot.com/kreashot-wordmark-dark.png" alt="Kreashot" height="28" style="margin-bottom: 32px;" />
+            <h1 style="font-size: 28px; font-weight: 400; color: #1A1208; margin: 0 0 16px;">Verify your email</h1>
+            <p style="color: #5C5245; font-size: 14px; margin: 0 0 32px;">Click the button below to verify your email and activate your account. This link expires in 24 hours.</p>
+            <a href="${verifyUrl}" style="display: inline-block; background: #B85C38; color: #F5F0E8; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 32px;">Verify email</a>
+            <p style="color: #7A6E62; font-size: 12px;">If you didn't create an account, you can safely ignore this email.</p>
+          </div>
+        `,
+      })
+
+      return NextResponse.json({ success: true, requiresVerification: true })
     }
 
     if (action === 'forgot') {
@@ -134,6 +166,44 @@ export async function POST(request: NextRequest) {
       await prisma.user.update({ where: { email: record.email }, data: { passwordHash } })
       await prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } })
 
+      return NextResponse.json({ success: true })
+    }
+
+    if (action === 'resend-verification') {
+      const { email } = await request.json()
+      if (!email) return NextResponse.json({ error: 'Email required' }, { status: 400 })
+
+      const rvLimit = await checkRateLimit(`resend-verify:${String(email).toLowerCase()}`, 3, 15 * 60 * 1000)
+      if (!rvLimit.allowed) return NextResponse.json({ success: true }) // silent throttle
+
+      const user = await prisma.user.findUnique({ where: { email } })
+      if (!user || user.emailVerified) return NextResponse.json({ success: true }) // silent
+
+      const verifyToken = crypto.randomBytes(32).toString('hex')
+      const verifyTokenHash = crypto.createHash('sha256').update(verifyToken).digest('hex')
+      const verifyExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
+      await prisma.emailVerificationToken.updateMany({
+        where: { email, usedAt: null },
+        data: { usedAt: new Date() },
+      })
+      await prisma.emailVerificationToken.create({
+        data: { email, tokenHash: verifyTokenHash, expiresAt: verifyExpiresAt },
+      })
+
+      const verifyUrl = `${getBaseUrl()}/auth/verify-email?token=${verifyToken}`
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      await resend.emails.send({
+        from: 'Kreashot <hi@corevisionailabs.com>',
+        to: email,
+        subject: 'Verify your Kreashot email',
+        html: `<div style="font-family: system-ui, sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 24px; background: #F5F0E8;">
+          <img src="https://kreashot.com/kreashot-wordmark-dark.png" alt="Kreashot" height="28" style="margin-bottom: 32px;" />
+          <h1 style="font-size: 28px; font-weight: 400; color: #1A1208; margin: 0 0 16px;">Verify your email</h1>
+          <p style="color: #5C5245; font-size: 14px; margin: 0 0 32px;">Click the button below to verify your email. This link expires in 24 hours.</p>
+          <a href="${verifyUrl}" style="display: inline-block; background: #B85C38; color: #F5F0E8; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; margin-bottom: 32px;">Verify email</a>
+        </div>`,
+      })
       return NextResponse.json({ success: true })
     }
 

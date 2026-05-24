@@ -23,12 +23,14 @@ export async function GET() {
       where: { companyId },
       orderBy: { joinedAt: 'asc' },
       select: { id: true, userId: true, role: true, joinedAt: true },
+      take: 200,
     })
 
     const userIds = members.map((m) => m.userId)
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, email: true, name: true },
+      take: 200,
     })
 
     const usersMap = Object.fromEntries(users.map((u) => [u.id, u]))

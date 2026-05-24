@@ -46,6 +46,7 @@ export async function GET(
     const guidelines = await prisma.guideline.findMany({
       where: { categoryId, companyId },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     })
 
     return NextResponse.json({

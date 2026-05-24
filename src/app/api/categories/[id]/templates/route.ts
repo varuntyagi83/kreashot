@@ -30,6 +30,7 @@ export async function GET(
     const templates = await prisma.template.findMany({
       where: { categoryId, ...(format ? { format } : {}) },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     })
 
     return NextResponse.json({ templates })

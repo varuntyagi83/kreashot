@@ -6,6 +6,7 @@ import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { uploadFile } from '@/lib/storage'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { spawn, ChildProcess } from 'child_process'
 import { unlink, readFile } from 'fs/promises'
 import path from 'path'
@@ -105,6 +106,14 @@ export async function POST(
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'final_asset', 1)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} final assets today). Upgrade to generate more.` },
+        { status: 402 }
       )
     }
 

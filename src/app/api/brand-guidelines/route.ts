@@ -44,6 +44,7 @@ export async function GET() {
         createdAt: true,
       },
       orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+      take: 200,
     })
 
     return NextResponse.json({

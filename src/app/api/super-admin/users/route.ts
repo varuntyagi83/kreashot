@@ -38,11 +38,13 @@ export async function GET() {
         },
       },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     })
 
     // Fetch all companies for the companion list
     const companies = await prisma.company.findMany({
       select: { id: true, name: true, slug: true },
+      take: 500,
     })
 
     const formattedUsers = users.map((u) => ({

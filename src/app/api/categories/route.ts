@@ -21,6 +21,7 @@ export async function GET() {
     const categories = await prisma.category.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+      take: 200,
     })
 
     const categoryIds = categories.map((c) => c.id)

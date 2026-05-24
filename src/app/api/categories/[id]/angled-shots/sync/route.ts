@@ -45,6 +45,7 @@ export async function POST(
     const angledShots = await prisma.angledShot.findMany({
       where: { categoryId, companyId },
       select: { id: true, storagePath: true, storageProvider: true, gdriveFileId: true, angleName: true, productId: true },
+      take: 1000,
     })
 
     if (!angledShots || angledShots.length === 0) {

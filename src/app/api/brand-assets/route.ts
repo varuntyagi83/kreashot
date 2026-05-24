@@ -38,6 +38,7 @@ export async function GET() {
     const assets = await prisma.brandAsset.findMany({
       where: { companyId },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     })
 
     // Migrate legacy font URLs on read
