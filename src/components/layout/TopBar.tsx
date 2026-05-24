@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { LogOut, Settings } from 'lucide-react'
+import { CreditCard, LogOut, Settings } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { CompanySwitcher } from './CompanySwitcher'
 
@@ -51,6 +51,10 @@ export function TopBar() {
               <DropdownMenuItem onClick={() => router.push('/settings/team')}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/settings/billing')}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                <span>Billing</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-red-600">

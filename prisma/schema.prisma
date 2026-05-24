@@ -89,7 +89,9 @@ model Company {
   id        String   @id @default(uuid())
   name      String
   slug      String   @unique
-  plan      String   @default("free")
+  plan                 String  @default("free")
+  stripeCustomerId     String? @map("stripe_customer_id")
+  stripeSubscriptionId String? @map("stripe_subscription_id")
   createdAt DateTime @default(now())
 
   members         CompanyMember[]
