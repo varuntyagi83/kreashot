@@ -447,7 +447,7 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
         if (useImagen4) {
           // ── Imagen 4 path ──────────────────────────────────────────────────
           console.log(`  → Using Imagen 4 for ${aspectRatio} background ${i + 1}`)
-          const IMAGEN_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${GEMINI_API_KEY}`
+          const IMAGEN_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict`
 
           // Merge system instruction into prompt for Imagen (no systemInstruction field)
           const imagenPrompt = `You are an elite editorial product photographer. Your work appears in premium lifestyle magazines like Kinfolk, Cereal, and Vogue Living. Every image you produce is indistinguishable from a real RAW photograph — cinematic, rich, and intentional. SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL — always commit to a clear single light source that creates strong, directional shadows across the scene.
@@ -465,7 +465,7 @@ ${prompt}`
           const timeout = setTimeout(() => controller.abort(), 120000)
           const response = await fetchGeminiWithRetry(
             IMAGEN_URL,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(imagenBody), signal: controller.signal },
+            { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY }, body: JSON.stringify(imagenBody), signal: controller.signal },
             GEMINI_API_KEY
           )
           clearTimeout(timeout)
