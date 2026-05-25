@@ -19,5 +19,6 @@ export function planFromPriceId(priceId: string): string {
   for (const [plan, id] of Object.entries(PLAN_PRICE_IDS)) {
     if (id === priceId) return plan
   }
+  console.warn(`[stripe] planFromPriceId: unknown priceId "${priceId}" — defaulting to free`)
   return 'free'
 }

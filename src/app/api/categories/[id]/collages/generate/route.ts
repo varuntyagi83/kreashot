@@ -1,6 +1,7 @@
 export const maxDuration = 300
 
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
@@ -54,6 +55,14 @@ export async function POST(
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'collage', 1)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} collages today). Upgrade to generate more.` },
+        { status: 402 }
       )
     }
 

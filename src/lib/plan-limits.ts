@@ -1,12 +1,12 @@
 import { prisma } from '@/lib/db'
 import { getRedis } from './redis'
 
-export type GenerationType = 'angled_shot' | 'background' | 'composite' | 'final_asset'
+export type GenerationType = 'angled_shot' | 'background' | 'composite' | 'final_asset' | 'copy_doc' | 'collage'
 
 const PLAN_DAILY_LIMITS: Record<string, Record<GenerationType, number>> = {
-  free:  { angled_shot: 25, background: 25, composite: 25, final_asset: 25 },
-  pro:   { angled_shot: 200, background: 200, composite: 200, final_asset: 200 },
-  scale: { angled_shot: Infinity, background: Infinity, composite: Infinity, final_asset: Infinity },
+  free:  { angled_shot: 25, background: 25, composite: 25, final_asset: 25, copy_doc: 25, collage: 25 },
+  pro:   { angled_shot: 200, background: 200, composite: 200, final_asset: 200, copy_doc: 200, collage: 200 },
+  scale: { angled_shot: Infinity, background: Infinity, composite: Infinity, final_asset: Infinity, copy_doc: Infinity, collage: Infinity },
 }
 
 function startOfDayUtc(): Date {
@@ -69,6 +69,10 @@ export async function checkPlanLimit(
     used = await prisma.composite.count({ where: { companyId, createdAt: { gte: since } } })
   } else if (type === 'final_asset') {
     used = await prisma.finalAsset.count({ where: { companyId, createdAt: { gte: since } } })
+  } else if (type === 'copy_doc') {
+    used = await prisma.copyDoc.count({ where: { companyId, createdAt: { gte: since } } })
+  } else if (type === 'collage') {
+    used = await prisma.collage.count({ where: { companyId, createdAt: { gte: since } } })
   }
   return { allowed: used + count <= limit, limit, used }
 }

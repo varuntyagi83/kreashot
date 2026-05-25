@@ -3,6 +3,8 @@ import { getStripe, planFromPriceId } from '@/lib/stripe'
 import { prisma } from '@/lib/db'
 import Stripe from 'stripe'
 
+const VALID_PLANS = ['free', 'pro', 'scale']
+
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
@@ -27,6 +29,10 @@ export async function POST(request: NextRequest) {
       const companyId = session.metadata?.companyId
       const plan = session.metadata?.plan
       if (companyId && plan) {
+        if (!VALID_PLANS.includes(plan)) {
+          console.error(`[billing/webhook] checkout.session.completed: invalid plan "${plan}" in metadata for company ${companyId} — ignoring`)
+          return NextResponse.json({ received: true })
+        }
         await prisma.company.update({
           where: { id: companyId },
           data: {

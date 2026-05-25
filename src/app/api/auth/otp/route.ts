@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { Resend } from 'resend'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 function generateOtp(): string {
   // CSPRNG — Math.random() is predictable and must never mint auth credentials.
@@ -17,11 +18,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Valid email required' }, { status: 400 })
     }
 
-    // Rate-limit: max 3 active unused OTPs per email in the last 10 minutes
-    const recentCount = await prisma.otpCode.count({
-      where: { email, usedAt: null, createdAt: { gt: new Date(Date.now() - 10 * 60 * 1000) } },
-    })
-    if (recentCount >= 3) {
+    // Rate-limit: max 3 OTP sends per email per 10 minutes, Redis-backed so it
+    // persists across deploys and is shared across all Railway instances.
+    const sendLimit = await checkRateLimit(`otp-send:${email.toLowerCase()}`, 3, 10 * 60 * 1000)
+    if (!sendLimit.allowed) {
       return NextResponse.json({ error: 'Too many codes requested. Please wait a few minutes.' }, { status: 429 })
     }
 

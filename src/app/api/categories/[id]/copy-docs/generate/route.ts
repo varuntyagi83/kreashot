@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanLimit } from '@/lib/plan-limits'
 import { generateCopyVariations, generateCopyKit, CopyType } from '@/lib/ai/openai'
 import { sanitizeForPrompt } from '@/lib/ai/sanitize'
 
@@ -22,6 +23,14 @@ export async function POST(
       return NextResponse.json(
         { error: 'Rate limit exceeded. Please wait before generating more.' },
         { status: 429, headers: { 'Retry-After': String(Math.ceil((rateLimit.resetAt - Date.now()) / 1000)) } }
+      )
+    }
+
+    const planCheck = await checkPlanLimit(companyId, 'copy_doc', 1)
+    if (!planCheck.allowed) {
+      return NextResponse.json(
+        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} copy generations today). Upgrade to generate more.` },
+        { status: 402 }
       )
     }
 
