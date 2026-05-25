@@ -117,6 +117,7 @@ export async function POST(
     const isFirstImage = existingCount === 0
 
     const uploadedImages = []
+    const failedFiles: string[] = []
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
@@ -195,10 +196,11 @@ export async function POST(
         })
       } catch (dbError) {
         console.error('[product-images] DB insert failed, cleaning up storage file:', dbError)
+        failedFiles.push(file.name)
         try {
           await deleteFile(storageFile.fileId || storagePath)
         } catch (cleanupErr) {
-          console.error('[product-images] Storage cleanup failed:', cleanupErr)
+          console.error('[product-images] Storage cleanup also failed — file orphaned in storage:', cleanupErr)
         }
         continue
       }
@@ -210,8 +212,9 @@ export async function POST(
 
     return NextResponse.json(
       {
-        message: `Successfully uploaded ${uploadedImages.length} image(s)`,
+        message: `Successfully uploaded ${uploadedImages.length} image(s)${failedFiles.length > 0 ? `, ${failedFiles.length} failed` : ''}`,
         images: uploadedImages,
+        ...(failedFiles.length > 0 ? { failed: failedFiles } : {}),
       },
       { status: 201 }
     )

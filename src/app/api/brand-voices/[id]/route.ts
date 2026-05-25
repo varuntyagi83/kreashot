@@ -84,17 +84,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
     }
 
-    const updated = await prisma.brandVoice.findUnique({
-      where: { id },
+    const updated = await prisma.brandVoice.findFirst({
+      where: { id, companyId },
       select: { id: true, name: true, isDefault: true, updatedAt: true },
     })
 
+    if (!updated) {
+      return NextResponse.json({ error: 'Brand voice not found' }, { status: 404 })
+    }
+
     return NextResponse.json({
       voice: {
-        id: updated!.id,
-        name: updated!.name,
-        is_default: updated!.isDefault,
-        updated_at: updated!.updatedAt,
+        id: updated.id,
+        name: updated.name,
+        is_default: updated.isDefault,
+        updated_at: updated.updatedAt,
       },
     })
   } catch (error: any) {

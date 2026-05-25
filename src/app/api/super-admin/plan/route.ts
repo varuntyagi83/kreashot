@@ -8,7 +8,10 @@ const VALID_PLANS = ['free', 'pro', 'scale']
 
 async function requireSuperAdmin(): Promise<string | null> {
   const superAdminEmail = process.env.SUPER_ADMIN_EMAIL?.trim()
-  if (!superAdminEmail) return null
+  if (!superAdminEmail) {
+    console.error('[super-admin] SUPER_ADMIN_EMAIL is not configured — all super-admin routes are inaccessible')
+    return null
+  }
   const session = await auth()
   if (!session?.user?.email) return null
   if (session.user.email !== superAdminEmail) return null

@@ -118,7 +118,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
     }
 
-    const category = await prisma.category.findUnique({ where: { id } })
+    const category = await prisma.category.findFirst({ where: { id, companyId } })
 
     return NextResponse.json({ category })
   } catch (error: any) {

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db'
+import { getRedis } from './redis'
 
 export type GenerationType = 'angled_shot' | 'background' | 'composite' | 'final_asset'
 
@@ -12,6 +13,13 @@ function startOfDayUtc(): Date {
   const d = new Date()
   d.setUTCHours(0, 0, 0, 0)
   return d
+}
+
+function secondsUntilUtcMidnight(): number {
+  const now = new Date()
+  const midnight = new Date(now)
+  midnight.setUTCHours(24, 0, 0, 0)
+  return Math.ceil((midnight.getTime() - now.getTime()) / 1000) + 3600
 }
 
 export async function checkPlanLimit(
@@ -29,8 +37,29 @@ export async function checkPlanLimit(
 
   if (!isFinite(limit)) return { allowed: true, limit: -1, used: 0 }
 
-  const since = startOfDayUtc()
+  // Redis atomic path — eliminates the check-then-act race condition
+  const redis = await getRedis()
+  if (redis) {
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const key = `plan:${companyId}:${type}:${today}`
+      const newTotal = await redis.incrBy(key, count)
+      if (newTotal === count) {
+        // Key was just created — set TTL to expire after UTC midnight
+        await redis.expire(key, secondsUntilUtcMidnight())
+      }
+      if (newTotal > limit) {
+        await redis.decrBy(key, count)
+        return { allowed: false, limit, used: newTotal - count }
+      }
+      return { allowed: true, limit, used: newTotal }
+    } catch (err) {
+      console.warn('[plan-limits] Redis unavailable, falling back to DB count:', err)
+    }
+  }
 
+  // DB fallback — non-atomic, acceptable without Redis for small traffic
+  const since = startOfDayUtc()
   let used = 0
   if (type === 'angled_shot') {
     used = await prisma.angledShot.count({ where: { companyId, createdAt: { gte: since } } })
@@ -41,6 +70,5 @@ export async function checkPlanLimit(
   } else if (type === 'final_asset') {
     used = await prisma.finalAsset.count({ where: { companyId, createdAt: { gte: since } } })
   }
-
   return { allowed: used + count <= limit, limit, used }
 }

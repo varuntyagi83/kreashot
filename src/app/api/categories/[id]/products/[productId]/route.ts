@@ -78,11 +78,14 @@ export async function PUT(
       updateData.description = body.description?.trim() || null
     }
 
-    const product = await prisma.product.update({
-      where: { id: productId },
+    const updated = await prisma.product.updateMany({
+      where: { id: productId, categoryId, companyId },
       data: updateData,
     })
-
+    if (updated.count === 0) {
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    }
+    const product = await prisma.product.findFirst({ where: { id: productId, companyId } })
     return NextResponse.json({ product })
   } catch (error) {
     console.error('[products/[productId] PUT] error:', error)
@@ -173,7 +176,7 @@ export async function DELETE(
       console.log(`Pre-queued ${queuedCount} GDrive files for deletion (product: ${productId})`)
     }
 
-    await prisma.product.delete({ where: { id: productId } })
+    await prisma.product.deleteMany({ where: { id: productId, categoryId, companyId } })
 
     return NextResponse.json({ success: true })
   } catch (error) {

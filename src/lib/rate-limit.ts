@@ -1,12 +1,4 @@
-/**
- * Rate limiter with Redis sliding window (preferred) and in-memory fallback.
- *
- * Set REDIS_URL in Railway to enable persistent rate limits across deploys
- * and instances. Without it, limits reset on every deploy and are not shared
- * across horizontally-scaled instances.
- *
- * Redis URL format: redis://:<password>@<host>:<port>
- */
+import { getRedis } from './redis'
 
 interface RateLimitEntry {
   count: number
@@ -22,30 +14,6 @@ setInterval(() => {
     if (now > entry.resetAt) memStore.delete(key)
   }
 }, 5 * 60 * 1000)
-
-// Lazy Redis client — only initialised when REDIS_URL is set
-let redisClient: { incr: (k: string) => Promise<number>; expire: (k: string, s: number) => Promise<void> } | null = null
-
-async function getRedis() {
-  if (redisClient) return redisClient
-  const url = process.env.REDIS_URL
-  if (!url) return null
-  try {
-    // Dynamic import so the build doesn't fail when the package is absent
-    const { createClient } = await import('redis')
-    const client = createClient({ url })
-    client.on('error', (err: Error) => console.error('[rate-limit] Redis error:', err.message))
-    await client.connect()
-    redisClient = {
-      incr: (k: string) => client.incr(k),
-      expire: (k: string, s: number) => client.expire(k, s).then(() => undefined),
-    }
-    return redisClient
-  } catch (err) {
-    console.warn('[rate-limit] Redis unavailable, falling back to in-memory:', err)
-    return null
-  }
-}
 
 export async function checkRateLimit(
   key: string,
@@ -68,9 +36,7 @@ export async function checkRateLimit(
       }
       return { allowed: true, remaining: maxRequests - count, resetAt }
     } catch (err) {
-      // Redis connection dropped — null out the cached client and fall through to in-memory
       console.error('[rate-limit] Redis call failed, falling back to in-memory:', err)
-      redisClient = null
     }
   }
 

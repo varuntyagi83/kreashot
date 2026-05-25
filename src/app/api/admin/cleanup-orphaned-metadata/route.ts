@@ -103,10 +103,10 @@ export async function POST(request: NextRequest) {
     const drive = google.drive({ version: 'v3', auth })
 
     const [angledShots, productImages, backgrounds, composites] = await Promise.all([
-      prisma.angledShot.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, angleName: true } }),
-      prisma.productImage.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, fileName: true } }),
-      prisma.background.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true } }),
-      prisma.composite.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true } }),
+      prisma.angledShot.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, angleName: true }, take: 500 }),
+      prisma.productImage.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, fileName: true }, take: 500 }),
+      prisma.background.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true }, take: 500 }),
+      prisma.composite.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, name: true }, take: 500 }),
     ])
 
     const [angledShotsResult, productImagesResult, backgroundsResult, compositesResult] = await Promise.all([

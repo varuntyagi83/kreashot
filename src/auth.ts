@@ -59,6 +59,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const companyName = credentials?.companyName as string | undefined
         if (!email || !otp) return null
 
+        // Per-email attempt counter persists across code regenerations — prevents
+        // brute force by repeatedly requesting new codes to reset the per-code limit.
+        const emailLimit = await checkRateLimit(`otp:${email.toLowerCase()}`, 15, 15 * 60 * 1000)
+        if (!emailLimit.allowed) return null
+
         const record = await prisma.otpCode.findFirst({
           where: { email, usedAt: null, expiresAt: { gt: new Date() } },
           orderBy: { createdAt: 'desc' },
