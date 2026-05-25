@@ -25,10 +25,17 @@ export async function POST(
       )
     }
 
-    const category = await prisma.category.findFirst({
-      where: { id: categoryId, companyId },
-      select: { id: true, name: true, slug: true, lookAndFeel: true, brandGuidelines: true, brandVoice: true },
-    })
+    const [category, brandGuideline] = await Promise.all([
+      prisma.category.findFirst({
+        where: { id: categoryId, companyId },
+        select: { id: true, name: true, slug: true, lookAndFeel: true, brandVoice: true },
+      }),
+      prisma.brandGuideline.findFirst({
+        where: { companyId },
+        orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+        select: { extractedText: true },
+      }),
+    ])
 
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 })
@@ -48,8 +55,8 @@ export async function POST(
 
     const safeBrief = brief ? sanitizeForPrompt(brief) : brief
     const safeLookAndFeel = sanitizeForPrompt(category.lookAndFeel || '')
-    const safeBrandGuidelines = category.brandGuidelines
-      ? sanitizeForPrompt(category.brandGuidelines)
+    const safeBrandGuidelines = brandGuideline?.extractedText
+      ? sanitizeForPrompt(brandGuideline.extractedText)
       : undefined
 
     // Resolve brand voice (library voice overrides category voice)
