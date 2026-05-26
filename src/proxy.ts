@@ -50,7 +50,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Redirect to dashboard if authenticated and hitting an auth page
-  if (user && isAuthRoute && !pathname.includes('/verify')) {
+  if (user && isAuthRoute && pathname !== '/auth/verify' && pathname !== '/auth/verify-email') {
     return NextResponse.redirect(new URL('/dashboard', appOrigin))
   }
 

@@ -68,6 +68,10 @@ export async function POST(
       return NextResponse.json({ error: `Invalid format. Must be one of: ${Object.keys(FORMATS).join(', ')}` }, { status: 400 })
     }
 
+    if (referenceAssetIds && (!Array.isArray(referenceAssetIds) || referenceAssetIds.length > 10)) {
+      return NextResponse.json({ error: 'referenceAssetIds must be an array of up to 10 IDs' }, { status: 400 })
+    }
+
     const resolvedPrompt = prompt || userPrompt
 
     const validFormatKeys = Object.keys(FORMATS)
@@ -184,14 +188,17 @@ export async function POST(
         prisma.productImage.findMany({
           where: { companyId, id: { in: referenceAssetIds } },
           select: { id: true, metadata: true, storageProvider: true, storageUrl: true, storagePath: true, gdriveFileId: true },
+          take: 10,
         }),
         prisma.angledShot.findMany({
           where: { companyId, id: { in: referenceAssetIds } },
           select: { id: true, storagePath: true, storageProvider: true, storageUrl: true, gdriveFileId: true },
+          take: 10,
         }),
         prisma.brandAsset.findMany({
           where: { companyId, id: { in: referenceAssetIds } },
           select: { id: true, storagePath: true, storageUrl: true, metadata: true },
+          take: 10,
         }),
       ])
 
