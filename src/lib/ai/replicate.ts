@@ -102,11 +102,18 @@ export async function generateBackgroundsWithReplicate(
           }
 
           // Download and convert to base64
-          const response = await fetch(String(imageUrl))
-          if (!response.ok) {
-            throw new Error(`Failed to download image from Replicate: ${response.status}`)
+          const downloadController = new AbortController()
+          const downloadTimeout = setTimeout(() => downloadController.abort(), 30_000)
+          let arrayBuffer: ArrayBuffer
+          try {
+            const response = await fetch(String(imageUrl), { signal: downloadController.signal })
+            if (!response.ok) {
+              throw new Error(`Failed to download image from Replicate: ${response.status}`)
+            }
+            arrayBuffer = await response.arrayBuffer()
+          } finally {
+            clearTimeout(downloadTimeout)
           }
-          const arrayBuffer = await response.arrayBuffer()
           const imageData = Buffer.from(arrayBuffer).toString('base64')
 
           console.log(`  [Replicate] ✅ Image ${i + 1} done (${aspectRatio})`)

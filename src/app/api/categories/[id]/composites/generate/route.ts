@@ -119,10 +119,12 @@ export async function POST(
         prisma.angledShot.findMany({
           where: { categoryId, format },
           select: { id: true },
+          take: 20,
         }),
         prisma.background.findMany({
           where: { categoryId, format },
           select: { id: true },
+          take: 20,
         }),
       ])
 

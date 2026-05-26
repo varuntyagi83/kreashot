@@ -138,6 +138,11 @@ export async function POST(
         if (images.length > 5) {
           return NextResponse.json({ error: 'Maximum 5 images at once' }, { status: 400 })
         }
+        const MAX_IMAGE_B64_CHARS = 4 * 1024 * 1024 // ~3MB decoded
+        const oversized = images.find((img: any) => typeof img === 'string' && img.length > MAX_IMAGE_B64_CHARS)
+        if (oversized) {
+          return NextResponse.json({ error: 'Each image must be under 3MB' }, { status: 400 })
+        }
         console.log(`Extracting brand voice from ${images.length} images for: ${category.name}`)
         profile = await extractVoiceFromImages(images, contextLookAndFeel)
         break

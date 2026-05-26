@@ -58,25 +58,33 @@ export async function extractPdfWithVision(arrayBuffer: ArrayBuffer): Promise<st
   try {
     const base64Pdf = Buffer.from(arrayBuffer).toString('base64')
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { data: base64Pdf, mime_type: 'application/pdf' } },
-              { text: VISION_EXTRACTION_PROMPT }
-            ]
-          }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
-        })
-      }
-    )
+    const pdfController = new AbortController()
+    const pdfTimeout = setTimeout(() => pdfController.abort(), 120_000)
+    let response: Response
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`,
+        {
+          method: 'POST',
+          signal: pdfController.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { inline_data: { data: base64Pdf, mime_type: 'application/pdf' } },
+                { text: VISION_EXTRACTION_PROMPT }
+              ]
+            }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+          })
+        }
+      )
+    } finally {
+      clearTimeout(pdfTimeout)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -109,17 +117,22 @@ export async function translateGuidelinesToColorDescription(extractedText: strin
   if (!apiKey) return null
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
-        },
-        body: JSON.stringify({
-          contents: [{
-            parts: [{ text: `You are helping prepare a color palette description for an AI image generation model that generates product photography backgrounds.
+    const colorController = new AbortController()
+    const colorTimeout = setTimeout(() => colorController.abort(), 120_000)
+    let response: Response
+    try {
+      response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
+        {
+          method: 'POST',
+          signal: colorController.signal,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey,
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{ text: `You are helping prepare a color palette description for an AI image generation model that generates product photography backgrounds.
 
 The image model does NOT understand hex codes — it only understands vivid, unambiguous color names. Your job is to translate hex codes into color names that will make the image model produce the CORRECT color.
 
@@ -148,6 +161,9 @@ ${extractedText}` }]
         })
       }
     )
+    } finally {
+      clearTimeout(colorTimeout)
+    }
 
     if (!response.ok) return null
 

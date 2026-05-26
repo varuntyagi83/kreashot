@@ -103,10 +103,12 @@ async function preQueueProductGDriveFiles(productId: string, userId: string): Pr
     prisma.productImage.findMany({
       where: { productId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true, userId: true },
+      take: 1000,
     }),
     prisma.angledShot.findMany({
       where: { productId, storageProvider: 'gdrive', gdriveFileId: { not: null } },
       select: { id: true, storageProvider: true, storagePath: true, gdriveFileId: true, storageUrl: true },
+      take: 1000,
     }),
   ])
 

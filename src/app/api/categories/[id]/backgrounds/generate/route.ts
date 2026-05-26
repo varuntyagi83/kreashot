@@ -123,6 +123,7 @@ export async function POST(
       const guidelines = await prisma.brandGuideline.findMany({
         where: { id: { in: uniqueGuidelineIds }, companyId },
         select: { id: true, name: true, extractedText: true, colorDescription: true },
+        take: 5,
       })
 
       if (guidelines.length) {
@@ -140,6 +141,7 @@ export async function POST(
       const allGuidelines = await prisma.brandGuideline.findMany({
         where: { companyId },
         select: { colorDescription: true },
+        take: 3,
       })
 
       if (allGuidelines.length) {

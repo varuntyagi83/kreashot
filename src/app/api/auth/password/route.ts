@@ -155,16 +155,24 @@ export async function POST(request: NextRequest) {
       }
 
       const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
-      const record = await prisma.passwordResetToken.findFirst({
+
+      // Atomically claim the token — only one concurrent request gets count === 1,
+      // closing the double-spend window where two requests both see usedAt: null.
+      const claimed = await prisma.passwordResetToken.updateMany({
         where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+        data: { usedAt: new Date() },
       })
+      if (claimed.count === 0) {
+        return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 })
+      }
+
+      const record = await prisma.passwordResetToken.findFirst({ where: { tokenHash } })
       if (!record) {
         return NextResponse.json({ error: 'Invalid or expired reset link' }, { status: 400 })
       }
 
       const passwordHash = await bcrypt.hash(password, 12)
       await prisma.user.update({ where: { email: record.email }, data: { passwordHash } })
-      await prisma.passwordResetToken.update({ where: { id: record.id }, data: { usedAt: new Date() } })
 
       return NextResponse.json({ success: true })
     }
