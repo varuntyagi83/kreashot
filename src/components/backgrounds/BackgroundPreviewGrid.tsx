@@ -109,6 +109,7 @@ export function BackgroundPreviewGrid({
 
   const handleSaveAll = async () => {
     toast.info('Saving all backgrounds...')
+    const failedIndices: number[] = []
 
     for (let i = 0; i < backgrounds.length; i++) {
       setSavingIndex(i)
@@ -118,7 +119,7 @@ export function BackgroundPreviewGrid({
         const name = `Background ${i + 1}`
         const slug = `background-${i + 1}-${Date.now()}`
 
-        await fetch(`/api/categories/${categoryId}/backgrounds`, {
+        const response = await fetch(`/api/categories/${categoryId}/backgrounds`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -132,15 +133,33 @@ export function BackgroundPreviewGrid({
             generationTimeMs: background.generationTimeMs,
           }),
         })
-      } catch (error) {
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}))
+          throw new Error(data.error || `Save failed (${response.status})`)
+        }
+      } catch (error: any) {
         console.error(`Error saving background ${i + 1}:`, error)
+        failedIndices.push(i)
+        toast.error(`Background ${i + 1} failed to save: ${error.message}`)
       }
     }
 
     setSavingIndex(null)
-    toast.success(`Saved all ${backgrounds.length} backgrounds!`)
-    onBackgroundSaved()
-    onClearAll()
+
+    if (failedIndices.length === 0) {
+      toast.success(`Saved all ${backgrounds.length} backgrounds!`)
+      onBackgroundSaved()
+      onClearAll()
+    } else {
+      const savedCount = backgrounds.length - failedIndices.length
+      if (savedCount > 0) {
+        toast.warning(`${savedCount} saved, ${failedIndices.length} failed — failed backgrounds kept for retry.`)
+        onBackgroundSaved()
+      } else {
+        toast.error('All backgrounds failed to save. Please try again.')
+      }
+    }
   }
 
   return (
