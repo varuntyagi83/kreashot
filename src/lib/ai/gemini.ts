@@ -4,6 +4,7 @@ import type { BrandVoiceProfile } from './brand-voice'
 import { formatBrandVoiceForPrompt } from './brand-voice'
 import type { CopyType, CopyVariation, CopyKitItem } from './openai'
 import { sanitizeForPrompt } from './sanitize'
+import { expandBackgroundPrompt } from './prompt-expander'
 
 // Image generation (angled shots, backgrounds, composites, reformat) uses REST API to
 // generativelanguage.googleapis.com .../generateContent — intentionally not the SDK —
@@ -299,6 +300,11 @@ export async function generateBackgrounds(
       // Detect flat/solid color requests — these must bypass all photorealism/shadow directives
       const isFlatColor = /\b(solid|flat|plain|no[- ]texture|no[- ]shadow|no[- ]gradient|uniform|pure\s+color)\b/i.test(safeUserPrompt)
 
+      // GPT-4o prompt expansion: translate the user's brief into camera/light/material specs.
+      // Only runs when USE_PROMPT_EXPANSION=true in Railway. Falls back to raw prompt on any failure.
+      // Flat color prompts bypass expansion — they need exact color reproduction, not physics.
+      const effectiveUserPrompt = isFlatColor ? safeUserPrompt : await expandBackgroundPrompt(safeUserPrompt)
+
       // Detect when the user explicitly requests people, faces, or models in the scene
       const requestsPeople = /\b(female|male|woman|man|girl|boy|person|people|model|face|portrait|human|child|kid|baby|lady|gentleman|couple|group)\b/i.test(safeUserPrompt)
 
@@ -325,7 +331,7 @@ export async function generateBackgrounds(
       const prompt = isFlatColor
         ? `Generate a completely flat, uniform solid color background image.
 
-Exact color specification: ${safeUserPrompt}
+Exact color specification: ${effectiveUserPrompt}
 
 STRICT REQUIREMENTS — NO EXCEPTIONS:
 - Completely flat, 100% uniform fill — every pixel the same color
@@ -343,7 +349,7 @@ The dominant surface color (wall, backdrop) MUST be this exact color — a confi
 
 Category Style: ${safeLookAndFeel}
 
-User Request: ${safeUserPrompt}
+User Request: ${effectiveUserPrompt}
 
 PHOTOREALISM & CINEMATIC QUALITY DIRECTIVES:
 - Shot on a high-end DSLR (Canon EOS R5 / Nikon Z9) with a premium prime lens (50mm f/1.4 or 85mm f/1.2), RAW photo, 8K resolution
