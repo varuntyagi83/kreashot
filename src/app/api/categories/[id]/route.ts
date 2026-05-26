@@ -58,7 +58,10 @@ export async function GET(
         ...category,
         look_and_feel: category.lookAndFeel,
         brand_guidelines: category.brandGuidelines,
-        brand_voice: category.brandVoice,
+        brand_voice: (() => {
+          if (!category.brandVoice) return null
+          try { return typeof category.brandVoice === 'string' ? JSON.parse(category.brandVoice) : category.brandVoice } catch { return null }
+        })(),
         created_at: category.createdAt,
         updated_at: category.updatedAt,
         counts: {
