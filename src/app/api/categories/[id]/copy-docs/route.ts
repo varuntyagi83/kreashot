@@ -44,7 +44,11 @@ export async function GET(
 
     return NextResponse.json({
       category,
-      copy_docs: copyDocs,
+      copy_docs: copyDocs.map((doc) => ({
+        ...doc,
+        generated_text: doc.generatedText,
+        created_at: doc.createdAt,
+      })),
     })
   } catch (error: any) {
     console.error('Error:', error)

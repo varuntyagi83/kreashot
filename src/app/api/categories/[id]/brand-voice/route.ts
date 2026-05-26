@@ -30,7 +30,15 @@ export async function GET(
 
   if (!category) return NextResponse.json({ error: 'Category not found' }, { status: 404 })
 
-  return NextResponse.json({ brand_voice: category.brandVoice || null })
+  let brandVoice = null
+  if (category.brandVoice) {
+    try {
+      brandVoice = typeof category.brandVoice === 'string' ? JSON.parse(category.brandVoice) : category.brandVoice
+    } catch {
+      brandVoice = category.brandVoice
+    }
+  }
+  return NextResponse.json({ brand_voice: brandVoice })
 }
 
 // POST — extract and save brand voice
@@ -200,9 +208,10 @@ export async function POST(
         )
     }
 
+    const brandVoiceStr = typeof profile === 'string' ? profile : JSON.stringify(profile)
     const updated = await prisma.category.updateMany({
       where: { id: categoryId, companyId },
-      data: { brandVoice: profile as any },
+      data: { brandVoice: brandVoiceStr },
     })
 
     if (updated.count === 0) {

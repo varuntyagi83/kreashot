@@ -76,7 +76,9 @@ export async function GET(
       take: 1000, // defensive bound against unbounded growth per category
     })
 
-    return NextResponse.json({ finalAssets })
+    return NextResponse.json({
+      finalAssets: finalAssets.map((a) => ({ ...a, created_at: a.createdAt })),
+    })
   } catch (error: any) {
     console.error('[final-assets GET] error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

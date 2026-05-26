@@ -51,7 +51,7 @@ export async function GET(
 
     return NextResponse.json({
       category: { id: category.id, name: category.name, slug: category.slug },
-      guidelines,
+      guidelines: guidelines.map((g) => ({ ...g, created_at: g.createdAt })),
     })
   } catch (error) {
     console.error('Error fetching guidelines:', error)
