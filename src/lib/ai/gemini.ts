@@ -13,6 +13,14 @@ const GEMINI_RETRY_STATUSES = [429, 503]
 const GEMINI_RETRY_ATTEMPTS = 3
 const GEMINI_RETRY_INITIAL_MS = 2000
 
+// Centralized model + timeout configuration.
+// Override in Railway by setting these env vars; leaving them unset preserves current behavior.
+const GEMINI_IMAGE_MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-3.1-flash-image-preview'
+const IMAGEN_MODEL = process.env.IMAGEN_MODEL || 'imagen-4.0-generate-001'
+const GEMINI_IMAGE_TIMEOUT_MS = Number(process.env.GEMINI_IMAGE_TIMEOUT_MS) || 300_000
+const GEMINI_IMAGE_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_IMAGE_MODEL}:generateContent`
+const IMAGEN_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${IMAGEN_MODEL}:predict`
+
 /**
  * Call Gemini REST API with retry on 429 (rate limit) and 503 (unavailable).
  * Exponential backoff: 2s, 4s, 8s.
@@ -25,7 +33,7 @@ async function fetchGeminiWithRetry(
   let lastResponse: Response | null = null
   for (let attempt = 1; attempt <= GEMINI_RETRY_ATTEMPTS; attempt++) {
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 90_000)
+    const timeoutId = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
     const mergedOptions: RequestInit = { ...options, signal: options.signal ?? controller.signal }
     let res: Response
     try {
@@ -90,7 +98,7 @@ export async function generateAngledShots(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
+    const GEMINI_API_URL = GEMINI_IMAGE_API_URL
 
     // Convert base64 image to proper format
     const base64Data = productImageData.replace(/^data:image\/\w+;base64,/, '')
@@ -167,7 +175,7 @@ STRICT RULES — ONLY CAMERA ANGLE CHANGES:
         }
 
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 120000)
+        const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
 
         const response = await fetchGeminiWithRetry(
           `${GEMINI_API_URL}`,
@@ -271,7 +279,7 @@ export async function generateBackgrounds(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
+    const GEMINI_API_URL = GEMINI_IMAGE_API_URL
 
     const safeLookAndFeel = sanitizeForPrompt(lookAndFeel || '')
     const CONCURRENCY = 3
@@ -447,7 +455,7 @@ SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL. A background with soft, ev
         if (useImagen4) {
           // ── Imagen 4 path ──────────────────────────────────────────────────
           console.log(`  → Using Imagen 4 for ${aspectRatio} background ${i + 1}`)
-          const IMAGEN_URL = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict`
+          const IMAGEN_URL = IMAGEN_API_URL
 
           // Merge system instruction into prompt for Imagen (no systemInstruction field)
           const imagenPrompt = `You are an elite editorial product photographer. Your work appears in premium lifestyle magazines like Kinfolk, Cereal, and Vogue Living. Every image you produce is indistinguishable from a real RAW photograph — cinematic, rich, and intentional. SHADOW GEOMETRY IS THE MOST IMPORTANT QUALITY SIGNAL — always commit to a clear single light source that creates strong, directional shadows across the scene.
@@ -462,7 +470,7 @@ ${prompt}`
           }
 
           const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 120000)
+          const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
           const response = await fetchGeminiWithRetry(
             IMAGEN_URL,
             { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GEMINI_API_KEY }, body: JSON.stringify(imagenBody), signal: controller.signal },
@@ -486,7 +494,7 @@ ${prompt}`
         } else {
           // ── Gemini fallback (4:5, style refs, flat color) ──────────────────
           const controller = new AbortController()
-          const timeout = setTimeout(() => controller.abort(), 120000)
+          const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
           const response = await fetchGeminiWithRetry(
             `${GEMINI_API_URL}`,
             {
@@ -567,7 +575,7 @@ export async function regenerateBackgroundInFormat(
     throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
   }
 
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
+  const GEMINI_API_URL = GEMINI_IMAGE_API_URL
 
   const base64Data = sourceImageData.replace(/^data:image\/\w+;base64,/, '')
 
@@ -600,7 +608,7 @@ export async function regenerateBackgroundInFormat(
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 120000)
+  const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
 
   const response = await fetchGeminiWithRetry(
     `${GEMINI_API_URL}`,
@@ -703,7 +711,7 @@ STRICT RULES:
   }
 
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 120000)
+  const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
 
   const response = await fetchGeminiWithRetry(
     GEMINI_API_URL,
@@ -799,7 +807,7 @@ export async function generateComposite(
       throw new Error('GOOGLE_GEMINI_API_KEY environment variable is not set')
     }
 
-    const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-image-preview:generateContent'
+    const GEMINI_API_URL = GEMINI_IMAGE_API_URL
 
     // ── STEP 1: Extract product cutout at temp 0.4 (fidelity-locked) ──────────
     // Isolates the product on a clean white background before any creative work.
@@ -977,7 +985,7 @@ Before placing the product, read the background's light: direction, color temper
     }
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 180000)
+    const timeout = setTimeout(() => controller.abort(), GEMINI_IMAGE_TIMEOUT_MS)
 
     const response = await fetchGeminiWithRetry(
       `${GEMINI_API_URL}`,
