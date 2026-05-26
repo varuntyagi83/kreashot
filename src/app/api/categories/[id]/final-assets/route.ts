@@ -111,14 +111,6 @@ export async function POST(
       )
     }
 
-    const planCheck = await checkPlanLimit(companyId, 'final_asset', 1)
-    if (!planCheck.allowed) {
-      return NextResponse.json(
-        { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} final assets today). Upgrade to generate more.` },
-        { status: 402 }
-      )
-    }
-
     const ownedCategory = await prisma.category.findFirst({
       where: { id: categoryId, companyId },
       select: { id: true, slug: true },
@@ -129,6 +121,19 @@ export async function POST(
     }
 
     const body = await request.json()
+
+    // savePreview is a DB-only write — the asset was already counted when the preview was generated.
+    // Skip plan limit check to avoid double-counting and blocking the save.
+    if (!body.savePreview) {
+      const planCheck = await checkPlanLimit(companyId, 'final_asset', 1)
+      if (!planCheck.allowed) {
+        return NextResponse.json(
+          { error: `Daily limit reached for your plan (${planCheck.used}/${planCheck.limit} final assets today). Upgrade to generate more.` },
+          { status: 402 }
+        )
+      }
+    }
+
     const {
       name = 'Untitled Ad',
       format = '1:1',
