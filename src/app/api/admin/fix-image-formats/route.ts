@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+    const expectedToken = process.env.CRON_SECRET
 
     if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -50,6 +50,7 @@ export async function POST(request: NextRequest) {
         productId: true,
       },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     })
 
     if (images.length === 0) {

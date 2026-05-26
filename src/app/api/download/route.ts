@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const fieldName = isGcsPath ? 'storagePath' : 'gdriveFileId'
     let owned = false
 
-    for (const model of ['background', 'composite', 'angledShot', 'finalAsset'] as const) {
+    for (const model of ['background', 'composite', 'angledShot', 'finalAsset', 'collage'] as const) {
       const asset = await (prisma[model] as any).findFirst({
         where: { [fieldName]: fileId, companyId },
         select: { id: true },

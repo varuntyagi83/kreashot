@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get('authorization')
-    const expectedToken = process.env.CRON_SECRET || process.env.API_SECRET
+    const expectedToken = process.env.CRON_SECRET
 
     if (!expectedToken || authHeader !== `Bearer ${expectedToken}`) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -21,6 +21,7 @@ export async function POST(request: NextRequest) {
     const backgrounds = await prisma.background.findMany({
       where: { storageUrl: { contains: 'drive.google.com/thumbnail' } },
       select: { id: true, storageUrl: true, gdriveFileId: true },
+      take: 500,
     })
 
     if (backgrounds.length === 0) {
@@ -61,6 +62,7 @@ export async function POST(request: NextRequest) {
     const shots = await prisma.angledShot.findMany({
       where: { storageUrl: { contains: 'drive.google.com/thumbnail' } },
       select: { id: true, storageUrl: true, gdriveFileId: true },
+      take: 500,
     })
 
     let shotsUpdated = 0

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db'
 import { requireSession } from '@/lib/session'
 import { getBaseUrl } from '@/lib/utils/getBaseUrl'
 import { Resend } from 'resend'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/company/invite
@@ -25,6 +26,11 @@ export async function POST(request: NextRequest) {
     }
     if (membership.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const inviteLimit = await checkRateLimit(`invite:${companyId}`, 20, 60 * 60 * 1000)
+    if (!inviteLimit.allowed) {
+      return NextResponse.json({ error: 'Too many invites sent. Please wait before sending more.' }, { status: 429 })
     }
 
     const company = await prisma.company.findUnique({

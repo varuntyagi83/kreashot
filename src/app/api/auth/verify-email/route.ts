@@ -9,10 +9,20 @@ export async function GET(request: NextRequest) {
   }
 
   const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
-  const record = await prisma.emailVerificationToken.findFirst({
+
+  // Atomically claim the token — only one concurrent request gets count === 1.
+  // This closes the TOCTOU window where two requests both see usedAt: null.
+  const claimed = await prisma.emailVerificationToken.updateMany({
     where: { tokenHash, usedAt: null, expiresAt: { gt: new Date() } },
+    data: { usedAt: new Date() },
   })
 
+  if (claimed.count === 0) {
+    return NextResponse.redirect(new URL('/auth/login?error=invalid-token', request.url))
+  }
+
+  // Fetch the record to get the email — safe because we already own the token
+  const record = await prisma.emailVerificationToken.findFirst({ where: { tokenHash } })
   if (!record) {
     return NextResponse.redirect(new URL('/auth/login?error=invalid-token', request.url))
   }
@@ -20,10 +30,6 @@ export async function GET(request: NextRequest) {
   await prisma.user.update({
     where: { email: record.email },
     data: { emailVerified: new Date() },
-  })
-  await prisma.emailVerificationToken.update({
-    where: { id: record.id },
-    data: { usedAt: new Date() },
   })
 
   return NextResponse.redirect(new URL('/auth/login?verified=1', request.url))

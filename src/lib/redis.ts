@@ -14,7 +14,10 @@ export async function getRedis(): Promise<RedisClient | null> {
   try {
     const { createClient } = await import('redis')
     const c = createClient({ url })
-    c.on('error', (err: Error) => console.error('[redis] error:', err.message))
+    c.on('error', (err: Error) => {
+      console.error('[redis] error:', err.message)
+      _client = null // force reconnection on next call
+    })
     await c.connect()
     _client = {
       incr: (k) => c.incr(k),

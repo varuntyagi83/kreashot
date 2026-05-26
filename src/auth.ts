@@ -69,11 +69,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           orderBy: { createdAt: 'desc' },
         })
         if (!record) return null
-        if (record.attempts >= 5) return null
 
         const valid = await bcrypt.compare(otp, record.codeHash)
         if (!valid) {
-          await prisma.otpCode.update({ where: { id: record.id }, data: { attempts: { increment: 1 } } })
+          // Atomic increment with cap — updateMany with attempts < 5 ensures two
+          // concurrent wrong-OTP requests cannot both slip past the 5-attempt guard.
+          const incremented = await prisma.otpCode.updateMany({
+            where: { id: record.id, attempts: { lt: 5 } },
+            data: { attempts: { increment: 1 } },
+          })
+          if (incremented.count === 0) return null // already at limit
           return null
         }
 

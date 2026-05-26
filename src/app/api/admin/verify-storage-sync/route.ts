@@ -40,29 +40,30 @@ export async function POST(request: NextRequest) {
       deleteMany: (ids: string[]) => Promise<void>
     }
 
+    const QUERY_LIMIT = 500
     const tableData: Record<string, TableInfo> = {
       backgrounds: {
-        records: await prisma.background.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.background.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.background.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
       angled_shots: {
-        records: await prisma.angledShot.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.angledShot.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.angledShot.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
       composites: {
-        records: await prisma.composite.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.composite.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.composite.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
       templates: {
-        records: await prisma.template.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.template.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.template.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
       guidelines: {
-        records: await prisma.guideline.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.guideline.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.guideline.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
       final_assets: {
-        records: await prisma.finalAsset.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true } }),
+        records: await prisma.finalAsset.findMany({ where: { storageProvider: 'gdrive', gdriveFileId: { not: null } }, select: { id: true, gdriveFileId: true, storagePath: true }, take: QUERY_LIMIT }),
         deleteMany: (ids) => prisma.finalAsset.deleteMany({ where: { id: { in: ids } } }).then(() => {}),
       },
     }
@@ -79,26 +80,33 @@ export async function POST(request: NextRequest) {
       }
 
       const orphanedIds: string[] = []
+      const BATCH = 10
 
-      for (let i = 0; i < records.length; i++) {
-        const record = records[i]
-        try {
-          const response = await drive.files.get({
-            fileId: record.gdriveFileId!,
-            fields: 'id, trashed',
-            supportsAllDrives: true,
-          })
-          if (response.data.trashed) {
-            orphanedIds.push(record.id)
-          }
-        } catch (error: any) {
-          if (error.code === 404 || error.message?.includes('not found')) {
-            orphanedIds.push(record.id)
-          } else {
-            console.error(`Error checking ${record.gdriveFileId}:`, error.message)
+      for (let i = 0; i < records.length; i += BATCH) {
+        const batch = records.slice(i, i + BATCH)
+        const results = await Promise.allSettled(
+          batch.map((record) =>
+            drive.files.get({ fileId: record.gdriveFileId!, fields: 'id, trashed', supportsAllDrives: true })
+              .then((res: any) => ({ record, trashed: res.data.trashed, missing: false }))
+              .catch((err: any) => ({
+                record,
+                trashed: false,
+                missing: err.code === 404 || err.status === 404 || err.message?.includes('not found'),
+                err,
+              }))
+          )
+        )
+        for (const r of results) {
+          if (r.status === 'fulfilled') {
+            const { record, trashed, missing, err } = r.value as any
+            if (trashed || missing) {
+              orphanedIds.push(record.id)
+            } else if (err) {
+              console.error(`Error checking ${record.gdriveFileId}:`, err.message)
+            }
           }
         }
-        if (i % 10 === 0 && i > 0) {
+        if (i + BATCH < records.length) {
           await new Promise((resolve) => setTimeout(resolve, 100))
         }
       }

@@ -19,7 +19,7 @@ function secondsUntilUtcMidnight(): number {
   const now = new Date()
   const midnight = new Date(now)
   midnight.setUTCHours(24, 0, 0, 0)
-  return Math.ceil((midnight.getTime() - now.getTime()) / 1000) + 3600
+  return Math.ceil((midnight.getTime() - now.getTime()) / 1000)
 }
 
 export async function checkPlanLimit(
@@ -44,10 +44,9 @@ export async function checkPlanLimit(
       const today = new Date().toISOString().slice(0, 10)
       const key = `plan:${companyId}:${type}:${today}`
       const newTotal = await redis.incrBy(key, count)
-      if (newTotal === count) {
-        // Key was just created — set TTL to expire after UTC midnight
-        await redis.expire(key, secondsUntilUtcMidnight())
-      }
+      // Always refresh the TTL — covers the case where a prior run created the key
+      // without setting a TTL (e.g., Redis restart mid-day).
+      await redis.expire(key, secondsUntilUtcMidnight())
       if (newTotal > limit) {
         await redis.decrBy(key, count)
         return { allowed: false, limit, used: newTotal - count }
