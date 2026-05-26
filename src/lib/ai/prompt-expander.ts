@@ -15,7 +15,7 @@ Include these four elements in order:
 1. CAMERA SPEC: one specific camera setup — focal length in mm, aperture f-stop, shooting distance in meters.
 2. LIGHT SPEC: key light direction as clock position and elevation in degrees, exact color temperature in Kelvin, shadow edge quality (penumbra width in cm), fill light Kelvin and stop ratio. No vague words — "warm" becomes a Kelvin number.
 3. SURFACE DETAIL: 2–3 specific materials described at 30cm detail level — texture, finish, weathering state, sheen level. These are the physical surfaces of the background scene.
-4. NEGATIVE: end with "Negative:" followed by 5–7 specific failure modes. Name actual problems, not vague aesthetics. "no flat even lighting" not "no bad lighting". "no stock photo look" not "no generic feel".
+4. NEGATIVE: end with "Negative:" followed by 5–7 specific failure modes. Name visible rendering artifacts and technical failures, not aesthetic opinions. Examples of correct specificity: "no blown highlights on foreground surface", "no shadow edges without penumbra", "no plastic sheen on matte surfaces", "no depth-of-field collapse leaving background equally sharp as foreground", "no artificial light sources visible in frame", "no uniform brightness across key-lit and fill-lit zones". Never write items like "no harsh lighting", "no bad ambiance", "no unnatural feel" — these name a mood, not a failure mode the model can act on.
 
 Hard rules:
 - Never use feeling words (moody, cozy, elegant, fresh). Translate them into camera, light, or surface specs.
