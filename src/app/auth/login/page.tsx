@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { signIn } from 'next-auth/react'
 import { Check, Mail, KeyRound, Lock } from 'lucide-react'
+import posthog from 'posthog-js'
 
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
@@ -96,7 +97,7 @@ function LoginForm() {
     try {
       const result = await signIn('resend', { email, redirect: false, callbackUrl: '/dashboard' })
       if (result?.error) setErrorMsg('Failed to send the magic link. Please try again.')
-      else setMagicSent(true)
+      else { posthog.capture('login_magic_link_sent', { email }); setMagicSent(true) }
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {
@@ -134,7 +135,7 @@ function LoginForm() {
     try {
       const result = await signIn('otp', { email, otp, redirect: false, callbackUrl: '/dashboard' })
       if (result?.error) setErrorMsg('Invalid or expired code. Please try again.')
-      else router.push('/dashboard')
+      else { posthog.capture('user_logged_in', { method: 'otp' }); router.push('/dashboard') }
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {
@@ -149,7 +150,7 @@ function LoginForm() {
     try {
       const result = await signIn('password', { email, password, redirect: false, callbackUrl: '/dashboard' })
       if (result?.error) setErrorMsg('Invalid email or password.')
-      else router.push('/dashboard')
+      else { posthog.capture('user_logged_in', { method: 'password' }); router.push('/dashboard') }
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {

@@ -37,6 +37,7 @@
     "openai": "^4.104.0",
     "pdfjs-dist": "^4.10.38",
     "postgres": "^3.4.8",
+    "posthog-js": "^1.376.0",
     "prisma": "^6.19.3",
     "radix-ui": "^1.4.3",
     "react": "^18.3.1",

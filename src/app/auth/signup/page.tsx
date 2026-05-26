@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { Check, Mail, KeyRound, Lock } from 'lucide-react'
+import posthog from 'posthog-js'
 
 const displayFont = '"Canela", var(--font-playfair), "Georgia", serif'
 const bodyFont = 'var(--font-inter), system-ui, sans-serif'
@@ -92,6 +93,7 @@ function SignupForm() {
       }
       // Store succeeded — now trigger the magic link email client-side
       await signIn('resend', { email, redirect: false, callbackUrl: '/dashboard' })
+      posthog.capture('signup_initiated', { method: 'magic_link', email })
       setMagicSent(true)
     } catch {
       setErrorMsg('An unexpected error occurred.')
@@ -128,7 +130,7 @@ function SignupForm() {
     try {
       const result = await signIn('otp', { email, otp, companyName: companyName.trim(), redirect: false })
       if (result?.error) setErrorMsg('Invalid or expired code. Please try again.')
-      else router.push('/dashboard')
+      else { posthog.capture('user_signed_up', { method: 'otp', email }); router.push('/dashboard') }
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {
@@ -154,7 +156,7 @@ function SignupForm() {
 
       const result = await signIn('password', { email, password, redirect: false })
       if (result?.error) setErrorMsg('Account created, but sign in failed. Please go to the login page.')
-      else router.push('/dashboard')
+      else { posthog.capture('user_signed_up', { method: 'password', email }); router.push('/dashboard') }
     } catch {
       setErrorMsg('An unexpected error occurred.')
     } finally {

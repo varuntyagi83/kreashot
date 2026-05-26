@@ -7,6 +7,7 @@ import { Geist, Geist_Mono, Playfair_Display, Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
 import { AuthProvider } from "@/components/layout/AuthProvider";
+import { PostHogProvider } from "@/components/layout/PostHogProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -49,10 +50,12 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <AuthProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            {children}
-            <Toaster />
-          </ThemeProvider>
+          <PostHogProvider>
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </PostHogProvider>
         </AuthProvider>
       </body>
     </html>
