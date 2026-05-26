@@ -126,19 +126,37 @@ export async function POST(
       return NextResponse.json({ error: 'Image too large (max 50MB)' }, { status: 400 })
     }
 
-    const slug = generateSlug(name)
+    let finalName = name
+    let slug = generateSlug(name)
 
-    // Check if background with this slug already exists
+    // If this slug is taken, auto-pick the next free numbered variant
     const existing = await prisma.background.findFirst({
       where: { categoryId, slug },
       select: { id: true },
     })
 
     if (existing) {
-      return NextResponse.json(
-        { error: 'A background with this name already exists in this category' },
-        { status: 409 }
-      )
+      let found = false
+      for (let i = 2; i <= 999; i++) {
+        const candidate = `${name} ${i}`
+        const candidateSlug = generateSlug(candidate)
+        const taken = await prisma.background.findFirst({
+          where: { categoryId, slug: candidateSlug },
+          select: { id: true },
+        })
+        if (!taken) {
+          finalName = candidate
+          slug = candidateSlug
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        return NextResponse.json(
+          { error: 'Could not auto-generate a unique name. Please provide a custom name.' },
+          { status: 409 }
+        )
+      }
     }
 
     const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '')
@@ -161,7 +179,7 @@ export async function POST(
           categoryId,
           companyId,
           userId: user.id,
-          name,
+          name: finalName,
           slug,
           description: description || null,
           promptUsed: promptUsed || 'Uploaded background',

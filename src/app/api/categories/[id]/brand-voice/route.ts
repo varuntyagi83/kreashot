@@ -7,6 +7,8 @@ import {
   extractVoiceFromImages,
 } from '@/lib/ai/brand-voice'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { downloadFile } from '@/lib/storage'
+import { extractPdfWithVision, extractPdfText } from '@/lib/pdf'
 
 export const dynamic = 'force-dynamic'
 
@@ -92,15 +94,43 @@ export async function POST(
       }
 
       case 'guidelines': {
-        const guideline = await prisma.brandGuideline.findFirst({
+        const brandGuideline = await prisma.brandGuideline.findFirst({
           where: { companyId },
           orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
           select: { extractedText: true, name: true },
         })
-        const guidelinesText = guideline?.extractedText?.trim()
+        let guidelinesText = brandGuideline?.extractedText?.trim()
+
+        // Fall back to category-scoped guideline PDFs (uploaded via Styles tab)
+        // These don't have pre-extracted text, so extract on-the-fly
+        if (!guidelinesText) {
+          const categoryGuideline = await prisma.guideline.findFirst({
+            where: { categoryId, companyId },
+            orderBy: { createdAt: 'desc' },
+            select: { storagePath: true, metadata: true },
+          })
+          const fileType = (categoryGuideline?.metadata as any)?.file_type
+          if (categoryGuideline?.storagePath && fileType === 'application/pdf') {
+            try {
+              console.log(`Extracting text from category guideline PDF: ${categoryGuideline.storagePath}`)
+              const pdfBuffer = await downloadFile(categoryGuideline.storagePath, { provider: 'gcs' })
+              const ab = pdfBuffer.buffer.slice(
+                pdfBuffer.byteOffset,
+                pdfBuffer.byteOffset + pdfBuffer.byteLength
+              ) as ArrayBuffer
+              const extracted = await extractPdfWithVision(ab) || await extractPdfText(ab)
+              if (extracted && extracted.trim().length >= 50) {
+                guidelinesText = extracted.trim().substring(0, 20000)
+              }
+            } catch (pdfErr) {
+              console.error('[brand-voice guidelines] category PDF extraction failed:', pdfErr)
+            }
+          }
+        }
+
         if (!guidelinesText) {
           return NextResponse.json(
-            { error: 'No brand guidelines found. Upload a guidelines PDF in Styles first.' },
+            { error: 'No brand guidelines found. Upload a PDF in the Styles tab or add one to your brand library in Settings.' },
             { status: 400 }
           )
         }
@@ -187,6 +217,9 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('Error extracting brand voice:', error)
+    if (error?.message?.includes('OPENAI_API_KEY') || error?.message?.includes('GOOGLE_GEMINI_API_KEY')) {
+      return NextResponse.json({ error: 'AI service not configured on this server. Contact support.' }, { status: 503 })
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

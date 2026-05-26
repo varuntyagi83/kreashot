@@ -154,7 +154,7 @@ export async function POST(
         compositeId?: string; copyDocId?: string; templateId?: string
         compositionData: object
       }
-      if (!sp.storageUrl || !sp.storagePath || !sp.gdriveFileId) {
+      if (!sp.storageUrl || !sp.storagePath) {
         return NextResponse.json({ error: 'Invalid save data' }, { status: 400 })
       }
 

@@ -174,7 +174,9 @@ export async function POST(
     })
   } catch (error: any) {
     console.error('[copy-docs/generate]', error)
-    // Keep internal error detail server-side; return a generic, non-leaky message.
+    if (error?.message?.includes('OPENAI_API_KEY')) {
+      return NextResponse.json({ error: 'AI service not configured on this server. Contact support.' }, { status: 503 })
+    }
     return NextResponse.json(
       { error: 'Copy generation failed. Please try again.' },
       { status: 500 }
