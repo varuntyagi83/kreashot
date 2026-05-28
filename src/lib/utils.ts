@@ -16,7 +16,8 @@ export function driveImgSrc(
 ): string {
   const fileId = gdriveFileId || extractDriveFileId(storageUrl)
   if (fileId) return `/api/image-proxy?fileId=${fileId}`
-  // encodeURI encodes spaces and other unsafe chars without breaking valid URL structure
+  // Data URLs must be returned verbatim — encodeURI corrupts base64 characters
+  if (storageUrl?.startsWith('data:')) return storageUrl
   return storageUrl ? encodeURI(storageUrl) : ''
 }
 

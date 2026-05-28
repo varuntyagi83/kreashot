@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { FORMATS } from '@/lib/formats'
 import { ReferencePicker } from '@/components/ui/reference-picker'
 import { driveImgSrc } from '@/lib/utils'
+import posthog from 'posthog-js'
 
 interface ColorWorld {
   label: string   // e.g. "World of Green"
@@ -41,8 +42,8 @@ interface BrandAsset {
   id: string
   name: string
   asset_type: string
-  storage_url: string
-  gdrive_file_id: string | null
+  storageUrl: string
+  gdriveFileId: string | null
   metadata?: { file_type?: string }
 }
 
@@ -185,6 +186,12 @@ export function BackgroundGenerationForm({
         throw new Error('No backgrounds were generated')
       }
 
+      posthog.capture('backgrounds_generated', {
+        count: data.backgrounds.length,
+        formats: selectedFormats,
+        total_combinations: totalGenerations,
+        has_style_references: selectedReferenceIds.length > 0,
+      })
       if (data.failedFormats?.length > 0) {
         toast.warning(
           `Generated ${data.backgrounds.length} background(s) but ${data.failedFormats.join(', ')} failed. Try generating those formats separately.`
@@ -379,7 +386,7 @@ export function BackgroundGenerationForm({
                     title={asset.name}
                   >
                     <img
-                      src={driveImgSrc(asset.storage_url, asset.gdrive_file_id)}
+                      src={driveImgSrc(asset.storageUrl, asset.gdriveFileId)}
                       alt={asset.name}
                       className="w-full h-full object-cover"
                     />
