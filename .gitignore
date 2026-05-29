@@ -45,3 +45,4 @@ archived_adforge/.env*
 archived_adforge/next-env.d.ts
 
 /src/generated/prisma
+.env.local
